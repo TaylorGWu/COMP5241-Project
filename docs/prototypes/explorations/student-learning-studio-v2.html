@@ -1,0 +1,182 @@
+<style>
+  #learning-studio-v2 {
+    --ink: #15222d;
+    --muted: #66717a;
+    --subtle: #8b949a;
+    --canvas: #eef1ee;
+    --paper: #fbfcfa;
+    --panel: #ffffff;
+    --line: #d9dfda;
+    --line-strong: #b9c4bc;
+    --blue: #2458bd;
+    --blue-wash: #e7efff;
+    --blue-ink: #173f8d;
+    --shadow: rgba(25, 39, 34, .10);
+    box-sizing: border-box;
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  }
+  #learning-studio-v2 * { box-sizing: border-box; }
+  #learning-studio-v2 .ls-shell {
+    min-height: 722px;
+    overflow: hidden;
+    border: 1px solid #cbd4cd;
+    border-radius: 14px;
+    background: var(--canvas);
+    box-shadow: 0 24px 65px var(--shadow);
+  }
+  #learning-studio-v2 .ls-topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 34px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  #learning-studio-v2 .ls-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.045em; font-size: 19px; }
+  #learning-studio-v2 .ls-brand-mark {
+    position: relative; width: 24px; height: 24px; overflow: hidden; border-radius: 6px; background: var(--ink);
+  }
+  #learning-studio-v2 .ls-brand-mark::before, #learning-studio-v2 .ls-brand-mark::after { content: ""; position: absolute; background: var(--paper); }
+  #learning-studio-v2 .ls-brand-mark::before { width: 13px; height: 3px; left: 5px; top: 6px; }
+  #learning-studio-v2 .ls-brand-mark::after { width: 3px; height: 13px; left: 5px; top: 6px; }
+  #learning-studio-v2 .ls-menu { display: flex; align-items: center; gap: 22px; margin-left: 38px; flex: 1; }
+  #learning-studio-v2 .ls-menu a { color: var(--muted); font-size: 13px; text-decoration: none; }
+  #learning-studio-v2 .ls-menu a[aria-current="page"] { color: var(--ink); font-weight: 700; }
+  #learning-studio-v2 .ls-account { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 12px; }
+  #learning-studio-v2 .ls-avatar { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #dce4df; color: var(--ink); font-size: 11px; font-weight: 750; }
+  #learning-studio-v2 .ls-main { max-width: 1200px; margin: 0 auto; padding: 42px 40px 52px; }
+  #learning-studio-v2 .ls-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 54px; }
+  #learning-studio-v2 .ls-kicker { margin: 0 0 12px; color: var(--blue); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  #learning-studio-v2 h2, #learning-studio-v2 h3, #learning-studio-v2 h4, #learning-studio-v2 p { margin-top: 0; }
+  #learning-studio-v2 h2 { max-width: 640px; margin-bottom: 10px; font-size: clamp(32px, 4vw, 48px); line-height: 1.02; letter-spacing: -.065em; }
+  #learning-studio-v2 .ls-intro { max-width: 560px; margin-bottom: 33px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+  #learning-studio-v2 .ls-now {
+    display: grid; grid-template-columns: 128px minmax(0, 1fr) auto; align-items: center; gap: 22px;
+    padding: 21px 22px; border: 1px solid #b7c8ed; border-left: 5px solid var(--blue); border-radius: 10px; background: var(--blue-wash);
+  }
+  #learning-studio-v2 .ls-now-label { color: var(--blue-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; font-weight: 750; letter-spacing: .055em; text-transform: uppercase; }
+  #learning-studio-v2 .ls-now h3 { margin-bottom: 4px; font-size: 18px; letter-spacing: -.035em; }
+  #learning-studio-v2 .ls-now p { margin-bottom: 0; color: #526171; font-size: 13px; line-height: 1.45; }
+  #learning-studio-v2 .ls-action {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--blue); border-radius: 7px; color: #fff; background: var(--blue); font: inherit; font-size: 13px; font-weight: 720; white-space: nowrap; cursor: pointer;
+    transition: background .16s ease, transform .16s ease;
+  }
+  #learning-studio-v2 .ls-action:hover { background: #19499f; }
+  #learning-studio-v2 .ls-action:active { transform: translateY(1px); }
+  #learning-studio-v2 .ls-action:focus-visible, #learning-studio-v2 a:focus-visible, #learning-studio-v2 .ls-choice:focus-visible { outline: 3px solid #7ca2f5; outline-offset: 3px; }
+  #learning-studio-v2 .ls-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin: 38px 0 10px; }
+  #learning-studio-v2 .ls-section-head h3 { margin-bottom: 0; font-size: 17px; letter-spacing: -.028em; }
+  #learning-studio-v2 .ls-section-head span { color: var(--muted); font-size: 12px; }
+  #learning-studio-v2 .ls-route { border-top: 1px solid var(--line-strong); }
+  #learning-studio-v2 .ls-route-row {
+    display: grid; grid-template-columns: 64px 110px minmax(0, 1fr) 77px; align-items: center; gap: 14px;
+    min-height: 72px; border-bottom: 1px solid var(--line); color: var(--muted);
+  }
+  #learning-studio-v2 .ls-route-row.is-now { margin: 0 -14px; padding: 0 14px; border-radius: 8px; background: var(--panel); box-shadow: 0 6px 18px rgba(27, 43, 36, .045); }
+  #learning-studio-v2 .ls-index { color: var(--subtle); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+  #learning-studio-v2 .ls-status { width: fit-content; color: var(--muted); font-size: 11px; font-weight: 650; }
+  #learning-studio-v2 .is-now .ls-status { color: var(--blue); }
+  #learning-studio-v2 .ls-route-title { color: var(--ink); font-size: 14px; font-weight: 690; }
+  #learning-studio-v2 .ls-route-note { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.3; }
+  #learning-studio-v2 .ls-duration { color: var(--subtle); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; text-align: right; }
+  #learning-studio-v2 .ls-scenario {
+    margin-top: 32px; padding: 22px 24px 24px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel);
+  }
+  #learning-studio-v2 .ls-scenario-top { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+  #learning-studio-v2 .ls-scenario h3 { margin-bottom: 5px; font-size: 18px; letter-spacing: -.032em; }
+  #learning-studio-v2 .ls-scenario-lead { margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  #learning-studio-v2 .ls-mini-label { display: inline-block; margin-bottom: 8px; color: var(--blue); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
+  #learning-studio-v2 .ls-prompt { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 20px; padding-top: 17px; border-top: 1px solid var(--line); }
+  #learning-studio-v2 .ls-prompt div + div { padding-left: 22px; border-left: 1px solid var(--line); }
+  #learning-studio-v2 .ls-prompt p { margin-bottom: 0; color: #3f4d57; font-size: 12px; line-height: 1.45; }
+  #learning-studio-v2 .ls-side { padding-top: 35px; }
+  #learning-studio-v2 .ls-side-block { padding: 0 0 23px; margin-bottom: 23px; border-bottom: 1px solid var(--line-strong); }
+  #learning-studio-v2 .ls-side-block h3 { margin-bottom: 13px; font-size: 15px; letter-spacing: -.025em; }
+  #learning-studio-v2 .ls-brief { margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+  #learning-studio-v2 .ls-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 18px; }
+  #learning-studio-v2 .ls-fact-label { display: block; margin-bottom: 3px; color: var(--subtle); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  #learning-studio-v2 .ls-fact-value { color: var(--ink); font-size: 12px; font-weight: 650; }
+  #learning-studio-v2 .ls-reason { display: grid; grid-template-columns: 17px 1fr; gap: 10px; margin: 12px 0; }
+  #learning-studio-v2 .ls-reason-mark { width: 17px; height: 17px; margin-top: 1px; border: 1px solid #8ba6df; border-radius: 50%; background: var(--blue-wash); }
+  #learning-studio-v2 .ls-reason p { margin-bottom: 0; color: #4d5a63; font-size: 12px; line-height: 1.46; }
+  #learning-studio-v2 .ls-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  #learning-studio-v2 .ls-note a { color: var(--blue); font-weight: 680; text-decoration: none; }
+  #learning-studio-v2 .ls-choice { display: block; width: fit-content; margin: 27px auto 0; padding: 10px 14px; border: 1px solid #9eb5e5; border-radius: 7px; color: var(--blue-ink); background: #f3f6ff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 720; }
+  @media (max-width: 820px) {
+    #learning-studio-v2 .ls-main { padding: 31px 22px 40px; }
+    #learning-studio-v2 .ls-layout { grid-template-columns: 1fr; gap: 15px; }
+    #learning-studio-v2 .ls-side { padding-top: 0; }
+    #learning-studio-v2 .ls-side-block:last-child { border-bottom: 0; }
+  }
+  @media (max-width: 590px) {
+    #learning-studio-v2 .ls-topbar { padding: 0 18px; }
+    #learning-studio-v2 .ls-menu { display: none; }
+    #learning-studio-v2 .ls-account span { display: none; }
+    #learning-studio-v2 .ls-now { grid-template-columns: 1fr; gap: 10px; }
+    #learning-studio-v2 .ls-now-label { margin-bottom: -2px; }
+    #learning-studio-v2 .ls-action { width: 100%; }
+    #learning-studio-v2 .ls-route-row { grid-template-columns: 34px 1fr 47px; gap: 8px; }
+    #learning-studio-v2 .ls-status { grid-column: 2; grid-row: 1; }
+    #learning-studio-v2 .ls-index { grid-row: 1 / span 2; }
+    #learning-studio-v2 .ls-route-title { grid-column: 2; grid-row: 2; }
+    #learning-studio-v2 .ls-duration { grid-column: 3; grid-row: 1 / span 2; }
+    #learning-studio-v2 .ls-route-note { display: none; }
+    #learning-studio-v2 .ls-scenario-top, #learning-studio-v2 .ls-section-head { align-items: flex-start; flex-direction: column; gap: 8px; }
+    #learning-studio-v2 .ls-prompt { grid-template-columns: 1fr; gap: 14px; }
+    #learning-studio-v2 .ls-prompt div + div { padding: 14px 0 0; border-top: 1px solid var(--line); border-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { #learning-studio-v2 *, #learning-studio-v2 *::before, #learning-studio-v2 *::after { transition: none !important; } }
+  @media (prefers-color-scheme: dark) {
+    #learning-studio-v2 { --ink: #edf1ee; --muted: #afb9b3; --subtle: #89948d; --canvas: #17201c; --paper: #1c2621; --panel: #202b25; --line: #344038; --line-strong: #4d5a52; --blue-wash: #1d3158; --blue-ink: #c6d8ff; --shadow: rgba(0,0,0,.3); }
+    #learning-studio-v2 .ls-brand-mark { background: #edf1ee; }
+    #learning-studio-v2 .ls-brand-mark::before, #learning-studio-v2 .ls-brand-mark::after { background: #17201c; }
+    #learning-studio-v2 .ls-now p, #learning-studio-v2 .ls-prompt p, #learning-studio-v2 .ls-reason p { color: #c6d0ca; }
+    #learning-studio-v2 .ls-route-row.is-now { box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  }
+</style>
+
+<div id="learning-studio-v2">
+  <div class="ls-shell" aria-label="PathPilot student learning studio mockup">
+    <header class="ls-topbar">
+      <div class="ls-brand"><span class="ls-brand-mark" aria-hidden="true"></span>PathPilot</div>
+      <nav class="ls-menu" aria-label="Primary navigation"><a href="#" aria-current="page">My studio</a><a href="#">Explore courses</a><a href="#">Practice</a></nav>
+      <div class="ls-account"><span>Maya Lee</span><span class="ls-avatar" aria-label="Maya Lee">ML</span></div>
+    </header>
+    <main class="ls-main">
+      <div class="ls-layout">
+        <section>
+          <p class="ls-kicker">Current course / Git for group projects</p>
+          <h2>Learn the next thing your team will actually need.</h2>
+          <p class="ls-intro">You are building a group project. This short route turns the Git concepts you already met into the collaboration habits you will use this week.</p>
+
+          <section class="ls-now" aria-labelledby="now-title">
+            <div class="ls-now-label">Now<br>12 min</div>
+            <div><h3 id="now-title">Working with branches</h3><p>Make a safe change, open a pull request, and know when to ask for review.</p></div>
+            <button class="ls-action">Continue lesson</button>
+          </section>
+
+          <div class="ls-section-head"><h3>Your route</h3><span>One short course, three connected moves</span></div>
+          <section class="ls-route" aria-label="Learning route">
+            <article class="ls-route-row"><span class="ls-index">01</span><span class="ls-status">Completed</span><div><div class="ls-route-title">Keep a shared history</div><div class="ls-route-note">Repositories, commits, and a readable message.</div></div><span class="ls-duration">14 min</span></article>
+            <article class="ls-route-row is-now"><span class="ls-index">02</span><span class="ls-status">In progress</span><div><div class="ls-route-title">Work on a branch</div><div class="ls-route-note">Separate your change before it touches the main project.</div></div><span class="ls-duration">12 min</span></article>
+            <article class="ls-route-row"><span class="ls-index">03</span><span class="ls-status">Next</span><div><div class="ls-route-title">Review before merging</div><div class="ls-route-note">Use a pull request to make decisions visible to the team.</div></div><span class="ls-duration">16 min</span></article>
+          </section>
+
+          <section class="ls-scenario" aria-labelledby="scenario-title">
+            <div class="ls-scenario-top"><div><span class="ls-mini-label">Practice scenario</span><h3 id="scenario-title">A teammate asks for a quick merge</h3><p class="ls-scenario-lead">Practice the judgment call before you make it in your real repository.</p></div><button class="ls-action">Open scenario</button></div>
+            <div class="ls-prompt"><div><span class="ls-mini-label">They say</span><p>“My feature is done. Can you merge it now? I have not opened a pull request.”</p></div><div><span class="ls-mini-label">Your job</span><p>Ask one question, explain the risk, and choose the next safe step. Feedback explains the reasoning, not only whether you are right.</p></div></div>
+          </section>
+        </section>
+
+        <aside class="ls-side">
+          <section class="ls-side-block"><h3>Your brief</h3><p class="ls-brief">Build enough Git confidence to contribute safely to a five-person software project.</p><div class="ls-facts"><div><span class="ls-fact-label">Starting point</span><span class="ls-fact-value">Beginner</span></div><div><span class="ls-fact-label">This session</span><span class="ls-fact-value">28 min</span></div></div></section>
+          <section class="ls-side-block"><h3>Why this is your next step</h3><div class="ls-reason"><span class="ls-reason-mark" aria-hidden="true"></span><p>You chose <strong>Git for group projects</strong> as your goal.</p></div><div class="ls-reason"><span class="ls-reason-mark" aria-hidden="true"></span><p>You finished the shared-history lesson.</p></div><div class="ls-reason"><span class="ls-reason-mark" aria-hidden="true"></span><p>Your last check showed uncertainty about merging changes.</p></div></section>
+          <section class="ls-side-block"><h3>Stuck on a term?</h3><p class="ls-note">Ask the course assistant about the current lesson. It can explain a concept, but it will show its sources and never complete your practice response for you. <a href="#">Ask about branches</a></p></section>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <button class="ls-choice" data-choice="student-learning-studio-v2" onclick="toggleSelect(this)">Select this direction</button>
+</div>

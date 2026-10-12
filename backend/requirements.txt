@@ -1,0 +1,23 @@
+# 版本在首次安装成功后由 pip freeze 锁定(见 AGENTS.md 第 6 节)
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlalchemy[asyncio]
+asyncpg
+alembic
+pgvector
+arq
+redis
+sse-starlette
+openai>=1.40
+httpx
+pyyaml
+tenacity
+pymupdf
+python-pptx
+python-docx
+pillow
+pytest
+pytest-asyncio
+respx

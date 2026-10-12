@@ -1,0 +1,187 @@
+<style>
+  #student-suite-v5 {
+    --font-ui: Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+    --ink: #182230;
+    --body: #566273;
+    --quiet: #8a95a4;
+    --canvas: #edf0f4;
+    --paper: #ffffff;
+    --soft: #f7f9fc;
+    --line: #dce2e9;
+    --accent: #416fd2;
+    --accent-ink: #254d9f;
+    --accent-wash: #eaf0ff;
+    --mint: #e8f5ef;
+    --mint-ink: #2c7655;
+    --warm: #fff3e4;
+    --warm-ink: #946018;
+    box-sizing: border-box;
+    color: var(--ink);
+    font-family: var(--font-ui);
+  }
+  #student-suite-v5 * { box-sizing: border-box; }
+  #student-suite-v5 .ss-shell { min-height: 766px; overflow: hidden; border: 1px solid #d1d9e3; border-radius: 14px; background: var(--paper); box-shadow: 0 24px 70px rgba(26, 39, 58, .13); }
+  #student-suite-v5 .ss-nav { height: 62px; display: flex; align-items: center; gap: 26px; padding: 0 30px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); }
+  #student-suite-v5 .ss-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 680; letter-spacing: -.032em; white-space: nowrap; }
+  #student-suite-v5 .ss-brand-mark { position: relative; width: 20px; height: 20px; border: 2px solid var(--ink); border-radius: 5px; }
+  #student-suite-v5 .ss-brand-mark::after { content: ""; position: absolute; bottom: -3px; right: -3px; width: 7px; height: 7px; border: 2px solid var(--accent); border-radius: 3px; background: var(--paper); }
+  #student-suite-v5 .ss-tabs { display: flex; height: 100%; align-items: stretch; gap: 3px; }
+  #student-suite-v5 .ss-tabs label { display: inline-flex; min-width: 48px; align-items: center; justify-content: center; padding: 0 12px; border-bottom: 2px solid transparent; color: var(--body); font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; transition: color .18s ease, border-color .18s ease; }
+  #student-suite-v5 .ss-tabs label:hover { color: var(--ink); }
+  #student-suite-v5 .ss-person { display: flex; align-items: center; gap: 9px; margin-left: auto; color: var(--body); font-size: 12px; }
+  #student-suite-v5 .ss-avatar { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; color: var(--accent-ink); background: var(--accent-wash); font-size: 10px; font-weight: 750; }
+  #student-suite-v5 input[name="screen"] { position: absolute; opacity: 0; pointer-events: none; }
+  #student-suite-v5 #ss-home:checked ~ .ss-shell .ss-tabs label[for="ss-home"],
+  #student-suite-v5 #ss-theory:checked ~ .ss-shell .ss-tabs label[for="ss-theory"],
+  #student-suite-v5 #ss-practice:checked ~ .ss-shell .ss-tabs label[for="ss-practice"],
+  #student-suite-v5 #ss-code:checked ~ .ss-shell .ss-tabs label[for="ss-code"] { border-bottom-color: var(--accent); color: var(--ink); font-weight: 700; }
+  #student-suite-v5 #ss-home:focus-visible ~ .ss-shell .ss-tabs label[for="ss-home"],
+  #student-suite-v5 #ss-theory:focus-visible ~ .ss-shell .ss-tabs label[for="ss-theory"],
+  #student-suite-v5 #ss-practice:focus-visible ~ .ss-shell .ss-tabs label[for="ss-practice"],
+  #student-suite-v5 #ss-code:focus-visible ~ .ss-shell .ss-tabs label[for="ss-code"] { outline: 3px solid #a8c0f7; outline-offset: -5px; }
+  #student-suite-v5 .ss-screen { display: none; min-height: 701px; }
+  #student-suite-v5 #ss-home:checked ~ .ss-shell .ss-home,
+  #student-suite-v5 #ss-theory:checked ~ .ss-shell .ss-theory,
+  #student-suite-v5 #ss-practice:checked ~ .ss-shell .ss-practice,
+  #student-suite-v5 #ss-code:checked ~ .ss-shell .ss-code { display: block; }
+  #student-suite-v5 h1, #student-suite-v5 h2, #student-suite-v5 h3, #student-suite-v5 p { margin-top: 0; }
+  #student-suite-v5 .ss-page { max-width: 1180px; margin: 0 auto; padding: 34px 42px 52px; }
+  #student-suite-v5 .ss-page-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
+  #student-suite-v5 .ss-page-head h1 { margin-bottom: 7px; font-size: 29px; font-weight: 650; letter-spacing: -.04em; line-height: 1.14; }
+  #student-suite-v5 .ss-page-head p { max-width: 610px; margin-bottom: 0; color: var(--body); font-size: 15px; line-height: 1.55; }
+  #student-suite-v5 .ss-meta { color: var(--quiet); font-size: 12px; white-space: nowrap; }
+  #student-suite-v5 .ss-home-grid { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(240px,.72fr); gap: 27px; }
+  #student-suite-v5 .ss-section-label { margin-bottom: 10px; color: var(--quiet); font-size: 12px; font-weight: 650; }
+  #student-suite-v5 .ss-continue { display: grid; grid-template-columns: 1fr 204px; gap: 28px; min-height: 225px; overflow: hidden; padding: 25px 26px; border: 1px solid #cdd9f5; border-radius: 11px; background: #f3f6ff; }
+  #student-suite-v5 .ss-course-name { margin-bottom: 12px; color: var(--accent-ink); font-size: 11px; font-weight: 680; }
+  #student-suite-v5 .ss-continue h2 { max-width: 370px; margin-bottom: 10px; font-size: 22px; font-weight: 650; line-height: 1.18; letter-spacing: -.032em; }
+  #student-suite-v5 .ss-continue p { max-width: 382px; margin-bottom: 22px; color: var(--body); font-size: 14px; line-height: 1.6; }
+  #student-suite-v5 .ss-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid var(--accent); border-radius: 7px; color: #fff; background: var(--accent); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: background .18s ease, transform .18s ease; }
+  #student-suite-v5 .ss-button:hover { background: #315dbd; }
+  #student-suite-v5 .ss-button:active { transform: translateY(1px); }
+  #student-suite-v5 .ss-button:focus-visible, #student-suite-v5 a:focus-visible, #student-suite-v5 label:focus-visible, #student-suite-v5 .ss-choice:focus-visible { outline: 3px solid #a8c0f7; outline-offset: 3px; }
+  #student-suite-v5 .ss-continue .ss-button { width: fit-content; }
+  #student-suite-v5 .ss-preview { align-self: end; padding: 15px; border: 1px solid #c6d4f1; border-radius: 8px; background: var(--paper); }
+  #student-suite-v5 .ss-preview-row { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line); color: var(--body); font-size: 11px; }
+  #student-suite-v5 .ss-preview-row:last-child { border-bottom: 0; }
+  #student-suite-v5 .ss-preview-dot { width: 7px; height: 7px; border-radius: 50%; background: #b7c3d7; }
+  #student-suite-v5 .ss-preview-row.active { color: var(--ink); font-weight: 650; }
+  #student-suite-v5 .ss-preview-row.active .ss-preview-dot { background: var(--accent); }
+  #student-suite-v5 .ss-courses { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; margin-top: 16px; }
+  #student-suite-v5 .ss-course-tile { min-height: 126px; padding: 17px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+  #student-suite-v5 .ss-course-tile h3 { margin: 17px 0 6px; font-size: 14px; font-weight: 650; letter-spacing: -.018em; }
+  #student-suite-v5 .ss-course-tile p { margin-bottom: 0; color: var(--body); font-size: 13px; line-height: 1.55; }
+  #student-suite-v5 .ss-tile-tag { display: inline-block; color: var(--quiet); font-size: 11px; font-weight: 650; }
+  #student-suite-v5 .ss-home-side { padding-top: 25px; }
+  #student-suite-v5 .ss-next { padding: 18px 0 20px; border-bottom: 1px solid var(--line); }
+  #student-suite-v5 .ss-next h2 { margin-bottom: 14px; font-size: 16px; letter-spacing: -.025em; }
+  #student-suite-v5 .ss-next-row { display: grid; grid-template-columns: 61px 1fr; gap: 12px; padding: 10px 0; }
+  #student-suite-v5 .ss-next-time { color: var(--quiet); font-size: 11px; padding-top: 2px; }
+  #student-suite-v5 .ss-next-row strong { display: block; margin-bottom: 3px; font-size: 12px; }
+  #student-suite-v5 .ss-next-row span { color: var(--body); font-size: 11px; line-height: 1.4; }
+  #student-suite-v5 .ss-goal { margin-top: 22px; padding: 17px; border-radius: 9px; background: var(--mint); }
+  #student-suite-v5 .ss-goal h2 { margin-bottom: 6px; color: #23533d; font-size: 14px; letter-spacing: -.024em; }
+  #student-suite-v5 .ss-goal p { margin-bottom: 0; color: var(--mint-ink); font-size: 12px; line-height: 1.45; }
+  #student-suite-v5 .ss-theory-layout { display: grid; grid-template-columns: minmax(0,1fr) 240px; gap: 55px; }
+  #student-suite-v5 .ss-breadcrumb { margin-bottom: 23px; color: var(--quiet); font-size: 12px; }
+  #student-suite-v5 .ss-breadcrumb strong { color: var(--body); font-weight: 650; }
+  #student-suite-v5 .ss-theory h1 { max-width: 620px; margin-bottom: 15px; font-size: 35px; font-weight: 650; line-height: 1.13; letter-spacing: -.045em; }
+  #student-suite-v5 .ss-deck { max-width: 615px; margin-bottom: 36px; color: var(--body); font-size: 16px; line-height: 1.65; }
+  #student-suite-v5 .ss-theory h2 { margin-bottom: 11px; font-size: 19px; font-weight: 650; letter-spacing: -.022em; }
+  #student-suite-v5 .ss-theory-copy { max-width: 625px; color: var(--body); font-size: 15px; line-height: 1.68; }
+  #student-suite-v5 .ss-question-contrast { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 29px 0; }
+  #student-suite-v5 .ss-question { padding: 19px; border: 1px solid var(--line); border-radius: 9px; }
+  #student-suite-v5 .ss-question.good { border-color: #c6ddcf; background: #f4faf6; }
+  #student-suite-v5 .ss-question small { display: block; margin-bottom: 12px; color: var(--quiet); font-size: 11px; font-weight: 700; }
+  #student-suite-v5 .ss-question.good small { color: var(--mint-ink); }
+  #student-suite-v5 .ss-question p { margin-bottom: 0; color: var(--ink); font-size: 14px; font-weight: 590; line-height: 1.5; }
+  #student-suite-v5 .ss-callout { padding: 18px 20px; border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--soft); color: var(--body); font-size: 13px; line-height: 1.58; }
+  #student-suite-v5 .ss-lesson-nav { padding-top: 55px; }
+  #student-suite-v5 .ss-lesson-nav h2 { margin-bottom: 12px; font-size: 14px; }
+  #student-suite-v5 .ss-lesson-link { display: block; padding: 10px 0; color: var(--body); font-size: 12px; text-decoration: none; }
+  #student-suite-v5 .ss-lesson-link.current { color: var(--accent-ink); font-weight: 700; }
+  #student-suite-v5 .ss-practice-wrap { max-width: 960px; margin: 0 auto; padding: 39px 42px 52px; }
+  #student-suite-v5 .ss-practice-head { max-width: 660px; margin-bottom: 28px; }
+  #student-suite-v5 .ss-practice-head h1 { margin-bottom: 10px; font-size: 31px; font-weight: 650; letter-spacing: -.04em; line-height: 1.13; }
+  #student-suite-v5 .ss-practice-head p { margin-bottom: 0; color: var(--body); font-size: 15px; line-height: 1.6; }
+  #student-suite-v5 .ss-roleplay { display: grid; grid-template-columns: 220px minmax(0,1fr); overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+  #student-suite-v5 .ss-role { padding: 22px; border-right: 1px solid var(--line); background: var(--soft); }
+  #student-suite-v5 .ss-role-chip { display: grid; width: 39px; height: 39px; place-items: center; margin-bottom: 15px; border-radius: 10px; color: var(--warm-ink); background: var(--warm); font-size: 13px; font-weight: 750; }
+  #student-suite-v5 .ss-role h2 { margin-bottom: 6px; font-size: 16px; letter-spacing: -.025em; }
+  #student-suite-v5 .ss-role p { margin-bottom: 18px; color: var(--body); font-size: 12px; line-height: 1.48; }
+  #student-suite-v5 .ss-role-note { padding-top: 14px; border-top: 1px solid var(--line); color: var(--quiet); font-size: 11px; line-height: 1.45; }
+  #student-suite-v5 .ss-chat { padding: 23px 26px 24px; }
+  #student-suite-v5 .ss-chat-meta { margin-bottom: 18px; color: var(--quiet); font-size: 11px; }
+  #student-suite-v5 .ss-message { max-width: 560px; margin-bottom: 20px; padding: 16px; border-radius: 9px 9px 9px 2px; color: var(--ink); background: var(--soft); font-size: 15px; line-height: 1.58; }
+  #student-suite-v5 .ss-message strong { display: block; margin-bottom: 4px; color: var(--body); font-size: 11px; }
+  #student-suite-v5 .ss-prompt { margin: 22px 0 11px; color: var(--ink); font-size: 13px; font-weight: 670; }
+  #student-suite-v5 .ss-option { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 11px; margin-top: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--body); background: #fff; font: inherit; font-size: 13px; text-align: left; cursor: pointer; touch-action: manipulation; transition: border-color .18s ease, background .18s ease, color .18s ease; }
+  #student-suite-v5 .ss-option:hover { border-color: #a9c1ef; background: #f7f9ff; color: var(--ink); }
+  #student-suite-v5 .ss-option-mark { display: grid; flex: 0 0 19px; width: 19px; height: 19px; place-items: center; border: 1px solid #aeb9c8; border-radius: 50%; color: var(--quiet); font-size: 10px; }
+  #student-suite-v5 .ss-code { min-height: 701px; background: #0d1117; color: #e6edf3; }
+  #student-suite-v5 .ss-code-inner { max-width: 1160px; margin: 0 auto; padding: 35px 42px 50px; }
+  #student-suite-v5 .ss-code-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 23px; }
+  #student-suite-v5 .ss-code-head h1 { margin-bottom: 7px; color: #e6edf3; font-size: 28px; font-weight: 650; letter-spacing: -.032em; }
+  #student-suite-v5 .ss-code-head p { margin-bottom: 0; color: #aeb8c5; font-size: 14px; line-height: 1.5; }
+  #student-suite-v5 .ss-code-head span { color: #88adff; font-size: 12px; }
+  #student-suite-v5 .ss-code-grid { display: grid; grid-template-columns: minmax(0,1fr) 248px; gap: 26px; }
+  #student-suite-v5 .ss-editor { overflow: hidden; border: 1px solid #30363d; border-radius: 9px; background: #161b22; }
+  #student-suite-v5 .ss-editor-top { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 15px; border-bottom: 1px solid #30363d; color: #bac4d0; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+  #student-suite-v5 .ss-file-icon { width: 9px; height: 9px; border: 1px solid #88adff; border-radius: 2px; }
+  #student-suite-v5 .ss-editor-body { display: grid; grid-template-columns: 42px minmax(0,1fr); padding: 18px 0 21px; color: #d8dee7; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.85; }
+  #student-suite-v5 .ss-line-nos { padding-right: 11px; color: #59636e; text-align: right; user-select: none; }
+  #student-suite-v5 .ss-code-text { overflow: hidden; white-space: pre; }
+  #student-suite-v5 .ss-code-add { display: block; margin-left: -7px; padding-left: 7px; color: #c7ecd9; background: rgba(46,160,67,.14); }
+  #student-suite-v5 .ss-code-comment { color: #8b949e; }
+  #student-suite-v5 .ss-review-note { padding: 17px 19px; border-top: 1px solid #30363d; background: #1c232d; }
+  #student-suite-v5 .ss-review-note h2 { margin-bottom: 4px; color: #e6edf3; font-size: 14px; }
+  #student-suite-v5 .ss-review-note p { margin-bottom: 13px; color: #b1bac4; font-size: 12px; line-height: 1.45; }
+  #student-suite-v5 .ss-code .ss-button { color: #0d1117; background: #92b4ff; border-color: #b6cbff; }
+  #student-suite-v5 .ss-code-side { padding: 17px 0; border-top: 1px solid #30363d; }
+  #student-suite-v5 .ss-code-side h2 { margin-bottom: 12px; color: #e6edf3; font-size: 14px; }
+  #student-suite-v5 .ss-code-side p { margin-bottom: 9px; color: #9da7b3; font-size: 12px; line-height: 1.48; }
+  #student-suite-v5 .ss-code-side a { color: #92b4ff; font-size: 12px; font-weight: 650; text-decoration: none; }
+  #student-suite-v5 .ss-choice { display: block; width: fit-content; margin: 26px auto 0; padding: 10px 14px; border: 1px solid #aebfdc; border-radius: 7px; color: var(--accent-ink); background: #f2f6ff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+  @media (max-width: 840px) { #student-suite-v5 .ss-page { padding: 30px 25px 45px; } #student-suite-v5 .ss-home-grid, #student-suite-v5 .ss-theory-layout, #student-suite-v5 .ss-code-grid { grid-template-columns: 1fr; gap: 24px; } #student-suite-v5 .ss-home-side, #student-suite-v5 .ss-lesson-nav { padding-top: 0; } #student-suite-v5 .ss-theory-layout { gap: 8px; } #student-suite-v5 .ss-code-inner { padding: 30px 25px 45px; } #student-suite-v5 .ss-code-side { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } }
+  @media (max-width: 620px) { #student-suite-v5 .ss-shell { min-height: 705px; } #student-suite-v5 .ss-nav { height: 60px; padding: 0 15px; gap: 8px; } #student-suite-v5 .ss-brand { gap: 7px; font-size: 15px; } #student-suite-v5 .ss-tabs { margin-left: auto; gap: 0; } #student-suite-v5 .ss-tabs label { min-width: 0; padding: 0 5px; font-size: 10px; } #student-suite-v5 .ss-person span:first-child { display: none; } #student-suite-v5 .ss-person { margin-left: 0; } #student-suite-v5 .ss-page, #student-suite-v5 .ss-practice-wrap, #student-suite-v5 .ss-code-inner { padding: 28px 20px 44px; } #student-suite-v5 .ss-page-head, #student-suite-v5 .ss-code-head { align-items: flex-start; flex-direction: column; gap: 8px; } #student-suite-v5 .ss-page-head h1 { font-size: 27px; } #student-suite-v5 .ss-page-head p, #student-suite-v5 .ss-practice-head p { font-size: 16px; line-height: 1.55; } #student-suite-v5 .ss-continue { grid-template-columns: 1fr; min-height: 0; padding: 22px; } #student-suite-v5 .ss-preview { display: none; } #student-suite-v5 .ss-continue .ss-button { width: 100%; } #student-suite-v5 .ss-courses, #student-suite-v5 .ss-question-contrast { grid-template-columns: 1fr; } #student-suite-v5 .ss-theory h1, #student-suite-v5 .ss-practice-head h1 { font-size: 29px; } #student-suite-v5 .ss-theory-copy { font-size: 16px; line-height: 1.65; } #student-suite-v5 .ss-roleplay { grid-template-columns: 1fr; } #student-suite-v5 .ss-role { border-right: 0; border-bottom: 1px solid var(--line); } #student-suite-v5 .ss-chat { padding: 22px 20px; } #student-suite-v5 .ss-code-head h1 { font-size: 27px; } #student-suite-v5 .ss-code-text { font-size: 10px; } #student-suite-v5 .ss-code-side { grid-template-columns: 1fr; gap: 4px; } }
+  @media (prefers-reduced-motion: reduce) { #student-suite-v5 *, #student-suite-v5 *::before, #student-suite-v5 *::after { transition: none !important; } }
+</style>
+
+<div id="student-suite-v5">
+  <input type="radio" name="screen" id="ss-home" checked>
+  <input type="radio" name="screen" id="ss-theory">
+  <input type="radio" name="screen" id="ss-practice">
+  <input type="radio" name="screen" id="ss-code">
+  <div class="ss-shell" aria-label="PathPilot student learning experience">
+    <header class="ss-nav">
+      <div class="ss-brand"><span class="ss-brand-mark" aria-hidden="true"></span>PathPilot</div>
+      <nav class="ss-tabs" aria-label="Student pages">
+        <label for="ss-home">Home</label><label for="ss-theory">Theory</label><label for="ss-practice">Practice</label><label for="ss-code">Code lab</label>
+      </nav>
+      <div class="ss-person"><span>Maya Lee</span><span class="ss-avatar" aria-label="Maya Lee">ML</span></div>
+    </header>
+
+    <section class="ss-screen ss-home">
+      <main class="ss-page">
+        <header class="ss-page-head"><div><h1>Your learning</h1><p>Continue one useful piece of work, or choose a course for a different goal.</p></div><span class="ss-meta">Tuesday afternoon</span></header>
+        <div class="ss-home-grid">
+          <section><p class="ss-section-label">Continue</p><article class="ss-continue"><div><p class="ss-course-name">Git for group projects</p><h2>Review a branch before merging.</h2><p>Use one pull request to make a change visible, reviewable, and safe for your project team.</p><button class="ss-button">Continue lesson</button></div><div class="ss-preview" aria-label="Short Git lesson outline"><div class="ss-preview-row"><span class="ss-preview-dot"></span>Keep a shared history</div><div class="ss-preview-row active"><span class="ss-preview-dot"></span>Review a branch</div><div class="ss-preview-row"><span class="ss-preview-dot"></span>Give feedback</div></div></article><div class="ss-courses"><article class="ss-course-tile"><span class="ss-tile-tag">Soft skills</span><h3>Ask better questions</h3><p>Learn to turn vague requests into usable requirements.</p></article><article class="ss-course-tile"><span class="ss-tile-tag">AI coding agents</span><h3>Plan before prompting</h3><p>Write a useful task brief for an agent.</p></article></div></section>
+          <aside class="ss-home-side"><section class="ss-next"><h2>Up next</h2><div class="ss-next-row"><span class="ss-next-time">8 min</span><div><strong>Practice a merge decision</strong><span>Use the Git scenario after the lesson.</span></div></div><div class="ss-next-row"><span class="ss-next-time">12 min</span><div><strong>Read: asking open questions</strong><span>Continue your requirements course.</span></div></div></section><section class="ss-goal"><h2>Your current goal</h2><p>Contribute safely to a five-person software project before the next sprint meeting.</p></section></aside>
+        </div>
+      </main>
+    </section>
+
+    <section class="ss-screen ss-theory">
+      <main class="ss-page"><div class="ss-theory-layout"><article class="ss-theory"><p class="ss-breadcrumb"><strong>Requirements elicitation</strong> / Better questions</p><h1>Ask about the work before you ask for features.</h1><p class="ss-deck">Good requirements start with the problem someone faces, the way they handle it today, and what would make the situation different.</p><h2>Start with a process, not a solution</h2><p class="ss-theory-copy">“We need an approval system” is a proposed solution. Before deciding what to build, find out how approval currently happens, where it breaks, and who makes the final decision.</p><div class="ss-question-contrast"><section class="ss-question"><small>Too narrow</small><p>“Do you need an approval system?”</p></section><section class="ss-question good"><small>Better starting point</small><p>“How do you currently approve this? Where does it get stuck?”</p></section></div><p class="ss-callout">A useful question reveals a workflow, an exception, or a decision rule. A yes-or-no question usually only confirms an assumption you already had.</p></article><aside class="ss-lesson-nav"><h2>In this lesson</h2><a class="ss-lesson-link" href="#">Start with the problem</a><a class="ss-lesson-link current" href="#">Ask about the current process</a><a class="ss-lesson-link" href="#">Test assumptions</a><a class="ss-lesson-link" href="#">Reach the root cause</a></aside></div></main>
+    </section>
+
+    <section class="ss-screen ss-practice">
+      <main class="ss-practice-wrap"><header class="ss-practice-head"><h1>Practice asking the next question.</h1><p>Respond to a stakeholder without jumping to a feature. Your answer will be checked for whether it reveals the current process.</p></header><section class="ss-roleplay"><aside class="ss-role"><div class="ss-role-chip">TA</div><h2>Course teaching assistant</h2><p>They manage assignment extensions for a large class and say the current process is “too slow”.</p><p class="ss-role-note">Goal: understand the real workflow before proposing a system.</p></aside><div class="ss-chat"><p class="ss-chat-meta">Scenario 1 of 3</p><div class="ss-message"><strong>Teaching assistant</strong>We need a better system for assignment extensions. Students keep emailing us and it takes too long.</div><p class="ss-prompt">What would you ask first?</p><button class="ss-option"><span class="ss-option-mark">A</span>Would you like a page where students submit an extension request?</button><button class="ss-option"><span class="ss-option-mark">B</span>How do you currently handle an extension request from the first email to the final decision?</button><button class="ss-option"><span class="ss-option-mark">C</span>Should lecturers receive a notification whenever a student asks for more time?</button></div></section></main>
+    </section>
+
+    <section class="ss-screen ss-code">
+      <main class="ss-code-inner"><header class="ss-code-head"><div><h1>Review a branch before merging</h1><p>Git for group projects. This is a code workspace, so the reading surface switches to dark mode.</p></div><span>Lesson 2 of 3</span></header><div class="ss-code-grid"><section class="ss-editor"><div class="ss-editor-top"><span class="ss-file-icon"></span>course-enrolment.js</div><div class="ss-editor-body"><div class="ss-line-nos">12<br>13<br>14<br>15<br>16</div><code class="ss-code-text"><span class="ss-code-comment">// validate a new course enrolment</span><br><span class="ss-code-add">+ if (!student.email) {</span><br><span class="ss-code-add">+   return { error: "Email is required" };</span><br><span class="ss-code-add">+ }</span><br>return saveEnrolment(student);</code></div><div class="ss-review-note"><h2>What should you do before merging?</h2><p>Check the change, ask for review, then merge only when the team agrees it is ready.</p><button class="ss-button">Start review</button></div></section><aside><section class="ss-code-side"><h2>Review checklist</h2><p>Does the change solve a real problem?</p><p>Can another teammate understand the pull request?</p><p>Has someone checked it before merge?</p></section><section class="ss-code-side"><h2>Need a refresher?</h2><p>Return to the light lesson page for the concept, then come back to make the decision.</p><a href="#">Read about pull requests</a></section></aside></div></main>
+    </section>
+  </div>
+  <button class="ss-choice" data-choice="student-learning-suite-v5" onclick="toggleSelect(this)">Select this student experience</button>
+</div>

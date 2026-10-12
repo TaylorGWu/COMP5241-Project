@@ -1,0 +1,150 @@
+<style>
+  #pathpilot-direction {
+    --ink: #162033;
+    --muted: #687286;
+    --line: #e6e9ef;
+    --paper: #ffffff;
+    --canvas: #f7f8fc;
+    --blue: #2463eb;
+    --blue-deep: #1748bb;
+    --mint: #d9f4e9;
+    --mint-ink: #12634b;
+    --amber: #fff2c7;
+    --amber-ink: #865800;
+    --lavender: #ece7ff;
+    --lavender-ink: #5940b6;
+    box-sizing: border-box;
+    color: var(--ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #pathpilot-direction * { box-sizing: border-box; }
+  #pathpilot-direction .pp-shell {
+    overflow: hidden;
+    min-height: 680px;
+    border: 1px solid #dfe4ee;
+    border-radius: 22px;
+    background: var(--canvas);
+    box-shadow: 0 22px 55px rgba(26, 41, 70, .12);
+  }
+  #pathpilot-direction .pp-topbar {
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  #pathpilot-direction .pp-brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.04em; font-size:20px; }
+  #pathpilot-direction .pp-brand-mark { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; color:#fff; background:linear-gradient(145deg,#3276ff,#1748bb); font-size:16px; }
+  #pathpilot-direction .pp-top-actions { display:flex; align-items:center; gap:16px; }
+  #pathpilot-direction .pp-role { font-size:13px; color:var(--muted); }
+  #pathpilot-direction .pp-avatar { display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:#ffe8be; color:#844d00; font-weight:800; font-size:12px; }
+  #pathpilot-direction .pp-layout { display:grid; grid-template-columns:210px 1fr; min-height:612px; }
+  #pathpilot-direction .pp-sidebar { padding:22px 14px; background:var(--paper); border-right:1px solid var(--line); }
+  #pathpilot-direction .pp-nav-label { margin:5px 12px 11px; color:#a1a9b6; text-transform:uppercase; letter-spacing:.1em; font-size:10px; font-weight:800; }
+  #pathpilot-direction .pp-nav { display:flex; align-items:center; gap:11px; margin:4px 0; padding:10px 12px; border-radius:10px; color:#667084; font-size:14px; }
+  #pathpilot-direction .pp-nav.active { color:var(--blue-deep); background:#eaf0ff; font-weight:750; }
+  #pathpilot-direction .pp-nav-icon { width:18px; text-align:center; }
+  #pathpilot-direction .pp-side-card { margin:28px 6px 0; padding:15px; border-radius:14px; background:#f0f5ff; }
+  #pathpilot-direction .pp-side-card strong { display:block; margin-bottom:5px; font-size:13px; }
+  #pathpilot-direction .pp-side-card p { margin:0; color:var(--muted); font-size:11px; line-height:1.45; }
+  #pathpilot-direction .pp-main { padding:28px 32px 34px; }
+  #pathpilot-direction .pp-eyebrow { color:var(--blue); text-transform:uppercase; letter-spacing:.11em; font-size:11px; font-weight:800; }
+  #pathpilot-direction .pp-heading-row { display:flex; align-items:end; justify-content:space-between; gap:16px; }
+  #pathpilot-direction h2 { margin:5px 0 0; letter-spacing:-.045em; font-size:30px; line-height:1.05; }
+  #pathpilot-direction .pp-date { color:var(--muted); font-size:13px; }
+  #pathpilot-direction .pp-grid { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(240px,.8fr); gap:18px; margin-top:23px; }
+  #pathpilot-direction .pp-card { border:1px solid var(--line); border-radius:16px; background:var(--paper); }
+  #pathpilot-direction .pp-continue { padding:23px; background:linear-gradient(130deg,#1f5fe8 0%,#2358c8 59%,#5c76e6 100%); color:#fff; border:0; }
+  #pathpilot-direction .pp-tag { display:inline-flex; padding:5px 8px; border-radius:99px; background:rgba(255,255,255,.18); color:#fff; font-size:11px; font-weight:750; }
+  #pathpilot-direction .pp-continue h3 { max-width:400px; margin:15px 0 7px; font-size:23px; line-height:1.14; letter-spacing:-.035em; }
+  #pathpilot-direction .pp-continue p { margin:0; color:rgba(255,255,255,.78); font-size:13px; }
+  #pathpilot-direction .pp-continue-footer { display:flex; align-items:center; justify-content:space-between; margin-top:26px; }
+  #pathpilot-direction .pp-progress-wrap { display:flex; align-items:center; gap:10px; color:rgba(255,255,255,.85); font-size:12px; }
+  #pathpilot-direction .pp-progress { width:108px; height:6px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.25); }
+  #pathpilot-direction .pp-progress span { display:block; width:62%; height:100%; border-radius:inherit; background:#d9f4e9; }
+  #pathpilot-direction .pp-button { border:0; border-radius:9px; padding:10px 13px; color:#1644ae; background:#fff; font-weight:800; font-size:12px; }
+  #pathpilot-direction .pp-why { padding:21px; }
+  #pathpilot-direction .pp-why h3, #pathpilot-direction .pp-section-title { margin:0; font-size:15px; letter-spacing:-.02em; }
+  #pathpilot-direction .pp-why p { margin:10px 0 13px; color:var(--muted); font-size:12px; line-height:1.45; }
+  #pathpilot-direction .pp-reason { display:flex; gap:9px; align-items:flex-start; margin-top:11px; color:#4c566a; font-size:12px; line-height:1.35; }
+  #pathpilot-direction .pp-check { display:grid; place-items:center; flex:0 0 19px; width:19px; height:19px; border-radius:50%; background:var(--mint); color:var(--mint-ink); font-size:11px; font-weight:800; }
+  #pathpilot-direction .pp-section-row { display:flex; align-items:center; justify-content:space-between; margin:26px 0 11px; }
+  #pathpilot-direction .pp-link { color:var(--blue); font-size:12px; font-weight:750; }
+  #pathpilot-direction .pp-path { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  #pathpilot-direction .pp-path-item { padding:15px; min-height:115px; }
+  #pathpilot-direction .pp-path-item .pp-step { color:var(--muted); font-size:11px; }
+  #pathpilot-direction .pp-path-item h4 { margin:8px 0 6px; font-size:14px; letter-spacing:-.02em; }
+  #pathpilot-direction .pp-path-item p { margin:0; color:var(--muted); font-size:11px; line-height:1.4; }
+  #pathpilot-direction .pp-path-item.current { border-color:#baceff; background:#f4f7ff; }
+  #pathpilot-direction .pp-path-item.current .pp-step { color:var(--blue); font-weight:750; }
+  #pathpilot-direction .pp-path-item.locked { opacity:.63; }
+  #pathpilot-direction .pp-practice { display:flex; align-items:center; gap:14px; padding:16px 18px; margin-top:17px; }
+  #pathpilot-direction .pp-practice-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:11px; color:var(--lavender-ink); background:var(--lavender); }
+  #pathpilot-direction .pp-practice-text { flex:1; }
+  #pathpilot-direction .pp-practice-text strong { display:block; font-size:13px; }
+  #pathpilot-direction .pp-practice-text span { color:var(--muted); font-size:11px; }
+  #pathpilot-direction .pp-practice-cta { border:0; border-radius:9px; padding:9px 11px; color:var(--amber-ink); background:var(--amber); font-size:12px; font-weight:800; }
+  #pathpilot-direction .pp-review { margin-top:22px; padding:14px 16px; border:1px dashed #cfd7e7; border-radius:12px; color:#5c667a; background:#fbfcff; font-size:12px; }
+  #pathpilot-direction .pp-select { display:block; width:fit-content; margin:22px auto 0; padding:11px 16px; border:1px solid #b9ccff; border-radius:10px; color:#1748bb; background:#edf3ff; cursor:pointer; font-size:13px; font-weight:800; }
+  @media (max-width: 720px) {
+    #pathpilot-direction .pp-layout { grid-template-columns:1fr; }
+    #pathpilot-direction .pp-sidebar { display:none; }
+    #pathpilot-direction .pp-main { padding:23px 17px; }
+    #pathpilot-direction .pp-grid, #pathpilot-direction .pp-path { grid-template-columns:1fr; }
+    #pathpilot-direction .pp-topbar { padding:0 17px; }
+    #pathpilot-direction .pp-date { display:none; }
+  }
+</style>
+
+<div id="pathpilot-direction">
+  <div class="pp-shell" aria-label="Candidate student dashboard mockup for PathPilot">
+    <header class="pp-topbar">
+      <div class="pp-brand"><span class="pp-brand-mark">↗</span>PathPilot</div>
+      <div class="pp-top-actions"><span class="pp-role">Student workspace</span><span class="pp-avatar">ML</span></div>
+    </header>
+    <div class="pp-layout">
+      <aside class="pp-sidebar">
+        <div class="pp-nav-label">Learn</div>
+        <div class="pp-nav active"><span class="pp-nav-icon">⌂</span>My learning</div>
+        <div class="pp-nav"><span class="pp-nav-icon">◫</span>Course library</div>
+        <div class="pp-nav"><span class="pp-nav-icon">◎</span>Practice lab</div>
+        <div class="pp-nav"><span class="pp-nav-icon">◔</span>Progress</div>
+        <div class="pp-nav-label" style="margin-top:26px">Account</div>
+        <div class="pp-nav"><span class="pp-nav-icon">⚙</span>Preferences</div>
+        <div class="pp-side-card"><strong>Learning with purpose</strong><p>Your path adapts to your goal, starting knowledge, and recent practice.</p></div>
+      </aside>
+      <main class="pp-main">
+        <div class="pp-heading-row">
+          <div><div class="pp-eyebrow">Tuesday learning plan</div><h2>Good afternoon, Maya.</h2></div>
+          <div class="pp-date">17 September · 18 min available</div>
+        </div>
+        <div class="pp-grid">
+          <section class="pp-card pp-continue">
+            <span class="pp-tag">Continue your pathway</span>
+            <h3>Git fundamentals: working with branches</h3>
+            <p>Lesson 2 of 3 · Your next step toward confident team collaboration.</p>
+            <div class="pp-continue-footer"><div class="pp-progress-wrap"><div class="pp-progress"><span></span></div>62% complete</div><button class="pp-button">Resume lesson →</button></div>
+          </section>
+          <aside class="pp-card pp-why">
+            <h3>Why this is next</h3>
+            <p>A recommendation should explain itself, not feel like a black box.</p>
+            <div class="pp-reason"><span class="pp-check">✓</span><span>You chose <strong>Git for group projects</strong>.</span></div>
+            <div class="pp-reason"><span class="pp-check">✓</span><span>You finished commits and pull requests.</span></div>
+            <div class="pp-reason"><span class="pp-check">✓</span><span>Your branching check needs one more try.</span></div>
+          </aside>
+        </div>
+        <div class="pp-section-row"><h3 class="pp-section-title">Your learning pathway</h3><span class="pp-link">View full map →</span></div>
+        <section class="pp-path">
+          <article class="pp-card pp-path-item"><div class="pp-step">01 · Completed</div><h4>Version control basics</h4><p>Commits, repositories, and a safe first workflow.</p></article>
+          <article class="pp-card pp-path-item current"><div class="pp-step">02 · In progress</div><h4>Branches in a team</h4><p>Create, merge, and resolve a simple collaboration scenario.</p></article>
+          <article class="pp-card pp-path-item locked"><div class="pp-step">03 · Up next</div><h4>Pull requests</h4><p>Review changes and communicate before merging.</p></article>
+        </section>
+        <section class="pp-card pp-practice"><span class="pp-practice-icon">◈</span><div class="pp-practice-text"><strong>Practice lab: clarify a stakeholder's request</strong><span>8 min scenario · Ask better questions, then receive a rubric-based review.</span></div><button class="pp-practice-cta">Try lab</button></section>
+        <div class="pp-review">Design intent: a single visible next step, transparent recommendation reasons, and one differentiated practice activity - rather than a dense course catalogue or generic chatbot.</div>
+      </main>
+    </div>
+  </div>
+  <div class="pp-select" data-choice="guided-path-student-dashboard" onclick="toggleSelect(this)">Select this student-dashboard direction</div>
+</div>

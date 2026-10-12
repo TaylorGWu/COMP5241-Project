@@ -1,0 +1,128 @@
+<style>
+  #course-notebook-v3 {
+    --ink: #172235;
+    --body: #526074;
+    --quiet: #8994a3;
+    --paper: #fbfcfe;
+    --canvas: #edf0f4;
+    --yellow: #e9eff8;
+    --yellow-soft: #f4f7fb;
+    --coral: #3868c8;
+    --coral-dark: #274f9d;
+    --rule: #d7dee8;
+    --white: #ffffff;
+    box-sizing: border-box;
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  #course-notebook-v3 * { box-sizing: border-box; }
+  #course-notebook-v3 .cn-page { min-height: 742px; overflow: hidden; border: 1px solid #cdc8bd; border-radius: 8px; background: var(--paper); box-shadow: 0 24px 70px rgba(45, 40, 29, .16); }
+  #course-notebook-v3 .cn-nav { height: 65px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid var(--rule); background: var(--paper); }
+  #course-notebook-v3 .cn-logo { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: -.055em; }
+  #course-notebook-v3 .cn-logo-mark { position: relative; width: 20px; height: 23px; border: 2px solid var(--ink); border-radius: 3px; }
+  #course-notebook-v3 .cn-logo-mark::after { content: ""; position: absolute; left: 4px; right: 4px; top: 7px; height: 2px; background: var(--coral); box-shadow: 0 5px 0 var(--ink); }
+  #course-notebook-v3 .cn-nav-links { display: flex; align-items: center; gap: 28px; margin-left: 32px; flex: 1; }
+  #course-notebook-v3 .cn-nav-links a { color: var(--body); font-size: 13px; font-weight: 500; text-decoration: none; }
+  #course-notebook-v3 .cn-nav-links a[aria-current="page"] { color: var(--ink); font-weight: 700; }
+  #course-notebook-v3 .cn-user { display: flex; align-items: center; gap: 10px; color: var(--body); font-size: 13px; }
+  #course-notebook-v3 .cn-avatar { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; background: var(--yellow); color: var(--ink); font-size: 10px; font-weight: 800; }
+  #course-notebook-v3 .cn-wrap { max-width: 1220px; margin: 0 auto; padding: 39px 38px 52px; }
+  #course-notebook-v3 .cn-layout { display: grid; grid-template-columns: minmax(0, 1fr) 286px; gap: 47px; align-items: start; }
+  #course-notebook-v3 h1, #course-notebook-v3 h2, #course-notebook-v3 h3, #course-notebook-v3 p { margin-top: 0; }
+  #course-notebook-v3 .cn-topline { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+  #course-notebook-v3 .cn-course { color: var(--body); font-size: 13px; font-weight: 600; }
+  #course-notebook-v3 .cn-course span { color: var(--coral); }
+  #course-notebook-v3 .cn-time { color: var(--quiet); font-size: 12px; }
+  #course-notebook-v3 h1 { max-width: 655px; margin-bottom: 10px; font-size: clamp(32px, 4.2vw, 49px); font-weight: 700; letter-spacing: -.066em; line-height: 1.01; }
+  #course-notebook-v3 .cn-intro { max-width: 558px; margin-bottom: 28px; color: var(--body); font-size: 15px; line-height: 1.48; }
+  #course-notebook-v3 .cn-task { position: relative; overflow: hidden; border: 2px solid var(--ink); border-radius: 7px; background: var(--yellow); }
+  #course-notebook-v3 .cn-task-tab { position: absolute; top: 0; right: 26px; padding: 8px 14px 10px; border-radius: 0 0 5px 5px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 750; letter-spacing: .01em; }
+  #course-notebook-v3 .cn-task-main { padding: 27px 27px 24px; }
+  #course-notebook-v3 .cn-overline { margin-bottom: 12px; font-size: 12px; font-weight: 750; letter-spacing: .015em; }
+  #course-notebook-v3 .cn-task h2 { max-width: 470px; margin-bottom: 7px; font-size: 26px; letter-spacing: -.047em; line-height: 1.08; }
+  #course-notebook-v3 .cn-task-text { max-width: 480px; margin-bottom: 23px; color: #43516a; font-size: 13px; line-height: 1.48; }
+  #course-notebook-v3 .cn-task-grid { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 22px; padding-top: 21px; border-top: 2px solid rgba(23, 34, 53, .26); }
+  #course-notebook-v3 .cn-context-label { margin-bottom: 7px; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+  #course-notebook-v3 .cn-context { margin-bottom: 0; color: #3f4c63; font-size: 13px; line-height: 1.45; }
+  #course-notebook-v3 .cn-graph { position: relative; min-height: 92px; padding-top: 7px; }
+  #course-notebook-v3 .cn-line { position: absolute; left: 16px; right: 19px; top: 44px; height: 2px; background: var(--ink); transform: rotate(-20deg); transform-origin: left center; }
+  #course-notebook-v3 .cn-line.branch { top: 59px; left: 86px; right: 17px; transform: rotate(24deg); background: var(--coral); }
+  #course-notebook-v3 .cn-node { position: absolute; width: 14px; height: 14px; border: 2px solid var(--ink); border-radius: 50%; background: var(--yellow); }
+  #course-notebook-v3 .cn-node.one { left: 11px; top: 37px; }
+  #course-notebook-v3 .cn-node.two { left: 80px; top: 12px; }
+  #course-notebook-v3 .cn-node.three { right: 10px; top: 0; background: var(--white); }
+  #course-notebook-v3 .cn-node.four { right: 10px; bottom: 1px; border-color: var(--coral); background: var(--coral); }
+  #course-notebook-v3 .cn-action { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border: 2px solid var(--ink); border-radius: 5px; color: #fff; background: var(--ink); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: transform .16s ease, background .16s ease; }
+  #course-notebook-v3 .cn-action:hover { background: var(--coral-dark); }
+  #course-notebook-v3 .cn-action:active { transform: translateY(2px); }
+  #course-notebook-v3 .cn-action:focus-visible, #course-notebook-v3 a:focus-visible, #course-notebook-v3 .cn-choice:focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
+  #course-notebook-v3 .cn-task-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 27px; border-top: 2px solid var(--ink); background: var(--yellow-soft); }
+  #course-notebook-v3 .cn-task-footer span { color: #536178; font-size: 12px; font-weight: 600; }
+  #course-notebook-v3 .cn-route { margin-top: 34px; }
+  #course-notebook-v3 .cn-route h2 { margin-bottom: 14px; font-size: 19px; letter-spacing: -.035em; }
+  #course-notebook-v3 .cn-route-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  #course-notebook-v3 .cn-route-item { min-height: 122px; padding: 16px 16px 14px; border: 1px solid var(--rule); border-radius: 6px; background: var(--white); }
+  #course-notebook-v3 .cn-route-item.active { border: 2px solid var(--ink); background: var(--paper); }
+  #course-notebook-v3 .cn-route-state { display: inline-block; margin-bottom: 18px; color: var(--quiet); font-size: 11px; font-weight: 700; }
+  #course-notebook-v3 .cn-route-item.active .cn-route-state { color: var(--coral); }
+  #course-notebook-v3 .cn-route-item h3 { margin-bottom: 4px; font-size: 14px; letter-spacing: -.025em; }
+  #course-notebook-v3 .cn-route-item p { margin-bottom: 0; color: var(--body); font-size: 12px; line-height: 1.38; }
+  #course-notebook-v3 .cn-practice { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px; margin-top: 14px; padding: 17px 0; border-bottom: 1px solid var(--rule); }
+  #course-notebook-v3 .cn-practice h2 { margin-bottom: 5px; font-size: 16px; letter-spacing: -.03em; }
+  #course-notebook-v3 .cn-practice p { max-width: 480px; margin-bottom: 0; color: var(--body); font-size: 12px; line-height: 1.45; }
+  #course-notebook-v3 .cn-text-link { border: 0; color: var(--coral-dark); background: transparent; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; white-space: nowrap; }
+  #course-notebook-v3 .cn-aside { padding-top: 69px; }
+  #course-notebook-v3 .cn-aside-title { margin-bottom: 13px; font-size: 15px; letter-spacing: -.026em; }
+  #course-notebook-v3 .cn-note { position: relative; margin-bottom: 28px; padding: 20px 18px 18px; border-radius: 5px; background: var(--white); box-shadow: 4px 5px 0 rgba(25, 25, 24, .11); }
+  #course-notebook-v3 .cn-note::before { content: ""; position: absolute; top: 0; left: 0; width: 68px; height: 5px; background: var(--coral); }
+  #course-notebook-v3 .cn-note p { margin-bottom: 14px; color: var(--body); font-size: 13px; line-height: 1.48; }
+  #course-notebook-v3 .cn-note p:last-child { margin-bottom: 0; }
+  #course-notebook-v3 .cn-mini-title { margin-bottom: 8px; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+  #course-notebook-v3 .cn-reason { display: grid; grid-template-columns: 19px 1fr; gap: 9px; margin-bottom: 11px; }
+  #course-notebook-v3 .cn-reason-number { display: grid; width: 19px; height: 19px; place-items: center; border: 1px solid var(--ink); border-radius: 50%; color: var(--ink); background: var(--yellow); font-size: 10px; font-weight: 750; }
+  #course-notebook-v3 .cn-reason p { margin-bottom: 0; color: var(--body); font-size: 12px; line-height: 1.4; }
+  #course-notebook-v3 .cn-help { padding-top: 1px; border-top: 2px solid var(--ink); }
+  #course-notebook-v3 .cn-help p { margin-bottom: 8px; color: var(--body); font-size: 12px; line-height: 1.5; }
+  #course-notebook-v3 .cn-help a { color: var(--coral-dark); font-size: 12px; font-weight: 750; text-decoration: none; }
+  #course-notebook-v3 .cn-choice { display: block; width: fit-content; margin: 27px auto 0; padding: 10px 14px; border: 1px solid var(--ink); border-radius: 5px; color: var(--ink); background: var(--yellow); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+  @media (max-width: 850px) { #course-notebook-v3 .cn-wrap { padding: 31px 23px 41px; } #course-notebook-v3 .cn-layout { grid-template-columns: 1fr; gap: 14px; } #course-notebook-v3 .cn-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 0; } #course-notebook-v3 .cn-help { grid-column: 1 / -1; } }
+  @media (max-width: 590px) { #course-notebook-v3 .cn-nav { padding: 0 18px; } #course-notebook-v3 .cn-nav-links { display: none; } #course-notebook-v3 .cn-user > span:first-child { display: none; } #course-notebook-v3 .cn-topline { margin-bottom: 10px; } #course-notebook-v3 .cn-time { display: none; } #course-notebook-v3 h1 { font-size: 34px; } #course-notebook-v3 .cn-task-main { padding: 23px 20px 20px; } #course-notebook-v3 .cn-task-grid { grid-template-columns: 1fr; } #course-notebook-v3 .cn-graph { display: none; } #course-notebook-v3 .cn-task-footer { align-items: stretch; flex-direction: column; padding: 16px 20px; } #course-notebook-v3 .cn-action { width: 100%; } #course-notebook-v3 .cn-route-list { grid-template-columns: 1fr; } #course-notebook-v3 .cn-route-item { min-height: 0; } #course-notebook-v3 .cn-route-state { margin-bottom: 8px; } #course-notebook-v3 .cn-aside { grid-template-columns: 1fr; } #course-notebook-v3 .cn-practice { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { #course-notebook-v3 *, #course-notebook-v3 *::before, #course-notebook-v3 *::after { transition: none !important; } }
+  @media (prefers-color-scheme: dark) { #course-notebook-v3 { --ink: #edf3ff; --body: #c9d2df; --quiet: #95a2b2; --paper: #18212e; --canvas: #111923; --yellow: #243550; --yellow-soft: #1d2a3b; --coral: #75a0ff; --coral-dark: #b9ceff; --rule: #40506a; --white: #202c3d; } #course-notebook-v3 .cn-task-text, #course-notebook-v3 .cn-context { color: #d5dfef; } #course-notebook-v3 .cn-task-footer span { color: #c4d2e6; } #course-notebook-v3 .cn-action { color: #172235; background: #edf3ff; } #course-notebook-v3 .cn-action:hover { background: var(--coral); } #course-notebook-v3 .cn-note { box-shadow: 4px 5px 0 rgba(0, 0, 0, .26); } }
+</style>
+
+<div id="course-notebook-v3">
+  <div class="cn-page" aria-label="PathPilot course notebook mockup">
+    <header class="cn-nav">
+      <div class="cn-logo"><span class="cn-logo-mark" aria-hidden="true"></span>PathPilot</div>
+      <nav class="cn-nav-links" aria-label="Primary navigation"><a href="#" aria-current="page">My courses</a><a href="#">Practice</a><a href="#">Course library</a></nav>
+      <div class="cn-user"><span>Maya Lee</span><span class="cn-avatar" aria-label="Maya Lee">ML</span></div>
+    </header>
+    <main class="cn-wrap">
+      <div class="cn-layout">
+        <section>
+          <div class="cn-topline"><div class="cn-course">Git for group projects <span>/</span> Lesson 2</div><div class="cn-time">28 minutes set aside</div></div>
+          <h1>Do not merge a change you cannot explain.</h1>
+          <p class="cn-intro">This lesson gives you one safe workflow for a shared codebase. You will use it in your team project, not just memorise the terms.</p>
+          <section class="cn-task" aria-labelledby="task-title">
+            <div class="cn-task-tab">Your next task</div>
+            <div class="cn-task-main">
+              <p class="cn-overline">A safe branch has a purpose</p>
+              <h2 id="task-title">Make the feature separate before it becomes shared.</h2>
+              <p class="cn-task-text">Create a branch for your change, then turn it into a pull request your teammates can read and review.</p>
+              <div class="cn-task-grid"><div><p class="cn-context-label">In this lesson</p><p class="cn-context">You will decide what belongs on a branch, write a useful pull request, and respond when someone asks to merge too soon.</p></div><div class="cn-graph" aria-label="A main branch and a feature branch converge through review"><span class="cn-line"></span><span class="cn-line branch"></span><span class="cn-node one"></span><span class="cn-node two"></span><span class="cn-node three"></span><span class="cn-node four"></span></div></div>
+            </div>
+            <div class="cn-task-footer"><span>12 minutes. No setup required.</span><button class="cn-action">Start task</button></div>
+          </section>
+          <section class="cn-route" aria-labelledby="route-title"><h2 id="route-title">This short course</h2><div class="cn-route-list"><article class="cn-route-item"><span class="cn-route-state">Finished</span><h3>Keep a shared history</h3><p>Commits and messages your team can follow.</p></article><article class="cn-route-item active"><span class="cn-route-state">You are here</span><h3>Work on a branch</h3><p>Separate a change before you ask to merge it.</p></article><article class="cn-route-item"><span class="cn-route-state">Coming next</span><h3>Review before merging</h3><p>Turn a pull request into a useful conversation.</p></article></div></section>
+          <section class="cn-practice"><div><h2>Try the team conversation</h2><p>A teammate says, “My feature is done. Can you merge it now?” Explain your next safe step and get feedback on your reasoning.</p></div><button class="cn-text-link">Open practice</button></section>
+        </section>
+        <aside class="cn-aside">
+          <section class="cn-note"><h2 class="cn-aside-title">Why this lesson now</h2><div class="cn-reason"><span class="cn-reason-number">1</span><p>You chose Git for group projects as your learning goal.</p></div><div class="cn-reason"><span class="cn-reason-number">2</span><p>You already know commits and repositories.</p></div><div class="cn-reason"><span class="cn-reason-number">3</span><p>Your last check showed you were unsure about a merge.</p></div></section>
+          <section class="cn-help"><p class="cn-mini-title">Need a plain explanation?</p><p>Ask about the current lesson. The assistant explains the idea and shows its source. It does not write your practice answer.</p><a href="#">Ask about branches</a></section>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <button class="cn-choice" data-choice="student-course-notebook-v3" onclick="toggleSelect(this)">Select this direction</button>
+</div>

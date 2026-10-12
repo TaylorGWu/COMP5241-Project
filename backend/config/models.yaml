@@ -1,0 +1,16 @@
+# ModelRouter 配置 —— 换模型只改这里,不动业务代码(spec §11.4)
+#
+# verify_answer 故意使用与生成不同的厂商:同一模型的偏差是相关的,
+# 自己检查自己基本无效(spec §11.3)。
+
+tasks:
+  intent:        { provider: deepseek,    tier: cheap,   temperature: 0.0 }
+  outline:       { provider: deepseek,    tier: default, temperature: 0.3 }
+  section:       { provider: deepseek,    tier: default, temperature: 0.7 }
+  question:      { provider: deepseek,    tier: default, temperature: 0.4 }
+  verify_answer: { provider: gemini,      tier: cheap,   temperature: 0.0 }
+  mermaid:       { provider: deepseek,    tier: cheap,   temperature: 0.0 }
+  vision:        { provider: deepseek,    tier: flash }
+  embed:         { provider: siliconflow, model: bge-m3 }
+  image:         { provider: siliconflow, model: flux-1-schnell }
+  tts:           { provider: edge,        voice: zh-CN-XiaoxiaoNeural }
