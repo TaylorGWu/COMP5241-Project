@@ -43,6 +43,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from pydantic.alias_generators import to_camel
 
 from app.config import settings
 from app.demo_pipeline import (
@@ -71,6 +72,8 @@ from app.services.pipeline import (
     generate_course,
 )
 from app.services.planner import PlannerRequest, plan_outline
+from app.services.course_repository import InMemoryCourseRepository
+from app.services.teacher_courses import TeacherCourseService
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 
@@ -95,6 +98,13 @@ class _State:
 
 
 STATE = _State()
+COURSE_WORKSPACE = TeacherCourseService(InMemoryCourseRepository())
+
+
+def reset_course_workspace() -> None:
+    """Test hook: reset only the course-first demo state."""
+    global COURSE_WORKSPACE
+    COURSE_WORKSPACE = TeacherCourseService(InMemoryCourseRepository())
 
 
 async def _fake_ocr(image_bytes: bytes) -> str:
@@ -164,6 +174,68 @@ class ManualEditBody(BaseModel):
     note: str = "教师手动修改"
 
 
+class CourseCreateBody(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = ""
+    audience: str = "非计算机专业初学者"
+    duration_min: int = Field(default=45, ge=10, le=180, alias="durationMin")
+    language: str = "zh-HK"
+
+
+class CoursePatchBody(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = None
+    audience: str | None = None
+    duration_min: int | None = Field(default=None, ge=10, le=180, alias="durationMin")
+    language: str | None = None
+
+
+class ChapterCreateBody(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    summary: str = ""
+
+
+class ChapterPatchBody(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    summary: str | None = None
+    status: Literal["empty", "generating", "draft", "ready", "failed"] | None = None
+    package: dict[str, Any] | None = None
+
+
+class ReorderChaptersBody(BaseModel):
+    chapter_ids: list[str] = Field(alias="chapterIds")
+
+
+def _camel_json(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {to_camel(str(key)): _camel_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_camel_json(item) for item in value]
+    return value
+
+
+def _course_json(course: Any) -> dict[str, Any]:
+    return _camel_json(dataclasses.asdict(course))
+
+
+def _chapter_json(chapter: Any) -> dict[str, Any]:
+    return _camel_json(dataclasses.asdict(chapter))
+
+
+def _course_or_404(course_id: str) -> Any:
+    try:
+        return COURSE_WORKSPACE.repository.get_course(course_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="课程不存在") from error
+
+
+def _chapter_or_404(course_id: str, chapter_id: str) -> Any:
+    try:
+        return COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="章节不存在或不属于该课程") from error
+
+
 # ═══════════════════════════════════════════════════════════════
 # 序列化辅助
 # ═══════════════════════════════════════════════════════════════
@@ -179,6 +251,101 @@ def _patch_json(p: Any) -> dict[str, Any]:
 
 def _outline_json(outline: Any) -> dict[str, Any] | None:
     return outline.model_dump(by_alias=True) if outline is not None else None
+
+
+# ═══════════════════════════════════════════════════════════════
+# Course-first teacher workspace.  Legacy singleton endpoints below remain
+# temporarily for the existing page while it is migrated to these routes.
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/courses")
+async def list_courses() -> dict[str, Any]:
+    return {"courses": [_course_json(course) for course in COURSE_WORKSPACE.repository.list_courses()]}
+
+
+@router.post("/courses", status_code=201)
+async def create_course(body: CourseCreateBody) -> dict[str, Any]:
+    course = COURSE_WORKSPACE.create_course(
+        title=body.title,
+        description=body.description,
+        audience=body.audience,
+        duration_min=body.duration_min,
+        language=body.language,
+    )
+    return _course_json(course)
+
+
+@router.get("/courses/{course_id}")
+async def get_course(course_id: str) -> dict[str, Any]:
+    return _course_json(_course_or_404(course_id))
+
+
+@router.patch("/courses/{course_id}")
+async def update_course(course_id: str, body: CoursePatchBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    changes = body.model_dump(exclude_none=True)
+    try:
+        return _course_json(COURSE_WORKSPACE.repository.update_course(course_id, **changes))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/publish")
+async def publish_course(course_id: str) -> dict[str, Any]:
+    _course_or_404(course_id)
+    try:
+        return _course_json(COURSE_WORKSPACE.publish(course_id))
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/unpublish")
+async def unpublish_course(course_id: str) -> dict[str, Any]:
+    _course_or_404(course_id)
+    return _course_json(COURSE_WORKSPACE.unpublish(course_id))
+
+
+@router.post("/courses/{course_id}/chapters", status_code=201)
+async def create_chapter(course_id: str, body: ChapterCreateBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    try:
+        return _chapter_json(COURSE_WORKSPACE.repository.create_chapter(course_id, title=body.title, summary=body.summary))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/chapters/reorder")
+async def reorder_chapters(course_id: str, body: ReorderChaptersBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    try:
+        chapters = COURSE_WORKSPACE.repository.reorder_chapters(course_id, body.chapter_ids)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"chapters": [_chapter_json(chapter) for chapter in chapters]}
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}")
+async def get_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
+    return _chapter_json(_chapter_or_404(course_id, chapter_id))
+
+
+@router.patch("/courses/{course_id}/chapters/{chapter_id}")
+async def update_chapter(course_id: str, chapter_id: str, body: ChapterPatchBody) -> dict[str, Any]:
+    _chapter_or_404(course_id, chapter_id)
+    try:
+        return _chapter_json(COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, **body.model_dump(exclude_none=True)))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.delete("/courses/{course_id}/chapters/{chapter_id}", status_code=204)
+async def delete_chapter(course_id: str, chapter_id: str) -> None:
+    _chapter_or_404(course_id, chapter_id)
+    try:
+        COURSE_WORKSPACE.repository.delete_chapter(course_id, chapter_id)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 # ═══════════════════════════════════════════════════════════════
