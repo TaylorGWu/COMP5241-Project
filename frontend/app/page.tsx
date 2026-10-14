@@ -969,6 +969,10 @@ export default function Studio() {
   /** 左侧目录主动控制翻页；不能只依赖嵌入式窄视图里的 hash 跳转。 */
   const jumpTo = useCallback((targetId: string) => {
     setActiveId(targetId);
+    if (targetId.startsWith("slide-")) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
@@ -1027,9 +1031,9 @@ export default function Studio() {
       const current = activeId ? ids.indexOf(activeId) : -1;
       const base = current === -1 ? (delta > 0 ? -1 : 0) : current;
       const next = Math.min(Math.max(base + delta, 0), ids.length - 1);
-      document.getElementById(ids[next])?.scrollIntoView({ behavior: "smooth", block: "start" });
+      jumpTo(ids[next]);
     },
-    [view, slides, timeline, activeId],
+    [view, slides, timeline, activeId, jumpTo],
   );
 
   // ── 键盘审阅。审阅是最适合键盘的场景,所以不藏在文档里 ──────
@@ -1292,7 +1296,9 @@ export default function Studio() {
               {view === "slides" ? (
                 slides.length ? (
                   <div className="space-y-4">
-                    {slides.map((s, i) => (
+                    {slides.filter((s) => !activeId || activeId === `slide-${s.id}`).map((s) => {
+                      const i = slides.findIndex((candidate) => candidate.id === s.id);
+                      return (
                       <SlideCanvas
                         key={s.id}
                         slide={s}
@@ -1306,7 +1312,8 @@ export default function Studio() {
                         onCancelEdit={() => setEditing(null)}
                         onSave={(body) => onManualSave("slide", s.id, body)}
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="rounded-md border border-dashed border-line bg-surface px-5 py-10 text-center text-[15px] text-muted">
