@@ -933,6 +933,12 @@ export default function Studio() {
     window.setTimeout(() => setFocusedTarget(null), 2400);
   };
 
+  /** 左侧目录主动控制翻页；不能只依赖嵌入式窄视图里的 hash 跳转。 */
+  const jumpTo = useCallback((targetId: string) => {
+    setActiveId(targetId);
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   // ── 滚动定位:高亮左栏里当前在看的那一页 ──────────────────
   //
   // 一开始用 IntersectionObserver「取最靠上的可见项」,结果是错的:
@@ -1097,6 +1103,10 @@ export default function Studio() {
                           <li key={s.id}>
                             <a
                               href={`#slide-${s.id}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                jumpTo(`slide-${s.id}`);
+                              }}
                               aria-current={isActive ? "true" : undefined}
                               className={cx(
                                 "flex gap-2.5 rounded-sm px-2 py-1.5 text-[13px] leading-[1.35] transition-colors",
@@ -1120,6 +1130,10 @@ export default function Studio() {
                           <li key={entry.id}>
                             <a
                               href={`#plan-${entry.id}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                jumpTo(`plan-${entry.id}`);
+                              }}
                               aria-current={isActive ? "true" : undefined}
                               className={cx(
                                 "flex gap-2.5 rounded-sm px-2 py-1.5 text-[13px] leading-[1.35] transition-colors",
