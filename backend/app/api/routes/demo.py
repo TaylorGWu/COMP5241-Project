@@ -40,7 +40,7 @@ import json
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
@@ -74,6 +74,15 @@ from app.services.pipeline import (
 from app.services.planner import PlannerRequest, plan_outline
 from app.services.course_repository import InMemoryCourseRepository
 from app.services.teacher_courses import TeacherCourseService
+from app.services.paper import PaperRequest, compose_paper
+from app.services.glossary import (
+    GlossaryRequest,
+    VisualRequest,
+    build_glossary,
+    describe_visuals,
+)
+from app.services.questions import QuestionRequest, generate_questions
+from app.exporters import exam_paper_to_docx, lesson_plan_to_docx, slide_deck_to_pptx
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 
@@ -137,6 +146,18 @@ def _build_model(
 
         return FakeEditModel(delay=FAKE_MODEL_DELAY), "fake-edit", _fake_ocr, "fake"
 
+    if role == "questions":
+        # 每个流程都要自己的假模型 —— FakeSectionModel 不认识出题的 prompt,
+        # 拿它跑出题会直接降级成 0 道题(这个坑真踩过)。
+        from app.demo_teacher import FakeQuestionModel
+
+        return FakeQuestionModel(delay=FAKE_MODEL_DELAY), "fake-questions", _fake_ocr, "fake"
+
+    if role == "glossary":
+        from app.demo_teacher import FakeGlossaryModel
+
+        return FakeGlossaryModel(delay=FAKE_MODEL_DELAY), "fake-glossary", _fake_ocr, "fake"
+
     return FakeSectionModel(delay=FAKE_MODEL_DELAY), "fake-model", _fake_ocr, "fake"
 
 
@@ -163,6 +184,34 @@ class EditBody(BaseModel):
 
 class PatchBody(BaseModel):
     patch_id: str
+
+
+class QuestionsBody(BaseModel):
+    """出题。学习目标取自当前产物的大纲,不用前端再传一遍。"""
+
+    use_real_model: bool = False
+    #: 每个学习目标出几道题。
+    count_per_objective: int = Field(default=2, ge=1, le=5)
+    language: str = "zh-HK"
+
+
+class PaperBody(BaseModel):
+    """组卷。约束都在这。"""
+
+    total_points: int = Field(default=100, gt=0, le=500)
+    duration_min: int = Field(default=90, gt=0, le=600)
+    #: 必须覆盖的学习目标 id。留空表示不强制。
+    coverage: list[str] = Field(default_factory=list)
+    easy: float = Field(default=0.0, ge=0, le=1)
+    medium: float = Field(default=0.0, ge=0, le=1)
+    hard: float = Field(default=0.0, ge=0, le=1)
+
+
+class GlossaryBody(BaseModel):
+    """术语白话化与图片替代文本。"""
+
+    use_real_model: bool = False
+    language: str = "zh-HK"
 
 
 class ManualEditBody(BaseModel):
@@ -767,6 +816,217 @@ async def manual(body: ManualEditBody) -> dict[str, Any]:
     }
 
 
+# ===============================================================
+# 教师端的四个增量:出题 / 组卷 / 白话化 / 导出
+#
+# 这几个端点**直接写产物**,和 `/generate` 是同一类 ——
+# 「生成一个新产物」,不是「修改已有内容」。
+#
+# 那条不变式(未确认的 patch 不得改变产物 / apply_patch 是唯一的写路径)
+# 管的是**对已有内容的改动**。出题、组卷、生成术语表都是产出新东西,
+# 和 L1 生成课件同一性质。教师想改某一页的内容,仍然只能走 patch。
+# ===============================================================
+
+
+def _require_package() -> Any:
+    if STATE.package is None:
+        raise HTTPException(status_code=409, detail="先点「生成」")
+    return STATE.package
+
+
+def _deck_context(package: Any) -> str:
+    """把课件正文拼成一段文字,给出题和术语表当依据。
+
+    关键:**出题不能凭空出。** 题目该考的是这份课件讲过的东西,
+    所以上下文直接取已生成的课件 —— 教师改完课件再出题,题目跟着变。
+    """
+    deck = package.slide_deck
+    if deck is None:
+        return ""
+    lines: list[str] = []
+    for slide in deck.slides:
+        lines.append(f"# {slide.title}")
+        lines.extend(f"- {b}" for b in slide.bullets)
+        if slide.speaker_notes:
+            lines.append(slide.speaker_notes)
+    return "\n".join(lines)
+
+
+@router.post("/questions")
+async def make_questions(body: QuestionsBody) -> dict[str, Any]:
+    """按大纲里的学习目标出题,结果挂到产物上。"""
+    package = _require_package()
+    client, model, _, mode = _build_model(body.use_real_model, "questions")
+
+    result = await generate_questions(
+        QuestionRequest(
+            objectives=list(package.project.learning_objectives),
+            audience=package.project.meta.audience,
+            language=body.language,
+            count_per_objective=body.count_per_objective,
+            material_context=_deck_context(package),
+        ),
+        client=client,
+        model=model,
+    )
+
+    package.question_set = result.question_set
+    # 换了题库之后旧卷子必然对不上(§6.4 会报「引用了不存在的题目」)
+    package.exam_paper = None
+
+    return {
+        "model_mode": mode,
+        "question_set": _package_json(result.question_set),
+        "used_fallback": result.used_fallback,
+        "reason": result.reason,
+        "package": _package_json(package),
+    }
+
+
+@router.post("/paper")
+async def make_paper(body: PaperBody) -> dict[str, Any]:
+    """按约束从题库组卷。**纯算法,不调用模型。**"""
+    package = _require_package()
+    if package.question_set is None or not package.question_set.questions:
+        raise HTTPException(status_code=409, detail="先出题,题库还是空的")
+
+    from app.schemas.ir import ExamConstraints, PaperDifficulty
+
+    coverage = body.coverage or [o.id for o in package.project.learning_objectives]
+    result = compose_paper(
+        PaperRequest(
+            question_set=package.question_set,
+            constraints=ExamConstraints(
+                total_points=body.total_points,
+                duration_min=body.duration_min,
+                coverage=coverage,
+                difficulty=PaperDifficulty(
+                    easy=body.easy, medium=body.medium, hard=body.hard
+                ),
+            ),
+        )
+    )
+
+    package.exam_paper = result.paper
+
+    return {
+        "ok": result.ok,
+        "reason": result.reason,
+        "actual_points": result.actual_points,
+        "missing": sorted(result.missing),
+        "actual_difficulty": result.actual_difficulty.model_dump(),
+        "paper": _package_json(result.paper),
+        "package": _package_json(package),
+    }
+
+
+@router.post("/glossary")
+async def make_glossary(body: GlossaryBody) -> dict[str, Any]:
+    """生成术语白话解释,并给每张已渲染的图配替代文本。"""
+    package = _require_package()
+    client, model, _, mode = _build_model(body.use_real_model, "glossary")
+
+    glossary_result = await build_glossary(
+        GlossaryRequest(
+            content=_deck_context(package),
+            objectives=list(package.project.learning_objectives),
+            language=body.language,
+        ),
+        client=client,
+        model=model,
+    )
+
+    visuals = [
+        visual
+        for slide in (package.slide_deck.slides if package.slide_deck else [])
+        for visual in slide.visuals
+    ]
+    alt_result = await describe_visuals(
+        VisualRequest(visuals=visuals, language=body.language),
+        client=client,
+        model=model,
+    )
+
+    package.project.glossary = glossary_result.glossary
+    for asset in package.assets:
+        if asset.id in alt_result.alt_texts:
+            asset.alt_text = alt_result.alt_texts[asset.id]
+
+    return {
+        "model_mode": mode,
+        "glossary": [g.model_dump(by_alias=True) for g in glossary_result.glossary],
+        "alt_texts": alt_result.alt_texts,
+        "used_fallback": glossary_result.used_fallback or alt_result.used_fallback,
+        "reason": ";".join(r for r in (glossary_result.reason, alt_result.reason) if r),
+        "package": _package_json(package),
+    }
+
+
+def _attachment(data: bytes, filename: str, media_type: str) -> Response:
+    """下载响应。
+
+    中文文件名要用 RFC 5987 的 `filename*=UTF-8''...` 形式,
+    只写 `filename=` 的话 Chrome 会给出乱码文件名。
+    """
+    from urllib.parse import quote
+
+    disposition = (
+        f'attachment; filename="course-export"'
+        f"; filename*=UTF-8''{quote(filename)}"
+    )
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": disposition},
+    )
+
+
+_DOCX_MEDIA = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+_PPTX_MEDIA = (
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+)
+
+
+@router.get("/export/deck.pptx")
+async def export_deck() -> Response:
+    """课件导出成 pptx。**纯转换,不调用模型。**"""
+    package = _require_package()
+    if package.slide_deck is None:
+        raise HTTPException(status_code=409, detail="还没有课件")
+    data = slide_deck_to_pptx(package.project, package.slide_deck)
+    return _attachment(data, f"{package.project.meta.title}.pptx", _PPTX_MEDIA)
+
+
+@router.get("/export/lesson-plan.docx")
+async def export_lesson_plan() -> Response:
+    """教案导出成 docx。"""
+    package = _require_package()
+    if package.lesson_plan is None:
+        raise HTTPException(status_code=409, detail="还没有教案")
+    data = lesson_plan_to_docx(package.project, package.lesson_plan)
+    return _attachment(data, f"{package.project.meta.title}-教案.docx", _DOCX_MEDIA)
+
+
+@router.get("/export/exam-paper.docx")
+async def export_exam_paper(answers: bool = True) -> Response:
+    """考卷导出成 docx。`?answers=false` 得到学生版(不含答案与解析)。"""
+    package = _require_package()
+    if package.exam_paper is None or package.question_set is None:
+        raise HTTPException(status_code=409, detail="先出题并组卷")
+    data = exam_paper_to_docx(
+        package.project,
+        package.question_set,
+        package.exam_paper,
+        include_answer_key=answers,
+    )
+    suffix = "教师版" if answers else "学生版"
+    return _attachment(
+        data, f"{package.project.meta.title}-试卷-{suffix}.docx", _DOCX_MEDIA
+    )
+
+
 @router.get("/state")
 async def state() -> dict[str, Any]:
     """当前状态。刷新页面后前端用它恢复。"""
@@ -776,6 +1036,9 @@ async def state() -> dict[str, Any]:
         "has_package": True,
         "model_mode": STATE.model_mode,
         "package": _package_json(STATE.package),
+        # 交叉引用校验结果也要给 —— 不然刷新之后那条「校验通过」的横条会消失,
+        # 界面和刚生成时不一致。教师会以为是自己改坏了什么。
+        "integrity_issues": STATE.package.validate_integrity(),
         # 全部历史,不只是待确认的 —— 教师改了什么也要看得见(可审计)
         "patches": [
             _patch_json(p) for p in STATE.store.list(artifact_id_of(STATE.package))  # type: ignore[union-attr]

@@ -22,6 +22,15 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
   return (await res.json()) as T;
 }
 
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { signal });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
 // ── SSE 客户端(设计规格 §13.4)──────────────────────────────
 //
 // 为什么不用浏览器原生的 `EventSource`:
@@ -218,10 +227,96 @@ export type CoursePackage = {
     // language 是**教材**语言,由生成时的选择决定,和界面语言无关。
     meta: { title: string; audience: string; durationMin: number; language?: string };
     learningObjectives: { id: string; text: string }[];
+    /** 术语白话解释(§9.4)。没生成过就是空数组。 */
+    glossary?: GlossaryEntry[];
   };
   assets: { id: string; kind: string; url?: string; altText?: string }[];
   lessonPlan?: { timeline: TimelineEntry[]; overview: string };
   slideDeck?: { slides: Slide[] };
+  questionSet?: QuestionSet | null;
+  examPaper?: ExamPaper | null;
+};
+
+// ── 教师端四个增量:出题 / 组卷 / 白话化 / 导出 ──────────────
+
+export type Question = {
+  id: string;
+  type: "mcq" | "short" | "code" | "scenario";
+  stem: string;
+  options: { id: string; text: string }[];
+  answer: string;
+  explanation: string;
+  difficulty: number;
+  objectiveIds: string[];
+  points: number;
+};
+
+export type QuestionSet = {
+  artifactId: string;
+  questions: Question[];
+};
+
+export type PaperSection = { title: string; rule: string; questionIds: string[] };
+
+export type ExamPaper = {
+  artifactId: string;
+  constraints: {
+    totalPoints: number;
+    durationMin: number;
+    coverage: string[];
+    difficulty: { easy: number; medium: number; hard: number };
+  };
+  sections: PaperSection[];
+  answerKey: boolean;
+};
+
+export type GlossaryEntry = { term: string; plain: string; objectiveIds: string[] };
+
+export type QuestionsResponse = {
+  model_mode: string;
+  question_set: QuestionSet;
+  /** true 表示一道题都没出出来 —— 界面上要说清楚,别显示成「0 道题」。 */
+  used_fallback: boolean;
+  reason: string;
+  package: CoursePackage;
+};
+
+export type PaperResponse = {
+  ok: boolean;
+  /** 三条约束里哪条没满足。空字符串才是正常。 */
+  reason: string;
+  actual_points: number;
+  missing: string[];
+  actual_difficulty: { easy: number; medium: number; hard: number };
+  paper: ExamPaper;
+  package: CoursePackage;
+};
+
+export type GlossaryResponse = {
+  model_mode: string;
+  glossary: GlossaryEntry[];
+  alt_texts: Record<string, string>;
+  used_fallback: boolean;
+  reason: string;
+  package: CoursePackage;
+};
+
+/** `/state` 的返回。刷新页面后前端用它把产物接回来。 */
+export type StateResponse = {
+  has_package: boolean;
+  model_mode?: string;
+  package?: CoursePackage;
+  integrity_issues?: string[];
+  patches?: Patch[];
+};
+
+export type PaperConstraints = {
+  total_points: number;
+  duration_min: number;
+  coverage: string[];
+  easy: number;
+  medium: number;
+  hard: number;
 };
 
 export type Patch = {
@@ -266,6 +361,20 @@ export type GenerateInput = {
    * 后端会把它同时喂给规划阶段和分节撰写阶段。
    */
   language: string;
+};
+
+/**
+ * 导出下载地址。
+ *
+ * 这几个是**普通链接**,不走 fetch —— 浏览器拿到 `Content-Disposition`
+ * 就会直接下载,不用把二进制读进内存再造 Blob。
+ */
+export const exportUrls = {
+  deck: () => `${API_BASE}/api/demo/export/deck.pptx`,
+  lessonPlan: () => `${API_BASE}/api/demo/export/lesson-plan.docx`,
+  /** `answers=false` 是学生版(不含答案与解析)。 */
+  examPaper: (answers: boolean) =>
+    `${API_BASE}/api/demo/export/exam-paper.docx?answers=${answers}`,
 };
 
 export const api = {
@@ -318,6 +427,33 @@ export const api = {
         signal: handlers.signal,
       },
     ),
+
+  /**
+   * 取当前状态。
+   *
+   * **刷新页面之后必须调它** —— 否则生成结果只活在 React state 里,
+   * 页面一刷新就回到 Setup,而后端手里那份产物还在。
+   */
+  state: () => get<StateResponse>("/api/demo/state"),
+
+  /** 出题。学习目标取自产物的大纲,不用前端再传一遍。 */
+  questions: (countPerObjective: number, useReal: boolean, language: string) =>
+    post<QuestionsResponse>("/api/demo/questions", {
+      count_per_objective: countPerObjective,
+      use_real_model: useReal,
+      language,
+    }),
+
+  /** 组卷。**纯算法,不调用模型** —— 所以它不慢,也不需要「用真模型」开关。 */
+  paper: (constraints: PaperConstraints) =>
+    post<PaperResponse>("/api/demo/paper", constraints),
+
+  /** 术语白话化 + 图片替代文本。 */
+  glossary: (useReal: boolean, language: string) =>
+    post<GlossaryResponse>("/api/demo/glossary", {
+      use_real_model: useReal,
+      language,
+    }),
 
   apply: (patchId: string) =>
     post<{ package: CoursePackage }>("/api/demo/apply", { patch_id: patchId }),
