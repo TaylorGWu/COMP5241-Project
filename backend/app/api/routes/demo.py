@@ -348,6 +348,40 @@ async def delete_chapter(course_id: str, chapter_id: str) -> None:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
+@router.post("/courses/{course_id}/chapters/{chapter_id}/generate")
+async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) -> dict[str, Any]:
+    """Generate structured draft material into exactly one owned chapter."""
+    chapter = _chapter_or_404(course_id, chapter_id)
+    before = {"package": _package_json(chapter.package), "status": chapter.status}
+    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="generating")
+    events: list[dict[str, Any]] = []
+    try:
+        result, mode = await _run_generation(body, on_event=_collector(events))
+    except Exception:
+        COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
+        raise
+    chapter = COURSE_WORKSPACE.repository.update_chapter(
+        course_id,
+        chapter_id,
+        package=result.package,
+        materials=result.materials,
+        status="ready",
+    )
+    COURSE_WORKSPACE.record_version(
+        course_id,
+        chapter_id,
+        kind="generation",
+        reason="AI generated chapter draft",
+        changed_fields=["package", "materials", "status"],
+        before=before,
+        after={"package": _package_json(result.package), "status": "ready"},
+    )
+    return {
+        "chapter": _chapter_json(chapter),
+        **_generation_payload(result, mode, events),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════
 # SSE 传输层 —— 设计规格 §13.4
 # ═══════════════════════════════════════════════════════════════

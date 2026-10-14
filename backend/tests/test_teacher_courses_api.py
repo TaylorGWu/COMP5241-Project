@@ -59,3 +59,18 @@ async def test_publish_requires_ready_chapter_then_can_be_withdrawn():
     assert prepared.status_code == 200
     assert published.json()["status"] == "published"
     assert withdrawn.json()["status"] == "draft"
+
+
+async def test_generating_a_chapter_does_not_replace_another_chapter_package(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    first_id = course["chapterIds"][0]
+    second = await request("POST", f"/api/demo/courses/{course['id']}/chapters", {"title": "Branching"})
+    await request("PATCH", f"/api/demo/courses/{course['id']}/chapters/{first_id}", {"status": "ready", "package": {"marker": "keep"}})
+
+    generated = await request("POST", f"/api/demo/courses/{course['id']}/chapters/{second.json()['id']}/generate", {"topic": "Git branches", "audience": "Beginners", "duration_min": 30})
+    first = await request("GET", f"/api/demo/courses/{course['id']}/chapters/{first_id}")
+
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["chapter"]["status"] == "ready"
+    assert first.json()["package"] == {"marker": "keep"}
