@@ -260,6 +260,12 @@ class ReorderChaptersBody(BaseModel):
     chapter_ids: list[str] = Field(alias="chapterIds")
 
 
+class StudentImportBody(BaseModel):
+    """A small CSV-shaped roster payload from the teacher workspace."""
+
+    rows: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+
+
 def _camel_json(value: Any) -> Any:
     if isinstance(value, dict):
         return {to_camel(str(key)): _camel_json(item) for key, item in value.items()}
@@ -358,6 +364,41 @@ async def publish_course(course_id: str) -> dict[str, Any]:
 async def unpublish_course(course_id: str) -> dict[str, Any]:
     _course_or_404(course_id)
     return _course_json(COURSE_WORKSPACE.unpublish(course_id))
+
+
+@router.post("/courses/{course_id}/students/import")
+async def import_students(course_id: str, body: StudentImportBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    result = COURSE_WORKSPACE.import_students(course_id, body.rows)
+    return {
+        "imported": result["imported"],
+        "errors": result["errors"],
+        "students": [_camel_json(dataclasses.asdict(student)) for student in result["students"]],
+    }
+
+
+@router.post("/courses/{course_id}/invites", status_code=201)
+async def create_course_invite(course_id: str) -> dict[str, str]:
+    _course_or_404(course_id)
+    return {"code": COURSE_WORKSPACE.create_invite(course_id)}
+
+
+@router.get("/courses/{course_id}/analytics")
+async def course_analytics(course_id: str) -> dict[str, Any]:
+    _course_or_404(course_id)
+    analytics = COURSE_WORKSPACE.analytics(course_id)
+    latest_attempts = {item["studentId"]: item for item in analytics["students"]}
+    students = []
+    for student in COURSE_WORKSPACE.students(course_id):
+        payload = _camel_json(dataclasses.asdict(student))
+        payload.update(latest_attempts.get(student.id, {"completionPercent": 0, "score": 0}))
+        students.append(payload)
+    return {
+        "enrolledCount": len(students),
+        "averageScore": analytics["averageScore"],
+        "mostMissed": analytics["mostMissed"],
+        "students": students,
+    }
 
 
 @router.post("/courses/{course_id}/chapters", status_code=201)

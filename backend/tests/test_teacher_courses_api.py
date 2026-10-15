@@ -93,3 +93,28 @@ async def test_activating_a_chapter_makes_its_ir_available_to_teacher_tools(monk
     assert activated.status_code == 200
     assert questions.status_code == 200
     assert questions.json()["package"]["questionSet"]["questions"]
+
+
+async def test_teacher_can_import_students_create_an_invite_and_view_actionable_analytics():
+    course = await create_course()
+    course_id = course["id"]
+
+    imported = await request(
+        "POST",
+        f"/api/demo/courses/{course_id}/students/import",
+        {"rows": [
+            {"row": 2, "name": "Ada Lovelace", "email": "ada@example.com"},
+            {"row": 3, "name": "", "email": "missing-name@example.com"},
+        ]},
+    )
+    invite = await request("POST", f"/api/demo/courses/{course_id}/invites")
+    analytics = await request("GET", f"/api/demo/courses/{course_id}/analytics")
+
+    assert imported.status_code == 200
+    assert imported.json()["imported"] == 1
+    assert imported.json()["errors"] == [{"row": 3, "message": "name is required"}]
+    assert invite.status_code == 201
+    assert invite.json()["code"].startswith(f"invite-{course_id}-")
+    assert analytics.status_code == 200
+    assert analytics.json()["enrolledCount"] == 1
+    assert analytics.json()["averageScore"] == 0

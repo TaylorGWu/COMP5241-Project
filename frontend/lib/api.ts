@@ -272,6 +272,22 @@ export type TeacherChapter = {
   package?: CoursePackage | null;
 };
 
+export type EnrolledStudent = {
+  id: string;
+  courseId: string;
+  studentName: string;
+  email: string;
+  completionPercent: number;
+  score: number;
+};
+
+export type CourseAnalytics = {
+  enrolledCount: number;
+  averageScore: number;
+  mostMissed: { questionId: string; wrongCount: number }[];
+  students: EnrolledStudent[];
+};
+
 // ── 教师端四个增量:出题 / 组卷 / 白话化 / 导出 ──────────────
 
 export type Question = {
@@ -483,6 +499,11 @@ export const api = {
 
   course: (courseId: string) => get<TeacherCourse>(`/api/demo/courses/${courseId}`),
 
+  updateCourse: (
+    courseId: string,
+    changes: Partial<Pick<TeacherCourse, "title" | "description" | "audience" | "durationMin" | "language">>,
+  ) => patch<TeacherCourse>(`/api/demo/courses/${courseId}`, changes),
+
   publishCourse: (courseId: string) => post<TeacherCourse>(`/api/demo/courses/${courseId}/publish`, {}),
   unpublishCourse: (courseId: string) => post<TeacherCourse>(`/api/demo/courses/${courseId}/unpublish`, {}),
 
@@ -492,8 +513,24 @@ export const api = {
   createChapter: (courseId: string, input: { title: string; summary?: string }) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters`, input),
 
-  deleteChapter: (courseId: string, chapterId: string) =>
-    fetch(`${API_BASE}/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" }),
+  deleteChapter: async (courseId: string, chapterId: string) => {
+    const res = await fetch(`${API_BASE}/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    }
+  },
+
+  reorderChapters: (courseId: string, chapterIds: string[]) =>
+    post<{ chapters: TeacherChapter[] }>(`/api/demo/courses/${courseId}/chapters/reorder`, { chapterIds }),
+
+  importStudents: (courseId: string, rows: { row: number; name: string; email: string }[]) =>
+    post<{ imported: number; errors: { row: number; message: string }[]; students: EnrolledStudent[] }>(
+      `/api/demo/courses/${courseId}/students/import`, { rows },
+    ),
+
+  createInvite: (courseId: string) => post<{ code: string }>(`/api/demo/courses/${courseId}/invites`, {}),
+  analytics: (courseId: string) => get<CourseAnalytics>(`/api/demo/courses/${courseId}/analytics`),
 
   activateChapter: (courseId: string, chapterId: string) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),

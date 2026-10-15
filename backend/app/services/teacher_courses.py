@@ -86,6 +86,11 @@ class TeacherCourseService:
         self.repository.get_course(course_id)
         return f"invite-{course_id}-{next(self._invite_numbers)}"
 
+    def students(self, course_id: str) -> list[Enrollment]:
+        """Return the class roster, including learners who have not started yet."""
+        self.repository.get_course(course_id)
+        return list(self._enrollments.get(course_id, []))
+
     def record_attempt(self, course_id: str, student_id: str, *, completion_percent: int, answers: dict[str, bool]) -> Attempt:
         self.repository.get_course(course_id)
         if not 0 <= completion_percent <= 100:
