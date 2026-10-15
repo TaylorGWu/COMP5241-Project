@@ -1230,6 +1230,14 @@ export default function Studio() {
 
             {/* ── 中:材料 ─────────────────────────────── */}
             <main className="min-w-0">
+              <TeacherTools
+                pkg={pkg}
+                busy={busy}
+                onQuestions={onQuestions}
+                onPaper={onPaper}
+                onGlossary={onGlossary}
+              />
+
               {view === "slides" ? (
                 slides.length ? (
                   <div className="space-y-4">
@@ -1290,16 +1298,6 @@ export default function Studio() {
                 coverage={coverage}
                 onRequestCoverage={requestCoverage}
               />
-
-              {pkg ? (
-                <TeacherTools
-                  pkg={pkg}
-                  busy={busy}
-                  onQuestions={onQuestions}
-                  onPaper={onPaper}
-                  onGlossary={onGlossary}
-                />
-              ) : null}
             </aside>
           </div>
         </>
