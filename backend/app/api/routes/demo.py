@@ -132,7 +132,12 @@ def _build_model(
     `role` 决定用哪个假模型:L1 生成和 L2 编辑的假模型不一样 ——
     **L1 的假模型不认识编辑工具**,拿它跑编辑会得到 0 个 patch。
     """
-    if use_real and settings.deepseek_api_key:
+    if use_real:
+        if not settings.deepseek_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="未配置模型密钥。请在后端 env.yaml 或环境变量中配置 DEEPSEEK_API_KEY。",
+            )
         client = build_deepseek_client()
         return (
             client,

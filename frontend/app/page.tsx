@@ -408,8 +408,6 @@ function Setup({
   setObjectives,
   materialText,
   setMaterialText,
-  useReal,
-  setUseReal,
   contentLang,
   setContentLang,
   busy,
@@ -437,8 +435,6 @@ function Setup({
   setObjectives: (v: string) => void;
   materialText: string;
   setMaterialText: (v: string) => void;
-  useReal: boolean;
-  setUseReal: (v: boolean) => void;
   contentLang: Locale;
   setContentLang: (v: Locale) => void;
   busy: boolean;
@@ -556,18 +552,6 @@ function Setup({
             </ul>
           ) : null}
 
-          <label className="mt-4 flex items-start gap-2.5 border-t border-line pt-4 text-[14px] text-body">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={useReal}
-              onChange={(e) => setUseReal(e.target.checked)}
-            />
-            <span>
-              {t.setup.useReal}
-              <span className="block text-[12px] text-muted">{t.setup.useRealHint}</span>
-            </span>
-          </label>
         </Card>
       </div>
 
@@ -718,7 +702,6 @@ export default function Studio() {
   const [duration, setDuration] = useState(45);
   const [objectives, setObjectives] = useState(DEFAULT_OBJECTIVES);
   const [materialText, setMaterialText] = useState(DEFAULT_MATERIAL);
-  const [useReal, setUseReal] = useState(false);
   const [contentLang, setContentLangState] = useState<Locale>("zh-HK");
 
   const [busy, setBusy] = useState(false);
@@ -784,7 +767,7 @@ export default function Studio() {
       .map((s) => s.trim())
       .filter(Boolean),
     material_text: materialText,
-    use_real_model: useReal,
+    use_real_model: true,
     language: contentLang,
   });
 
@@ -978,7 +961,7 @@ export default function Studio() {
         // ★ 流式编辑:能看见 agent 先读了哪一页、为什么这么改。
         //   工具调用序列本身没变(后端还是同一个 edit_artifact),
         //   变的只是「什么时候看得到」。
-        await api.editStream(editMessage, useReal, {
+        await api.editStream(editMessage, true, {
           onProgress: (e) => setEditFrames((old) => [...old, e]),
           onResult: (r) => {
             setReply(r.reply);
@@ -1000,7 +983,7 @@ export default function Studio() {
 
   const onQuestions = () =>
     run(async () => {
-      const r = await api.questions(2, useReal, contentLang);
+      const r = await api.questions(2, true, contentLang);
       setPkg(r.package);
       setGen((g) => (g ? { ...g, model_mode: r.model_mode } : g));
     });
@@ -1021,7 +1004,7 @@ export default function Studio() {
 
   const onGlossary = () =>
     run(async () => {
-      const r = await api.glossary(useReal, contentLang);
+      const r = await api.glossary(true, contentLang);
       setPkg(r.package);
       setGen((g) => (g ? { ...g, model_mode: r.model_mode } : g));
     });
@@ -1235,8 +1218,6 @@ export default function Studio() {
           setObjectives={setObjectives}
           materialText={materialText}
           setMaterialText={setMaterialText}
-          useReal={useReal}
-          setUseReal={setUseReal}
           contentLang={contentLang}
           setContentLang={setContentLang}
           busy={busy}
