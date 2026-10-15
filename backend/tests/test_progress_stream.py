@@ -271,6 +271,23 @@ async def test_edit_stream_does_not_touch_the_package():
     assert all(p["status"] == "proposed" for p in result["patches"])
 
 
+async def test_edit_stream_understands_the_default_english_slide_reference():
+    """教师端默认文案是英文，不能因此把 Slide 2 错改成第 1 页。"""
+    await _sync(PAYLOAD)
+
+    frames = await _stream(
+        {
+            "message": "Slide 2 is too dense for a non-CS audience.",
+            "use_real_model": False,
+        },
+        path="/api/demo/edit/stream",
+    )
+    result = next(data for name, data in frames if name == "result")
+
+    assert result["patches"]
+    assert result["patches"][0]["target_id"] == "s2"
+
+
 async def test_edit_stream_without_a_package_returns_409():
     """还没生成就来编辑 —— 要立刻 409,而不是开个流在里面报错。"""
     transport = httpx.ASGITransport(app=app)

@@ -68,6 +68,40 @@ function Bullets({ items, twoCol }: { items: string[]; twoCol?: boolean }) {
   );
 }
 
+/**
+ * 离线 demo 的结构图只需要覆盖当前 IR 里的 Mermaid `A[label]-->B[label]`
+ * 形式。把文字源码直接交给教师不是预览；这里用 SVG 做确定性渲染，
+ * 保持「IR → 画面」纯转换，也不会把带中文标注的示意图交给文生图模型。
+ */
+function DiagramPreview({ code, alt }: { code?: string; alt?: string }) {
+  const nodes = code?.match(/\[([^\]]+)\]\s*--+>\s*[^\[]*\[([^\]]+)\]/);
+
+  if (!nodes) {
+    return (
+      <p className="text-[13px] leading-[1.5] text-muted">
+        {alt ?? "Diagram specification is unavailable."}
+      </p>
+    );
+  }
+
+  const [, from, to] = nodes;
+  return (
+    <svg viewBox="0 0 640 230" className="h-full w-full" role="img" aria-label={alt ?? `${from} leads to ${to}`}>
+      <defs>
+        <marker id="diagram-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+        </marker>
+      </defs>
+      <rect x="38" y="72" width="218" height="84" rx="12" fill="#eaf1ff" stroke="#3564c9" strokeWidth="2" />
+      <rect x="384" y="72" width="218" height="84" rx="12" fill="#f4f6f9" stroke="#9aa8bd" strokeWidth="2" />
+      <path d="M 268 114 H 365" stroke="#3564c9" strokeWidth="4" markerEnd="url(#diagram-arrow)" />
+      <text x="147" y="121" textAnchor="middle" className="fill-[#17233a] text-[22px] font-semibold">{from}</text>
+      <text x="493" y="121" textAnchor="middle" className="fill-[#17233a] text-[22px] font-semibold">{to}</text>
+      <text x="320" y="53" textAnchor="middle" className="fill-[#65758d] text-[14px]">从概念到实际应用</text>
+    </svg>
+  );
+}
+
 /** 按 layout 渲染版面。每个分支都只读 IR,不读任何界面状态。 */
 function SlideBody({ slide }: { slide: Slide }) {
   const { t } = useI18n();
@@ -101,20 +135,12 @@ function SlideBody({ slide }: { slide: Slide }) {
       <div className="flex h-full flex-col">
         <SlideTitle>{title}</SlideTitle>
         <div className="flex min-h-0 flex-1 gap-6">
-          {/* 图还没渲染成 PNG 之前把源码显示出来 ——
-              一个空框说明不了任何事,源码至少告诉你这张图会画成什么。 */}
-          <div className="flex flex-1 flex-col justify-center gap-2.5 overflow-hidden rounded-sm border border-dashed border-line bg-soft px-5 py-4">
+          <div className="flex flex-1 flex-col justify-center gap-2.5 overflow-hidden rounded-sm border border-line bg-soft px-5 py-4">
             <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-muted uppercase">
               {visual?.kind ?? "figure"} ·{" "}
               {visual?.assetId ? visual.assetId : t.slide.notGenerated}
             </p>
-            {visual?.spec?.code ? (
-              <pre className="overflow-hidden font-mono text-[13px] leading-[1.5] whitespace-pre-wrap text-body">
-                {visual.spec.code}
-              </pre>
-            ) : (
-              <p className="text-[13px] text-muted">{t.slide.noSource}</p>
-            )}
+            <DiagramPreview code={visual?.spec?.code} alt={visual?.kind} />
           </div>
           {bullets.length ? (
             <div className="w-[38%] overflow-hidden">

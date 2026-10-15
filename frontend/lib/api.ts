@@ -22,6 +22,19 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
   return (await res.json()) as T;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { signal });
   if (!res.ok) {
@@ -237,6 +250,28 @@ export type CoursePackage = {
   examPaper?: ExamPaper | null;
 };
 
+/** 课程拥有章节；课件、题库与试卷都属于某一个章节草稿。 */
+export type TeacherCourse = {
+  id: string;
+  title: string;
+  description: string;
+  audience: string;
+  language: string;
+  durationMin: number;
+  status: "draft" | "published";
+  chapterIds: string[];
+};
+
+export type TeacherChapter = {
+  id: string;
+  courseId: string;
+  title: string;
+  summary: string;
+  order: number;
+  status: "empty" | "generating" | "draft" | "ready" | "failed";
+  package?: CoursePackage | null;
+};
+
 // ── 教师端四个增量:出题 / 组卷 / 白话化 / 导出 ──────────────
 
 export type Question = {
@@ -435,6 +470,29 @@ export const api = {
    * 页面一刷新就回到 Setup,而后端手里那份产物还在。
    */
   state: () => get<StateResponse>("/api/demo/state"),
+
+  createCourse: (input: {
+    title: string;
+    description: string;
+    audience: string;
+    durationMin: number;
+    language: string;
+  }) => post<TeacherCourse>("/api/demo/courses", input),
+
+  chapter: (courseId: string, chapterId: string) =>
+    get<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`),
+
+  updateChapter: (
+    courseId: string,
+    chapterId: string,
+    changes: Partial<Pick<TeacherChapter, "title" | "summary" | "status" | "package">>,
+  ) => patch<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`, changes),
+
+  generateChapter: (courseId: string, chapterId: string, input: GenerateInput) =>
+    post<GenerateResponse & { chapter: TeacherChapter }>(
+      `/api/demo/courses/${courseId}/chapters/${chapterId}/generate`,
+      input,
+    ),
 
   /** 出题。学习目标取自产物的大纲,不用前端再传一遍。 */
   questions: (countPerObjective: number, useReal: boolean, language: string) =>

@@ -42,6 +42,8 @@ import {
   type MaterialReport,
   type Patch,
   type ProgressEvent,
+  type TeacherChapter,
+  type TeacherCourse,
 } from "@/lib/api";
 import { LOCALES, LOCALE_LABELS, normalizeLocale, type Locale } from "@/lib/i18n-config";
 import { useI18n } from "@/lib/i18n";
@@ -415,6 +417,8 @@ function Setup({
   materials,
   elapsed,
   onCancel,
+  course,
+  onCreateCourse,
   onGenerate,
   onOutline,
 }: {
@@ -437,6 +441,8 @@ function Setup({
   materials: MaterialReport[];
   elapsed: number;
   onCancel: () => void;
+  course: TeacherCourse | null;
+  onCreateCourse: () => void;
   onGenerate: () => void;
   onOutline: () => void;
 }) {
@@ -551,13 +557,17 @@ function Setup({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button variant="primary" className="min-h-[46px] px-6" onClick={onGenerate} disabled={busy}>
-          {busy ? t.setup.working : t.setup.generate}
+        <Button variant="primary" className="min-h-[46px] px-6" onClick={course ? onGenerate : onCreateCourse} disabled={busy}>
+          {busy ? t.setup.working : course ? t.setup.generate : "Create course draft"}
         </Button>
-        <Button className="min-h-[46px]" onClick={onOutline} disabled={busy}>
+        <Button className="min-h-[46px]" onClick={onOutline} disabled={busy || !course}>
           {t.setup.outlineOnly}
         </Button>
-        <p className="text-[13px] text-muted">{t.setup.outlineOnlyHint}</p>
+        <p className="text-[13px] text-muted">
+          {course
+            ? `Course draft created · next: generate ${course.chapterIds.length} chapter`
+            : "Step 1 of 2 · create a course before generating its first chapter"}
+        </p>
       </div>
 
       {events.length ? (
@@ -655,6 +665,8 @@ export default function Studio() {
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [gen, setGen] = useState<GenerateResponse | null>(null);
   const [pkg, setPkg] = useState<CoursePackage | null>(null);
+  const [course, setCourse] = useState<TeacherCourse | null>(null);
+  const [chapter, setChapter] = useState<TeacherChapter | null>(null);
   const [patches, setPatches] = useState<Patch[]>([]);
 
   const [editMessage, setEditMessage] = useState("Slide 2 is too dense for a non-CS audience.");
@@ -771,8 +783,26 @@ export default function Studio() {
       ]);
     });
 
+  const onCreateCourse = () =>
+    run(async () => {
+      const created = await api.createCourse({
+        title: topic,
+        description: materialText,
+        audience,
+        durationMin: duration,
+        language: contentLang,
+      });
+      const firstChapterId = created.chapterIds[0];
+      if (!firstChapterId) throw new Error("Course creation did not create a first chapter.");
+      setCourse(created);
+      setChapter(await api.chapter(created.id, firstChapterId));
+    });
+
   const onGenerate = () =>
     run(async () => {
+      if (!course || !chapter) {
+        throw new Error("Create the course before generating its first chapter.");
+      }
       // 每次重新生成都清干净 —— 否则上一次的进度会混进来
       if (revealRef.current !== null) {
         window.clearTimeout(revealRef.current);
@@ -798,6 +828,13 @@ export default function Studio() {
         },
         onResult: (r) => {
           setGen(r);
+          // The legacy stream returns the shared IR package. Persist that exact
+          // package under the selected course chapter so course ownership—not a
+          // global singleton—remains the teacher-facing source of truth.
+          void api.updateChapter(course.id, chapter.id, {
+            package: r.package,
+            status: "ready",
+          }).then(setChapter).catch((error) => setError(error instanceof Error ? error.message : String(error)));
           // ═══════════════════════════════════════════════════════
           // 为什么不立刻切到工作台
           // ═══════════════════════════════════════════════════════
@@ -1091,6 +1128,8 @@ export default function Studio() {
           busy={busy}
           events={events}
           materials={gen?.materials ?? []}
+          course={course}
+          onCreateCourse={onCreateCourse}
           onGenerate={onGenerate}
           onOutline={onOutline}
           elapsed={elapsed}

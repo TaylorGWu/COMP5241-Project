@@ -103,12 +103,16 @@ class FakeEditModel:
 
 
 def _parse_slide_id(messages: list[dict[str, Any]]) -> str:
-    """从教师的话里取「第 N 页」→ sN。"""
+    """从教师的话里取页码，兼容中文与教师端默认的英文提示。"""
     for m in messages:
         if m.get("role") == "user":
-            hit = re.search(r"第\s*(\d+)\s*页", m.get("content", ""))
+            hit = re.search(
+                r"(?:第\s*(\d+)\s*页|slide\s*#?\s*(\d+))",
+                m.get("content", ""),
+                flags=re.IGNORECASE,
+            )
             if hit:
-                return f"s{hit.group(1)}"
+                return f"s{next(group for group in hit.groups() if group is not None)}"
     return "s1"
 
 
