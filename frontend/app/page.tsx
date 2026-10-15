@@ -1183,13 +1183,10 @@ export default function Studio() {
                         const isActive = activeId === `slide-${s.id}`;
                         return (
                           <li key={s.id}>
-                            <a
-                              href={`#slide-${s.id}`}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                jumpTo(`slide-${s.id}`);
-                              }}
-                              aria-current={isActive ? "true" : undefined}
+                            <button
+                              type="button"
+                              onClick={() => jumpTo(`slide-${s.id}`)}
+                              aria-pressed={isActive}
                               className={cx(
                                 "flex gap-2.5 rounded-sm px-2 py-1.5 text-[13px] leading-[1.35] transition-colors",
                                 isActive
@@ -1202,7 +1199,7 @@ export default function Studio() {
                               </span>
                               <span className="min-w-0 flex-1">{s.title}</span>
                               {pendingByTarget[s.id] ? <Dot tone="violet" /> : null}
-                            </a>
+                            </button>
                           </li>
                         );
                       })
@@ -1210,13 +1207,10 @@ export default function Studio() {
                         const isActive = activeId === `plan-${entry.id}`;
                         return (
                           <li key={entry.id}>
-                            <a
-                              href={`#plan-${entry.id}`}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                jumpTo(`plan-${entry.id}`);
-                              }}
-                              aria-current={isActive ? "true" : undefined}
+                            <button
+                              type="button"
+                              onClick={() => jumpTo(`plan-${entry.id}`)}
+                              aria-pressed={isActive}
                               className={cx(
                                 "flex gap-2.5 rounded-sm px-2 py-1.5 text-[13px] leading-[1.35] transition-colors",
                                 isActive
@@ -1229,7 +1223,7 @@ export default function Studio() {
                               </span>
                               <span className="min-w-0 flex-1">{entry.phase}</span>
                               {pendingByTarget[entry.id] ? <Dot tone="violet" /> : null}
-                            </a>
+                            </button>
                           </li>
                         );
                       })}
