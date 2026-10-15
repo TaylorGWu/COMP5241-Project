@@ -21,9 +21,9 @@
  * 而不是依赖上一次的响应。这样刷新前后看到的是同一件事。
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { Button, Dot, Field, SectionLabel, cx, inputCls } from "@/components/ui";
+import { Button, Card, Dot, Field, SectionLabel, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import { exportUrls, type CoursePackage } from "@/lib/api";
 
@@ -72,8 +72,8 @@ export function TeacherTools({
   const paperExact = paper !== null && actualPoints === targetPoints;
 
   return (
-    <div
-      className="mt-5 border-t border-line pt-4"
+    <section
+      className="mt-6 border-t border-line pt-5"
       // data-* 是给验证脚本读的**稳定契约**。断言文字的话,
       // 改一次文案或加一种语言,脚本就会「通过」—— 因为它什么都没匹配到。
       data-teacher-tools="1"
@@ -84,100 +84,58 @@ export function TeacherTools({
       data-paper-target={targetPoints}
     >
       <SectionLabel>{t.tools.title}</SectionLabel>
-
-      {/* ── 出题 ── */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <Button
-          className="min-h-0 px-3 py-1.5 text-[13px]"
-          disabled={busy}
-          onClick={onQuestions}
-        >
-          {questions.length ? t.tools.questionsAgain : t.tools.questions}
-        </Button>
-        <span className="text-[12px] text-muted">
-          {questions.length ? t.tools.questionsNote(questions.length) : t.tools.notYet}
-        </span>
-      </div>
-
-      {questions.length ? (
-        <div className="mt-1.5 flex items-center gap-2 text-[12px] text-muted">
-          <Dot tone="green" />
-          {t.tools.difficultySpread(
-            Math.min(...questions.map((q) => q.difficulty)),
-            Math.max(...questions.map((q) => q.difficulty)),
-          )}
-        </div>
-      ) : null}
-
-      {/* ── 组卷 ── */}
-      <div className="mt-3 border-t border-line pt-3">
-        <div className="grid grid-cols-2 gap-2">
-          <Field label={t.tools.paperTotal}>
-            <input
-              type="number"
-              data-field="total"
-              className={cx(inputCls, "py-1 text-[13px]")}
-              value={total}
-              onChange={(e) => setTotal(Number(e.target.value))}
-            />
-          </Field>
-          <Field label={t.tools.paperDuration}>
-            <input
-              type="number"
-              data-field="duration"
-              className={cx(inputCls, "py-1 text-[13px]")}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-            />
-          </Field>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Button
-            className="min-h-0 px-3 py-1.5 text-[13px]"
-            disabled={busy || questions.length === 0}
-            onClick={() => onPaper(total, duration)}
-          >
-            {t.tools.paper}
-          </Button>
-          {paper ? (
-            <span
-              className={cx(
-                "flex items-center gap-2 text-[12px]",
-                paperExact ? "text-body" : "text-amber",
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <ToolCard title={t.tools.questions}>
+          <p className="text-[13px] leading-[1.45] text-muted">
+            {questions.length ? t.tools.questionsNote(questions.length) : t.tools.notYet}
+          </p>
+          {questions.length ? (
+            <p className="mt-2 flex items-center gap-2 text-[12px] text-body">
+              <Dot tone="green" />
+              {t.tools.difficultySpread(
+                Math.min(...questions.map((q) => q.difficulty)),
+                Math.max(...questions.map((q) => q.difficulty)),
               )}
-              data-paper={paperExact ? "exact" : "short"}
-            >
-              <Dot tone={paperExact ? "green" : "amber"} />
-              {paperExact
-                ? t.tools.paperExact(targetPoints)
-                : t.tools.paperShort(actualPoints, targetPoints)}
-            </span>
-          ) : (
-            <span className="text-[12px] text-muted">{t.tools.notYet}</span>
-          )}
-        </div>
-      </div>
+            </p>
+          ) : null}
+          <Button className="mt-3 min-h-0 w-full px-3 py-2 text-[13px]" disabled={busy} onClick={onQuestions}>
+            {questions.length ? t.tools.questionsAgain : t.tools.questions}
+          </Button>
+        </ToolCard>
 
-      {/* ── 术语白话化 ── */}
-      <div className="mt-3 border-t border-line pt-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            className="min-h-0 px-3 py-1.5 text-[13px]"
-            disabled={busy}
-            onClick={onGlossary}
-          >
+        <ToolCard title={t.tools.glossary}>
+          <p className="text-[13px] leading-[1.45] text-muted">
+            {glossary.length ? t.tools.glossaryNote(glossary.length) : t.tools.notYet}
+          </p>
+          <Button className="mt-3 min-h-0 w-full px-3 py-2 text-[13px]" disabled={busy} onClick={onGlossary}>
             {t.tools.glossary}
           </Button>
-          <span className="text-[12px] text-muted">
-            {glossary.length ? t.tools.glossaryNote(glossary.length) : t.tools.notYet}
-          </span>
-        </div>
-      </div>
+        </ToolCard>
 
-      {/* ── 导出 ── */}
-      <div className="mt-3 border-t border-line pt-3">
-        <SectionLabel>{t.tools.export}</SectionLabel>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <ToolCard title={t.tools.paper} className="md:col-span-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t.tools.paperTotal}>
+              <input type="number" data-field="total" className={cx(inputCls, "py-2 text-[14px]")} value={total} onChange={(e) => setTotal(Number(e.target.value))} />
+            </Field>
+            <Field label={t.tools.paperDuration}>
+              <input type="number" data-field="duration" className={cx(inputCls, "py-2 text-[14px]")} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+            </Field>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button variant="primary" className="min-h-0 px-4 py-2 text-[13px]" disabled={busy || questions.length === 0} onClick={() => onPaper(total, duration)}>
+              {t.tools.paper}
+            </Button>
+            {paper ? (
+              <span className={cx("flex items-center gap-2 text-[12px]", paperExact ? "text-body" : "text-amber")} data-paper={paperExact ? "exact" : "short"}>
+                <Dot tone={paperExact ? "green" : "amber"} />
+                {paperExact ? t.tools.paperExact(targetPoints) : t.tools.paperShort(actualPoints, targetPoints)}
+              </span>
+            ) : <span className="text-[12px] text-muted">{t.tools.notYet}</span>}
+          </div>
+        </ToolCard>
+
+        <ToolCard title={t.tools.export} className="md:col-span-2">
+          <div className="flex flex-wrap gap-2">
           <ExportLink
             kind="deck"
             href={exportUrls.deck()}
@@ -200,10 +158,20 @@ export function TeacherTools({
             label={t.tools.exportExamStudent}
             disabled={!paper}
           />
-        </div>
-        <p className="mt-1.5 text-[11px] text-muted">{t.tools.exportNote}</p>
+          </div>
+          <p className="mt-3 text-[12px] leading-[1.45] text-muted">{t.tools.exportNote}</p>
+        </ToolCard>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function ToolCard({ title, className, children }: { title: string; className?: string; children: ReactNode }) {
+  return (
+    <Card className={cx("p-4", className)}>
+      <SectionLabel>{title}</SectionLabel>
+      <div className="mt-3">{children}</div>
+    </Card>
   );
 }
 

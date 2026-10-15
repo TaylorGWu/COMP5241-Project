@@ -74,18 +74,6 @@ A branch keeps one person's work separate from everyone else's, so the shared ma
 
 Before merging, read the change the way a reviewer would: what does it do, what could it break, and who needs to know?`;
 
-/** 输入框里就别抢快捷键。 */
-function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  return (
-    el.tagName === "INPUT" ||
-    el.tagName === "TEXTAREA" ||
-    el.tagName === "SELECT" ||
-    el.isContentEditable
-  );
-}
-
 // ── 页头 ──────────────────────────────────────────────────────
 
 function AppHeader({
@@ -1027,57 +1015,6 @@ export default function Studio() {
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, [pkg, view, slides, timeline]);
-
-  /** J / K:在画布上前后翻一页。 */
-  const step = useCallback(
-    (delta: number) => {
-      const ids =
-        view === "slides" ? slides.map((s) => `slide-${s.id}`) : timeline.map((e) => `plan-${e.id}`);
-      if (!ids.length) return;
-      const current = activeId ? ids.indexOf(activeId) : -1;
-      const base = current === -1 ? (delta > 0 ? -1 : 0) : current;
-      const next = Math.min(Math.max(base + delta, 0), ids.length - 1);
-      jumpTo(ids[next]);
-    },
-    [view, slides, timeline, activeId, jumpTo],
-  );
-
-  // ── 键盘审阅。审阅是最适合键盘的场景,所以不藏在文档里 ──────
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
-      const first = pending[0];
-      switch (e.key.toLowerCase()) {
-        case "a":
-          if (first) {
-            e.preventDefault();
-            onApply(first.id);
-          }
-          break;
-        case "r":
-          if (first) {
-            e.preventDefault();
-            onReject(first.id);
-          }
-          break;
-        case "j":
-          e.preventDefault();
-          step(1);
-          break;
-        case "k":
-          e.preventDefault();
-          step(-1);
-          break;
-        case "v":
-          e.preventDefault();
-          setView((v) => (v === "slides" ? "plan" : "slides"));
-          break;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, step]);
 
   const requestCoverage = (o: { id: string; text: string }) => setEditMessage(t.margin.coverGap(o.id, o.text));
 
