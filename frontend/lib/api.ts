@@ -483,6 +483,9 @@ export const api = {
 
   course: (courseId: string) => get<TeacherCourse>(`/api/demo/courses/${courseId}`),
 
+  publishCourse: (courseId: string) => post<TeacherCourse>(`/api/demo/courses/${courseId}/publish`, {}),
+  unpublishCourse: (courseId: string) => post<TeacherCourse>(`/api/demo/courses/${courseId}/unpublish`, {}),
+
   chapter: (courseId: string, chapterId: string) =>
     get<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`),
 

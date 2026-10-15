@@ -31,6 +31,12 @@ export default function CourseDetailPage() {
     window.localStorage.setItem("pathpilot.activeChapter", chapter.id);
     router.push("/");
   };
+  const togglePublish = async () => {
+    if (!course) return;
+    try {
+      setCourse(course.status === "published" ? await api.unpublishCourse(courseId) : await api.publishCourse(courseId));
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  };
 
   const ready = chapters.filter((chapter) => chapter.status === "ready").length;
   return <main className="min-h-screen bg-soft/40">
@@ -38,7 +44,7 @@ export default function CourseDetailPage() {
     <button type="button" onClick={() => router.push("/courses")} className="text-sm font-semibold text-blue">← Course catalogue</button>
     {course ? <header className="mt-5 rounded-md bg-ink px-7 py-8 text-white">
       <SectionLabel className="text-[#a9c2ff]">Teacher course studio</SectionLabel>
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-[42px] font-bold tracking-[-0.05em]">{course.title}</h1><p className="mt-2 text-[15px] text-[#c4d0e5]">{course.audience} · {course.durationMin} min · {course.status}</p></div><Button onClick={() => router.push("/courses")}>Course settings</Button></div>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-[42px] font-bold tracking-[-0.05em]">{course.title}</h1><p className="mt-2 text-[15px] text-[#c4d0e5]">{course.audience} · {course.durationMin} min · {course.status}</p></div><Button onClick={togglePublish}>{course.status === "published" ? "Unpublish course" : "Publish course"}</Button></div>
     </header> : null}
     {error ? <p className="mt-5 rounded-sm border border-amber/30 bg-amber-soft p-3 text-sm text-amber">{error}</p> : null}
     <div className="mt-6 grid gap-4 sm:grid-cols-3"><Card className="p-4"><p className="text-xs font-semibold text-muted">CHAPTERS</p><p className="mt-1 text-2xl font-bold text-ink">{chapters.length}</p></Card><Card className="p-4"><p className="text-xs font-semibold text-muted">READY TO REVIEW</p><p className="mt-1 text-2xl font-bold text-ink">{ready}</p></Card><Card className="p-4"><p className="text-xs font-semibold text-muted">COURSE STATUS</p><p className="mt-1 text-2xl font-bold text-ink capitalize">{course?.status ?? "draft"}</p></Card></div>
