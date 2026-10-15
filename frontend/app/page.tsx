@@ -970,7 +970,10 @@ export default function Studio() {
   const jumpTo = useCallback((targetId: string) => {
     setActiveId(targetId);
     if (targetId.startsWith("slide-")) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // 幻灯片是单页画布，不是长文档。平滑滚动会触发上一页留下的
+      // scroll listener，把刚点选的页又覆盖成旧页（常表现为点第 7 页却
+      // 显示最后一页）。直接回到画布顶部，不参与「阅读线」定位。
+      window.scrollTo({ top: 0 });
       return;
     }
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -984,8 +987,11 @@ export default function Studio() {
   // 正确的规则是**阅读线**:视口顶部往下 150px 画一条线,当前页 = 最后一个
   // 越过这条线的元素。simple、可预测,而且在任何滚动位置都成立。
   useEffect(() => {
-    const ids =
-      view === "slides" ? slides.map((s) => `slide-${s.id}`) : timeline.map((e) => `plan-${e.id}`);
+    // 单页课件的当前页只由左栏 / J-K 快捷键决定。这里若继续追踪滚动，
+    // listener 会拿到一次渲染前的 DOM 节点并覆写刚点选的 slide ID。
+    if (view === "slides") return;
+
+    const ids = timeline.map((entry) => `plan-${entry.id}`);
     const nodes = ids
       .map((id) => document.getElementById(id))
       .filter((n): n is HTMLElement => n !== null);

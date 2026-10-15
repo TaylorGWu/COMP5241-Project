@@ -21,7 +21,7 @@
  * 而不是依赖上一次的响应。这样刷新前后看到的是同一件事。
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button, Dot, Field, SectionLabel, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
@@ -53,6 +53,15 @@ export function TeacherTools({
   const [duration, setDuration] = useState<number>(
     paper?.constraints.durationMin ?? 90,
   );
+
+  // 题库刚生成时，旧的固定 100 分通常凑不出来（例如只有 30 分题目）。
+  // 没有现成试卷时，把默认目标同步到可用总分，确保教师第一次点「组卷」
+  // 得到的是一份可用的卷子；教师仍可自行改成其他分值。
+  useEffect(() => {
+    if (paper) return;
+    const availablePoints = questions.reduce((sum, question) => sum + question.points, 0);
+    if (availablePoints > 0) setTotal(availablePoints);
+  }, [paper, questions]);
 
   // 卷子实际多少分 —— 从产物现算,刷新前后一致
   const pickedIds = new Set(paper?.sections.flatMap((s) => s.questionIds) ?? []);

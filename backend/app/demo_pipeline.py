@@ -115,7 +115,9 @@ class FakeSectionModel:
                                 "teacherAction": f"讲解{title},并抛出一个常见误解",
                                 "studentAction": "说出自己的理解",
                                 "objectiveIds": ["LO1"] if index == 1 else ["LO2"],
-                                "slideIds": [f"s{index}"],
+                                # ID 在 section 内可以从 s1 开始;组装层会把它
+                                # 转成全课唯一 ID。这正好覆盖真模型常见的局部编号。
+                                "slideIds": ["s1", "s2", "s3"],
                                 "checkUnderstanding": f"能否用自己的话解释{title}",
                             }
                         },
@@ -133,7 +135,7 @@ class FakeSectionModel:
                     ToolCall(
                         id="c4",
                         name="write_section",
-                        arguments={"slides": [_fake_slide(index, title, asset_id)]},
+                        arguments={"slides": _fake_slides(index, title, asset_id)},
                     )
                 ]
             )
@@ -204,27 +206,35 @@ def _last_asset_id(messages: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def _fake_slide(index: int, title: str, asset_id: str) -> dict[str, Any]:
-    """一节一页幻灯片。字段名用 camelCase,与设计规格 §5.1 一致。"""
-    return {
-        "id": f"s{index}",
-        "order": index,
-        "layout": "diagram",
-        "title": title,
-        "bullets": [f"{title}:要点一", f"{title}:要点二"],
-        "speakerNotes": f"先问学生:{title} 解决了什么问题?",
-        "visuals": [
-            {
-                "id": f"v{index}",
-                "kind": "diagram",
-                "spec": {"engine": "mermaid", "code": f"graph LR; A[{title}]-->B[应用]"},
-                "assetId": asset_id,
-            }
-        ],
-        "objectiveIds": ["LO1"] if index == 1 else ["LO2"],
-        "sourceRefs": [{"materialId": "m1", "page": 10 + index}],
-        "origin": "sourced",
-    }
+def _fake_slides(index: int, title: str, asset_id: str) -> list[dict[str, Any]]:
+    """每节三页的离线课件。
+
+    页 ID 故意使用 section-local 的 s1/s2/s3,用来回归测试流水线会把
+    模型的局部编号正规化为全课唯一 ID;真实模型也经常这么编号。
+    """
+    labels = ("为什么要学", "关键做法", "检查理解")
+    return [
+        {
+            "id": f"s{page}",
+            "order": page,
+            "layout": "diagram" if page == 1 else "bullets",
+            "title": f"{title}：{label}",
+            "bullets": [f"{title}：要点 {page}.1", f"{title}：要点 {page}.2"],
+            "speakerNotes": f"先问学生：{title} 的「{label}」是什么？",
+            "visuals": [
+                {
+                    "id": f"v{index}-{page}",
+                    "kind": "diagram",
+                    "spec": {"engine": "mermaid", "code": f"graph LR; A[{title}]-->B[应用]"},
+                    "assetId": asset_id,
+                }
+            ],
+            "objectiveIds": ["LO1"] if index == 1 else ["LO2"],
+            "sourceRefs": [{"materialId": "m1", "page": 10 + index}],
+            "origin": "sourced",
+        }
+        for page, label in enumerate(labels, start=1)
+    ]
 
 
 # ── 假的检索与渲染:真实实现见 §6.1 / §8.2 ─────────────────

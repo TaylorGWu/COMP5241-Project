@@ -531,6 +531,30 @@ async def generate_course(
     # ══════════════════════════════════════════════════════════
     emit("组装与校验", PHASES[5][1], "拼装 IR 并跑交叉引用检查")
 
+    # 先组装全课幻灯片,并把模型常用的「本节 s1/s2/s3」局部 ID
+    # 正规化为全课唯一、连续的 s1..sN。否则前端会出现重复 React key，
+    # 教师在侧栏点击某一页或给某页提出 patch 时都会落到一组同名页上。
+    # 映射按 section 保存,因为相同的局部 ID 在不同节本来就是不同页面。
+    slides: list[Slide] = []
+    section_slide_id_maps: list[dict[str, str]] = []
+    next_slide_order = 1
+    for _, sd in pairs:
+        local_ids: dict[str, str] = {}
+        for raw in sd.written_slides:
+            try:
+                candidate = Slide.model_validate(raw)
+            except Exception as exc:  # noqa: BLE001
+                dropped.append(f"幻灯片被跳过({type(exc).__name__})")
+                continue
+
+            original_id = candidate.id
+            normalized_id = f"s{next_slide_order}"
+            # 同一节里出现重复 ID 时,教案引用第一个有效页;每个输出页仍唯一。
+            local_ids.setdefault(original_id, normalized_id)
+            slides.append(candidate.model_copy(update={"id": normalized_id, "order": next_slide_order}))
+            next_slide_order += 1
+        section_slide_id_maps.append(local_ids)
+
     # 教案:把各节写的教学环节汇总成 LessonPlan。
     # 之前这里漏了 —— agent 写的 written_plan 被静默丢弃,教案永远是空的。
     # ══════════════════════════════════════════════════════════
@@ -558,9 +582,13 @@ async def generate_course(
 
         # 先逐条校验,再把这一节的时长归一化到大纲值
         valid: list[tuple[int, TimelineEntry]] = []
+        slide_id_map = section_slide_id_maps[idx]
         for pos, entry in enumerate(sd.written_plan):
             try:
-                valid.append((pos, TimelineEntry.model_validate(entry)))
+                parsed = TimelineEntry.model_validate(entry)
+                valid.append((pos, parsed.model_copy(update={
+                    "slide_ids": [slide_id_map.get(slide_id, slide_id) for slide_id in parsed.slide_ids]
+                })))
             except Exception as exc:  # noqa: BLE001
                 plan_entries.append({"__invalid__": f"{type(exc).__name__}"})
 
@@ -612,15 +640,6 @@ async def generate_course(
         )
     elif plan_entries:
         dropped.append("教案环节全部不合规,教案为空")
-
-    slides: list[Slide] = []
-    for _, sd in pairs:
-        for raw in sd.written_slides:
-            try:
-                slides.append(Slide.model_validate(raw))
-            except Exception as exc:  # noqa: BLE001
-                dropped.append(f"幻灯片被跳过({type(exc).__name__})")
-    slides.sort(key=lambda s: s.order)
 
     package = CoursePackage(
         project=Project(

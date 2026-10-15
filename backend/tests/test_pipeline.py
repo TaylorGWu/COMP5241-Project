@@ -72,8 +72,12 @@ async def test_sections_are_ordered_by_the_order_field():
     """并发跑完之后必须按 order 排好,否则课件页码是乱的。"""
     result = await generate_course(_req(), _deps())
     slides = result.package.slide_deck.slides
-    assert [s.order for s in slides] == [1, 2, 3]
-    assert [s.id for s in slides] == ["s1", "s2", "s3"]
+    # 演示生成器每节至少给 3 页;更重要的是,每张页必须有全课唯一 ID。
+    # 真模型常以每节为作用域重复使用 s1/s2/s3,不能让它污染页面导航
+    # 或教师按页提出的 patch。
+    assert [s.order for s in slides] == list(range(1, 10))
+    assert len(slides) == 9
+    assert len({s.id for s in slides}) == len(slides)
 
 
 async def test_generated_package_passes_integrity_check():
@@ -90,7 +94,7 @@ async def test_both_artifacts_are_produced():
     result = await generate_course(_req(), _deps())
     pkg = result.package
 
-    assert pkg.slide_deck is not None and len(pkg.slide_deck.slides) == 3
+    assert pkg.slide_deck is not None and len(pkg.slide_deck.slides) == 9
     assert pkg.lesson_plan is not None
     assert len(pkg.lesson_plan.timeline) == 3
 
@@ -121,9 +125,10 @@ async def test_visual_needs_and_assets_are_counted():
     result = await generate_course(_req(), _deps())
 
     visual_events = [e for e in result.events if e.phase == "判定视觉需求"]
-    assert "3 处视觉需求" in visual_events[-1].detail
+    assert "9 处视觉需求" in visual_events[-1].detail
 
     asset_events = [e for e in result.events if e.phase == "生成资产"]
+    # 每节三页共享同一张 Mermaid 图;资产池按内容哈希去重。
     assert "3 个资产入池" in asset_events[-1].detail
 
     assert len(result.package.assets) == 3
