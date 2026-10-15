@@ -418,11 +418,7 @@ function Setup({
   onCancel,
   course,
   chapter,
-  chapters,
   onCreateCourse,
-  onCreateChapter,
-  onRenameChapter,
-  onSelectChapter,
   onGenerate,
   onOutline,
 }: {
@@ -445,29 +441,32 @@ function Setup({
   onCancel: () => void;
   course: TeacherCourse | null;
   chapter: TeacherChapter | null;
-  chapters: TeacherChapter[];
   onCreateCourse: () => void;
-  onCreateChapter: () => void;
-  onRenameChapter: (title: string) => void;
-  onSelectChapter: (chapter: TeacherChapter) => void;
   onGenerate: () => void;
   onOutline: () => void;
 }) {
   const { t } = useI18n();
-  const [chapterTitle, setChapterTitle] = useState("");
-
-  useEffect(() => {
-    setChapterTitle(chapter?.title ?? "");
-  }, [chapter?.id, chapter?.title]);
+  const buildingChapter = Boolean(course && chapter);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-12">
       <header className="mb-9 max-w-[64ch]">
-        <SectionLabel>{t.setup.eyebrow}</SectionLabel>
+        {buildingChapter ? (
+          <a href={`/courses/${course?.id}`} className="text-sm font-semibold text-blue">
+            ← Back to {course?.title}
+          </a>
+        ) : null}
+        <SectionLabel className={buildingChapter ? "mt-4" : undefined}>
+          {buildingChapter ? "Chapter builder" : t.setup.eyebrow}
+        </SectionLabel>
         <h1 className="mt-3 text-[46px] leading-[1.06] font-bold tracking-[-0.05em] text-ink">
-          {t.setup.headline}
+          {buildingChapter ? `Build ${chapter?.title}` : t.setup.headline}
         </h1>
-        <p className="mt-3 text-[19px] leading-[1.6] text-body">{t.setup.lede}</p>
+        <p className="mt-3 text-[19px] leading-[1.6] text-body">
+          {buildingChapter
+            ? "Set the teaching brief for this chapter, then generate its editable draft."
+            : t.setup.lede}
+        </p>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start">
@@ -560,67 +559,15 @@ function Setup({
         <Button variant="primary" className="min-h-[46px] px-6" onClick={course ? onGenerate : onCreateCourse} disabled={busy || Boolean(course && !chapter)}>
           {busy ? t.setup.working : course ? "Generate selected chapter" : "Create course draft"}
         </Button>
-        {course ? (
-          <Button className="min-h-[46px]" onClick={onCreateChapter} disabled={busy}>
-            Add chapter
-          </Button>
-        ) : null}
         <Button className="min-h-[46px]" onClick={onOutline} disabled={busy || !course}>
           {t.setup.outlineOnly}
         </Button>
         <p className="text-[13px] text-muted">
           {course
-            ? `Course draft created · next: edit or generate the selected chapter`
+            ? `Selected chapter · generate its draft here, then review it before publishing.`
             : "Step 1 of 2 · create a course before generating its first chapter"}
         </p>
       </div>
-
-      {course ? (
-        <Card className="mt-5 p-5" data-course-workspace="1">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <SectionLabel>Course workspace</SectionLabel>
-              <p className="mt-2 text-[17px] font-bold text-ink">{course.title}</p>
-              <p className="mt-1 text-[13px] text-muted">Draft course · {course.chapterIds.length} chapter{course.chapterIds.length === 1 ? "" : "s"}</p>
-            </div>
-            <span className="rounded-full bg-blue-soft px-3 py-1 text-[12px] font-semibold text-blue">{course.status}</span>
-          </div>
-          <div className="mt-4 rounded-sm border border-line bg-soft p-3" data-selected-chapter={chapter?.id ?? ""}>
-            <p className="text-[12px] font-semibold text-muted">SELECTED CHAPTER</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <input
-                aria-label="Chapter title"
-                className="min-w-[180px] flex-1 rounded-sm border border-line bg-surface px-2 py-1.5 text-[14px] font-semibold text-ink"
-                value={chapterTitle}
-                disabled={!chapter || busy}
-                onChange={(event) => setChapterTitle(event.target.value)}
-              />
-              <Button className="min-h-0 px-3 py-1.5 text-[12px]" disabled={!chapter || busy || !chapterTitle.trim()} onClick={() => onRenameChapter(chapterTitle)}>
-                Save name
-              </Button>
-            </div>
-            <p className="mt-1 text-[12px] text-muted">{chapter?.status ?? "empty"} · Generate only after choosing this course chapter.</p>
-          </div>
-          <ol className="mt-3 space-y-1" aria-label="Course chapters">
-            {chapters.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelectChapter(item)}
-                  aria-pressed={chapter?.id === item.id}
-                  className={cx(
-                    "flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-[13px]",
-                    chapter?.id === item.id ? "bg-blue-soft font-semibold text-blue" : "text-body hover:bg-soft",
-                  )}
-                >
-                  <span>{String(item.order).padStart(2, "0")} · {item.title}</span>
-                  <span className="text-[11px] font-normal opacity-75">{item.status}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </Card>
-      ) : null}
 
       {events.length ? (
         <div className="mt-6">
@@ -1257,11 +1204,7 @@ export default function Studio() {
           materials={gen?.materials ?? []}
           course={course}
           chapter={chapter}
-          chapters={chapters}
           onCreateCourse={onCreateCourse}
-          onCreateChapter={onCreateChapter}
-          onRenameChapter={onRenameChapter}
-          onSelectChapter={onSelectChapter}
           onGenerate={onGenerate}
           onOutline={onOutline}
           elapsed={elapsed}
