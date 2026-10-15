@@ -481,11 +481,16 @@ export const api = {
 
   courses: () => get<{ courses: TeacherCourse[] }>("/api/demo/courses"),
 
+  course: (courseId: string) => get<TeacherCourse>(`/api/demo/courses/${courseId}`),
+
   chapter: (courseId: string, chapterId: string) =>
     get<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`),
 
   createChapter: (courseId: string, input: { title: string; summary?: string }) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters`, input),
+
+  deleteChapter: (courseId: string, chapterId: string) =>
+    fetch(`${API_BASE}/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" }),
 
   activateChapter: (courseId: string, chapterId: string) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),

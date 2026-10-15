@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { LessonPlan } from "@/components/LessonPlan";
 import { ReviewMargin } from "@/components/ReviewMargin";
@@ -696,6 +697,7 @@ function CoverageStrip({
 
 export default function Studio() {
   const { t } = useI18n();
+  const router = useRouter();
 
   const [topic, setTopic] = useState(DEFAULT_TOPIC);
   const [audience, setAudience] = useState(DEFAULT_AUDIENCE);
@@ -753,6 +755,33 @@ export default function Studio() {
     const saved = window.localStorage.getItem(CONTENT_LANG_KEY);
     if (saved) setContentLangState(normalizeLocale(saved));
   }, []);
+
+  // The editor is deliberately chapter-scoped. A direct visit goes to the
+  // course catalogue; only the course detail page may open a chosen chapter.
+  useEffect(() => {
+    const courseId = window.localStorage.getItem("pathpilot.activeCourse");
+    const chapterId = window.localStorage.getItem("pathpilot.activeChapter");
+    if (!courseId || !chapterId) {
+      router.replace("/courses");
+      return;
+    }
+    void (async () => {
+      try {
+        const [nextCourse, nextChapter] = await Promise.all([
+          api.course(courseId), api.chapter(courseId, chapterId),
+        ]);
+        setCourse(nextCourse);
+        setChapter(nextChapter);
+        setChapters(await Promise.all(nextCourse.chapterIds.map((id) => api.chapter(courseId, id))));
+        if (nextChapter.package) {
+          await api.activateChapter(courseId, chapterId);
+          setPkg(nextChapter.package);
+        }
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : String(failure));
+      }
+    })();
+  }, [router]);
   const setContentLang = useCallback((next: Locale) => {
     setContentLangState(next);
     window.localStorage.setItem(CONTENT_LANG_KEY, next);
@@ -1165,6 +1194,9 @@ export default function Studio() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Course detail owns the active chapter. Do not resurrect a package from
+      // the old singleton endpoint over a deliberate chapter selection.
+      if (window.localStorage.getItem("pathpilot.activeCourse")) return;
       try {
         const s = await api.state();
         if (cancelled || !s.has_package || !s.package) return;
