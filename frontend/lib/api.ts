@@ -482,6 +482,9 @@ export const api = {
   chapter: (courseId: string, chapterId: string) =>
     get<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`),
 
+  createChapter: (courseId: string, input: { title: string; summary?: string }) =>
+    post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters`, input),
+
   updateChapter: (
     courseId: string,
     chapterId: string,

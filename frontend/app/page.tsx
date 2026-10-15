@@ -418,7 +418,9 @@ function Setup({
   elapsed,
   onCancel,
   course,
+  chapter,
   onCreateCourse,
+  onCreateChapter,
   onGenerate,
   onOutline,
 }: {
@@ -442,7 +444,9 @@ function Setup({
   elapsed: number;
   onCancel: () => void;
   course: TeacherCourse | null;
+  chapter: TeacherChapter | null;
   onCreateCourse: () => void;
+  onCreateChapter: () => void;
   onGenerate: () => void;
   onOutline: () => void;
 }) {
@@ -558,8 +562,13 @@ function Setup({
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button variant="primary" className="min-h-[46px] px-6" onClick={course ? onGenerate : onCreateCourse} disabled={busy}>
-          {busy ? t.setup.working : course ? t.setup.generate : "Create course draft"}
+          {busy ? t.setup.working : course ? "Generate selected chapter" : "Create course draft"}
         </Button>
+        {course ? (
+          <Button className="min-h-[46px]" onClick={onCreateChapter} disabled={busy}>
+            Add chapter
+          </Button>
+        ) : null}
         <Button className="min-h-[46px]" onClick={onOutline} disabled={busy || !course}>
           {t.setup.outlineOnly}
         </Button>
@@ -569,6 +578,24 @@ function Setup({
             : "Step 1 of 2 · create a course before generating its first chapter"}
         </p>
       </div>
+
+      {course ? (
+        <Card className="mt-5 p-5" data-course-workspace="1">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <SectionLabel>Course workspace</SectionLabel>
+              <p className="mt-2 text-[17px] font-bold text-ink">{course.title}</p>
+              <p className="mt-1 text-[13px] text-muted">Draft course · {course.chapterIds.length} chapter{course.chapterIds.length === 1 ? "" : "s"}</p>
+            </div>
+            <span className="rounded-full bg-blue-soft px-3 py-1 text-[12px] font-semibold text-blue">{course.status}</span>
+          </div>
+          <div className="mt-4 rounded-sm border border-line bg-soft p-3" data-selected-chapter={chapter?.id ?? ""}>
+            <p className="text-[12px] font-semibold text-muted">SELECTED CHAPTER</p>
+            <p className="mt-1 text-[14px] font-semibold text-ink">{chapter?.title ?? "Choose or add a chapter"}</p>
+            <p className="mt-1 text-[12px] text-muted">{chapter?.status ?? "empty"} · Generate only after choosing this course chapter.</p>
+          </div>
+        </Card>
+      ) : null}
 
       {events.length ? (
         <div className="mt-6">
@@ -796,6 +823,17 @@ export default function Studio() {
       if (!firstChapterId) throw new Error("Course creation did not create a first chapter.");
       setCourse(created);
       setChapter(await api.chapter(created.id, firstChapterId));
+    });
+
+  const onCreateChapter = () =>
+    run(async () => {
+      if (!course) throw new Error("Create a course before adding chapters.");
+      const next = await api.createChapter(course.id, {
+        title: `Chapter ${course.chapterIds.length + 1}`,
+        summary: "Teacher-created chapter draft",
+      });
+      setCourse((current) => current ? { ...current, chapterIds: [...current.chapterIds, next.id] } : current);
+      setChapter(next);
     });
 
   const onGenerate = () =>
@@ -1129,7 +1167,9 @@ export default function Studio() {
           events={events}
           materials={gen?.materials ?? []}
           course={course}
+          chapter={chapter}
           onCreateCourse={onCreateCourse}
+          onCreateChapter={onCreateChapter}
           onGenerate={onGenerate}
           onOutline={onOutline}
           elapsed={elapsed}
