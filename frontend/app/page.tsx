@@ -421,6 +421,7 @@ function Setup({
   chapter,
   onCreateCourse,
   onCreateChapter,
+  onRenameChapter,
   onGenerate,
   onOutline,
 }: {
@@ -447,10 +448,16 @@ function Setup({
   chapter: TeacherChapter | null;
   onCreateCourse: () => void;
   onCreateChapter: () => void;
+  onRenameChapter: (title: string) => void;
   onGenerate: () => void;
   onOutline: () => void;
 }) {
   const { t } = useI18n();
+  const [chapterTitle, setChapterTitle] = useState("");
+
+  useEffect(() => {
+    setChapterTitle(chapter?.title ?? "");
+  }, [chapter?.id, chapter?.title]);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-12">
@@ -561,7 +568,7 @@ function Setup({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button variant="primary" className="min-h-[46px] px-6" onClick={course ? onGenerate : onCreateCourse} disabled={busy}>
+        <Button variant="primary" className="min-h-[46px] px-6" onClick={course ? onGenerate : onCreateCourse} disabled={busy || Boolean(course && !chapter)}>
           {busy ? t.setup.working : course ? "Generate selected chapter" : "Create course draft"}
         </Button>
         {course ? (
@@ -574,7 +581,7 @@ function Setup({
         </Button>
         <p className="text-[13px] text-muted">
           {course
-            ? `Course draft created · next: generate ${course.chapterIds.length} chapter`
+            ? `Course draft created · next: edit or generate the selected chapter`
             : "Step 1 of 2 · create a course before generating its first chapter"}
         </p>
       </div>
@@ -591,7 +598,18 @@ function Setup({
           </div>
           <div className="mt-4 rounded-sm border border-line bg-soft p-3" data-selected-chapter={chapter?.id ?? ""}>
             <p className="text-[12px] font-semibold text-muted">SELECTED CHAPTER</p>
-            <p className="mt-1 text-[14px] font-semibold text-ink">{chapter?.title ?? "Choose or add a chapter"}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                aria-label="Chapter title"
+                className="min-w-[180px] flex-1 rounded-sm border border-line bg-surface px-2 py-1.5 text-[14px] font-semibold text-ink"
+                value={chapterTitle}
+                disabled={!chapter || busy}
+                onChange={(event) => setChapterTitle(event.target.value)}
+              />
+              <Button className="min-h-0 px-3 py-1.5 text-[12px]" disabled={!chapter || busy || !chapterTitle.trim()} onClick={() => onRenameChapter(chapterTitle)}>
+                Save name
+              </Button>
+            </div>
             <p className="mt-1 text-[12px] text-muted">{chapter?.status ?? "empty"} · Generate only after choosing this course chapter.</p>
           </div>
         </Card>
@@ -834,6 +852,12 @@ export default function Studio() {
       });
       setCourse((current) => current ? { ...current, chapterIds: [...current.chapterIds, next.id] } : current);
       setChapter(next);
+    });
+
+  const onRenameChapter = (title: string) =>
+    run(async () => {
+      if (!course || !chapter) throw new Error("Choose a chapter before renaming it.");
+      setChapter(await api.updateChapter(course.id, chapter.id, { title: title.trim() }));
     });
 
   const onGenerate = () =>
@@ -1170,6 +1194,7 @@ export default function Studio() {
           chapter={chapter}
           onCreateCourse={onCreateCourse}
           onCreateChapter={onCreateChapter}
+          onRenameChapter={onRenameChapter}
           onGenerate={onGenerate}
           onOutline={onOutline}
           elapsed={elapsed}

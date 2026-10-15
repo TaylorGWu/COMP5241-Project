@@ -15,11 +15,13 @@ def _course(repo: InMemoryCourseRepository, title: str = "Git basics"):
     )
 
 
-def test_new_course_starts_as_draft_with_one_empty_chapter():
-    course = _course(InMemoryCourseRepository())
+def test_new_course_starts_as_draft_with_an_editable_chapter_zero():
+    repo = InMemoryCourseRepository()
+    course = _course(repo)
 
     assert course.status == "draft"
-    assert course.chapter_ids
+    assert len(course.chapter_ids) == 1
+    assert repo.get_chapter(course.id, course.chapter_ids[0]).title == "Chapter 0"
 
 
 def test_chapters_are_ordered_and_belong_to_their_course():

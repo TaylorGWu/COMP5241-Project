@@ -112,7 +112,9 @@ class InMemoryCourseRepository:
             duration_min=duration_min,
         )
         self._courses[course.id] = course
-        self.create_chapter(course.id, title="Chapter 1")
+        # 课程可先有一个明确的起始草稿，但它不是不可改的「第一章」。
+        # 教师可以改名、再新增章节；这样既减少空白页，又保留课程优先的结构。
+        self.create_chapter(course.id, title="Chapter 0")
         return course
 
     def list_courses(self) -> list[Course]:
