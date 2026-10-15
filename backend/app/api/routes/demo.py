@@ -379,6 +379,22 @@ async def get_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
     return _chapter_json(_chapter_or_404(course_id, chapter_id))
 
 
+@router.post("/courses/{course_id}/chapters/{chapter_id}/activate")
+async def activate_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
+    """Make one selected chapter the legacy tool adapter's active IR package.
+
+    Question generation, paper composition and edit patches are shared IR tools
+    during this in-memory migration. Activating first prevents a teacher from
+    accidentally applying them to whichever chapter was generated most recently.
+    """
+    chapter = _chapter_or_404(course_id, chapter_id)
+    if chapter.package is None:
+        raise HTTPException(status_code=409, detail="先为这个章节生成课件")
+    STATE.package = chapter.package
+    STATE.store = InMemoryPatchStore()
+    return _chapter_json(chapter)
+
+
 @router.patch("/courses/{course_id}/chapters/{chapter_id}")
 async def update_chapter(course_id: str, chapter_id: str, body: ChapterPatchBody) -> dict[str, Any]:
     _chapter_or_404(course_id, chapter_id)

@@ -419,9 +419,11 @@ function Setup({
   onCancel,
   course,
   chapter,
+  chapters,
   onCreateCourse,
   onCreateChapter,
   onRenameChapter,
+  onSelectChapter,
   onGenerate,
   onOutline,
 }: {
@@ -446,9 +448,11 @@ function Setup({
   onCancel: () => void;
   course: TeacherCourse | null;
   chapter: TeacherChapter | null;
+  chapters: TeacherChapter[];
   onCreateCourse: () => void;
   onCreateChapter: () => void;
   onRenameChapter: (title: string) => void;
+  onSelectChapter: (chapter: TeacherChapter) => void;
   onGenerate: () => void;
   onOutline: () => void;
 }) {
@@ -612,6 +616,24 @@ function Setup({
             </div>
             <p className="mt-1 text-[12px] text-muted">{chapter?.status ?? "empty"} · Generate only after choosing this course chapter.</p>
           </div>
+          <ol className="mt-3 space-y-1" aria-label="Course chapters">
+            {chapters.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectChapter(item)}
+                  aria-pressed={chapter?.id === item.id}
+                  className={cx(
+                    "flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-[13px]",
+                    chapter?.id === item.id ? "bg-blue-soft font-semibold text-blue" : "text-body hover:bg-soft",
+                  )}
+                >
+                  <span>{String(item.order).padStart(2, "0")} · {item.title}</span>
+                  <span className="text-[11px] font-normal opacity-75">{item.status}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
         </Card>
       ) : null}
 
@@ -712,6 +734,7 @@ export default function Studio() {
   const [pkg, setPkg] = useState<CoursePackage | null>(null);
   const [course, setCourse] = useState<TeacherCourse | null>(null);
   const [chapter, setChapter] = useState<TeacherChapter | null>(null);
+  const [chapters, setChapters] = useState<TeacherChapter[]>([]);
   const [patches, setPatches] = useState<Patch[]>([]);
 
   const [editMessage, setEditMessage] = useState("Slide 2 is too dense for a non-CS audience.");
@@ -840,7 +863,9 @@ export default function Studio() {
       const firstChapterId = created.chapterIds[0];
       if (!firstChapterId) throw new Error("Course creation did not create a first chapter.");
       setCourse(created);
-      setChapter(await api.chapter(created.id, firstChapterId));
+      const firstChapter = await api.chapter(created.id, firstChapterId);
+      setChapter(firstChapter);
+      setChapters([firstChapter]);
     });
 
   const onCreateChapter = () =>
@@ -852,13 +877,37 @@ export default function Studio() {
       });
       setCourse((current) => current ? { ...current, chapterIds: [...current.chapterIds, next.id] } : current);
       setChapter(next);
+      setChapters((items) => [...items, next]);
     });
 
   const onRenameChapter = (title: string) =>
     run(async () => {
       if (!course || !chapter) throw new Error("Choose a chapter before renaming it.");
-      setChapter(await api.updateChapter(course.id, chapter.id, { title: title.trim() }));
+      const updated = await api.updateChapter(course.id, chapter.id, { title: title.trim() });
+      setChapter(updated);
+      setChapters((items) => items.map((item) => item.id === updated.id ? updated : item));
     });
+
+  const onSelectChapter = (selected: TeacherChapter) => {
+    setChapter(selected);
+    setPkg(selected.package ?? null);
+    setPatches([]);
+    setEvents([]);
+    if (course && selected.package) {
+      void api.activateChapter(course.id, selected.id)
+        .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)));
+    }
+  };
+
+  useEffect(() => {
+    if (!course || !chapter || !pkg) return;
+    void api.updateChapter(course.id, chapter.id, { package: pkg, status: "ready" })
+      .then((updated) => {
+        setChapter(updated);
+        setChapters((items) => items.map((item) => item.id === updated.id ? updated : item));
+      })
+      .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)));
+  }, [course?.id, chapter?.id, pkg]);
 
   const onGenerate = () =>
     run(async () => {
@@ -1006,6 +1055,9 @@ export default function Studio() {
       await api.reset();
       setGen(null);
       setPkg(null);
+      setCourse(null);
+      setChapter(null);
+      setChapters([]);
       setPatches([]);
       setEvents([]);
       setReply("");
@@ -1192,9 +1244,11 @@ export default function Studio() {
           materials={gen?.materials ?? []}
           course={course}
           chapter={chapter}
+          chapters={chapters}
           onCreateCourse={onCreateCourse}
           onCreateChapter={onCreateChapter}
           onRenameChapter={onRenameChapter}
+          onSelectChapter={onSelectChapter}
           onGenerate={onGenerate}
           onOutline={onOutline}
           elapsed={elapsed}

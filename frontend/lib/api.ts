@@ -479,11 +479,16 @@ export const api = {
     language: string;
   }) => post<TeacherCourse>("/api/demo/courses", input),
 
+  courses: () => get<{ courses: TeacherCourse[] }>("/api/demo/courses"),
+
   chapter: (courseId: string, chapterId: string) =>
     get<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}`),
 
   createChapter: (courseId: string, input: { title: string; summary?: string }) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters`, input),
+
+  activateChapter: (courseId: string, chapterId: string) =>
+    post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),
 
   updateChapter: (
     courseId: string,

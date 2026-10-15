@@ -74,3 +74,22 @@ async def test_generating_a_chapter_does_not_replace_another_chapter_package(mon
     assert generated.status_code == 200, generated.text
     assert generated.json()["chapter"]["status"] == "ready"
     assert first.json()["package"] == {"marker": "keep"}
+
+
+async def test_activating_a_chapter_makes_its_ir_available_to_teacher_tools(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    chapter_id = course["chapterIds"][0]
+    generated = await request(
+        "POST",
+        f"/api/demo/courses/{course['id']}/chapters/{chapter_id}/generate",
+        {"topic": "Git branches", "audience": "Beginners", "duration_min": 30},
+    )
+    assert generated.status_code == 200
+
+    activated = await request("POST", f"/api/demo/courses/{course['id']}/chapters/{chapter_id}/activate")
+    questions = await request("POST", "/api/demo/questions", {"use_real_model": False})
+
+    assert activated.status_code == 200
+    assert questions.status_code == 200
+    assert questions.json()["package"]["questionSet"]["questions"]
