@@ -25,7 +25,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Button, Card, Dot, Field, SectionLabel, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { exportUrls, type CoursePackage } from "@/lib/api";
+import { exportUrls, type CoursePackage, type Question } from "@/lib/api";
 
 export function TeacherTools({
   pkg,
@@ -101,6 +101,7 @@ export function TeacherTools({
           <Button className="mt-3 min-h-0 w-full px-3 py-2 text-[13px]" disabled={busy} onClick={onQuestions}>
             {questions.length ? t.tools.questionsAgain : t.tools.questions}
           </Button>
+          {questions.length ? <QuestionPreview questions={questions} /> : null}
         </ToolCard>
 
         <ToolCard title={t.tools.glossary}>
@@ -163,6 +164,44 @@ export function TeacherTools({
         </ToolCard>
       </div>
     </section>
+  );
+}
+
+/**
+ * 题库是教师端的真实产物，不能只用「已生成 4 题」代替它。
+ * 默认把题干、选项、答案与解释都放在同一张卡内，生成完成后无需再寻找入口。
+ */
+function QuestionPreview({ questions }: { questions: Question[] }) {
+  return (
+    <ol className="mt-4 space-y-3 border-t border-line pt-3" data-question-preview="1">
+      {questions.map((question, index) => {
+        const answer = question.options.find((option) => option.id === question.answer)?.text ?? question.answer;
+        return (
+          <li key={question.id} className="rounded-sm border border-line bg-soft p-3" data-question-id={question.id}>
+            <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-muted">
+              <span>Q{index + 1}</span>
+              <span className="rounded-full bg-surface px-2 py-0.5">{question.type}</span>
+              <span>{question.points} pts · difficulty {question.difficulty}</span>
+            </div>
+            <p className="mt-2 text-[14px] font-semibold leading-[1.45] text-ink">{question.stem}</p>
+            {question.options.length ? (
+              <ul className="mt-2 space-y-1 text-[13px] leading-[1.4] text-body">
+                {question.options.map((option) => (
+                  <li key={option.id} className="flex gap-2">
+                    <span className="font-mono text-muted">{option.id}.</span>
+                    <span>{option.text}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-2 border-t border-line pt-2 text-[13px] leading-[1.4] text-body">
+              <span className="font-semibold text-green">Answer: </span>{answer}
+            </p>
+            <p className="mt-1 text-[12px] leading-[1.4] text-muted">{question.explanation}</p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
