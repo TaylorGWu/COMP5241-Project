@@ -122,7 +122,8 @@ async def test_all_sections_are_announced():
     events, _, result = await _run(section_concurrency=1)
 
     announced = {e.section_index for e in events if e.kind == "section"}
-    assert announced == set(range(len(result.package.slide_deck.slides))), (
+    # 一节可以一次提交多页；要报到的是每个 section，而不是每一张 slide。
+    assert announced == set(range(len(result.agents))), (
         "每一节都该被报到 —— 否则界面上会有一栏永远不亮"
     )
 
@@ -192,7 +193,11 @@ async def test_slide_events_count_up_to_the_real_deck_size():
 
     assert slide_events, "没有 slide 事件,界面上就看不到「已写几张」"
     assert slide_events[-1].slide_count == real
-    assert [e.slide_count for e in slide_events] == list(range(1, real + 1))
+    # write_section 一次提交一节的多页，事件按提交批次累计（3、6、9），
+    # 不该错误地要求每页各发一条事件。
+    counts = [e.slide_count for e in slide_events]
+    assert counts == sorted(counts)
+    assert all(current > previous for previous, current in zip(counts, counts[1:]))
 
 
 async def test_slide_events_tell_you_which_pages_were_written():
