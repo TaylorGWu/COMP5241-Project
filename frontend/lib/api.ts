@@ -306,6 +306,16 @@ export type CourseActivity = {
   after: Record<string, unknown>;
 };
 
+export type CourseCoverage = {
+  outcomes: {
+    id: string;
+    text: string;
+    slideCount: number;
+    questionCount: number;
+    status: "covered" | "teaching-only" | "assessment-only" | "missing";
+  }[];
+};
+
 // ── 教师端四个增量:出题 / 组卷 / 白话化 / 导出 ──────────────
 
 export type Question = {
@@ -569,6 +579,7 @@ export const api = {
 
   createInvite: (courseId: string) => post<{ code: string }>(`/api/demo/courses/${courseId}/invites`, {}),
   analytics: (courseId: string) => get<CourseAnalytics>(`/api/demo/courses/${courseId}/analytics`),
+  coverage: (courseId: string) => get<CourseCoverage>(`/api/demo/courses/${courseId}/coverage`),
   activity: (courseId: string) => get<{ activity: CourseActivity[] }>(`/api/demo/courses/${courseId}/activity`),
 
   activateChapter: (courseId: string, chapterId: string) =>

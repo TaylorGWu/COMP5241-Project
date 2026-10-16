@@ -93,6 +93,41 @@ async def test_course_blueprint_edits_and_publication_leave_an_audit_trail():
     ]
 
 
+async def test_course_coverage_explains_which_outcomes_are_taught_and_assessed():
+    course = await request(
+        "POST",
+        "/api/demo/courses",
+        {
+            "title": "Git collaboration",
+            "description": "Short course",
+            "audience": "Beginners",
+            "durationMin": 45,
+            "learningObjectives": ["Explain branch isolation", "Review a pull request"],
+        },
+    )
+    course_id = course.json()["id"]
+    chapter_id = course.json()["chapterIds"][0]
+    await request(
+        "PATCH",
+        f"/api/demo/courses/{course_id}/chapters/{chapter_id}",
+        {
+            "status": "ready",
+            "package": {
+                "slideDeck": {"slides": [{"id": "slide-1", "objectiveIds": ["LO1"]}]},
+                "questionSet": {"questions": [{"id": "question-1", "objectiveIds": ["LO1"]}]},
+            },
+        },
+    )
+
+    coverage = await request("GET", f"/api/demo/courses/{course_id}/coverage")
+
+    assert coverage.status_code == 200, coverage.text
+    assert coverage.json()["outcomes"] == [
+        {"id": "LO1", "text": "Explain branch isolation", "slideCount": 1, "questionCount": 1, "status": "covered"},
+        {"id": "LO2", "text": "Review a pull request", "slideCount": 0, "questionCount": 0, "status": "missing"},
+    ]
+
+
 async def test_chapter_routes_keep_order_and_course_ownership():
     first = await create_course("Git")
     second = await create_course("AI")

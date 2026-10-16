@@ -316,7 +316,11 @@ def _chapter_or_404(course_id: str, chapter_id: str) -> Any:
 
 
 def _package_json(pkg: Any) -> dict[str, Any] | None:
-    return pkg.model_dump(by_alias=True) if pkg is not None else None
+    if pkg is None:
+        return None
+    # Chapter packages can be a validated CoursePackage or a small dict in
+    # teacher-owned draft updates. Both are IR, so coverage reads either form.
+    return pkg if isinstance(pkg, dict) else pkg.model_dump(by_alias=True)
 
 
 def _patch_json(p: Any) -> dict[str, Any]:
@@ -476,6 +480,47 @@ async def course_analytics(course_id: str) -> dict[str, Any]:
         "mostMissed": analytics["mostMissed"],
         "students": students,
     }
+
+
+@router.get("/courses/{course_id}/coverage")
+async def course_coverage(course_id: str) -> dict[str, Any]:
+    """Summarise IR coverage without asking a model to judge its own output.
+
+    A learning outcome is only fully covered when the course contains both a
+    slide that teaches it and a question that assesses it.  This deliberately
+    reads the structured IR owned by every ready chapter; it never infers
+    coverage from free-form text.
+    """
+    course = _course_or_404(course_id)
+    counts = {
+        objective["id"]: {"slideCount": 0, "questionCount": 0}
+        for objective in course.learning_objectives
+        if objective.get("id")
+    }
+    for chapter_id in course.chapter_ids:
+        chapter = COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
+        if chapter.status != "ready" or chapter.package is None:
+            continue
+        package = _package_json(chapter.package) or {}
+        slides = (package.get("slideDeck") or {}).get("slides") or []
+        questions = (package.get("questionSet") or {}).get("questions") or []
+        for slide in slides:
+            for objective_id in slide.get("objectiveIds") or []:
+                if objective_id in counts:
+                    counts[objective_id]["slideCount"] += 1
+        for question in questions:
+            for objective_id in question.get("objectiveIds") or []:
+                if objective_id in counts:
+                    counts[objective_id]["questionCount"] += 1
+
+    outcomes = []
+    for objective in course.learning_objectives:
+        objective_id = objective.get("id", "")
+        count = counts.get(objective_id, {"slideCount": 0, "questionCount": 0})
+        taught, assessed = count["slideCount"] > 0, count["questionCount"] > 0
+        status = "covered" if taught and assessed else "teaching-only" if taught else "assessment-only" if assessed else "missing"
+        outcomes.append({"id": objective_id, "text": objective.get("text", ""), **count, "status": status})
+    return {"outcomes": outcomes}
 
 
 @router.get("/courses/{course_id}/activity")
