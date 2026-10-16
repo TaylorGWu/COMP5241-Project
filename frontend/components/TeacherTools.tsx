@@ -21,7 +21,7 @@
  * 而不是依赖上一次的响应。这样刷新前后看到的是同一件事。
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button, Card, Dot, Field, SectionLabel, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
@@ -46,22 +46,14 @@ export function TeacherTools({
   const paper = pkg.examPaper ?? null;
   const glossary = pkg.project.glossary ?? [];
 
-  // 默认总分取卷子自己的约束,其次按题量估一个整数
-  const [total, setTotal] = useState<number>(
-    paper?.constraints.totalPoints ?? 100,
-  );
+  // A teacher-entered target takes priority; otherwise derive it from the
+  // current IR so newly generated questions do not leave a stale 100-point default.
+  const [totalInput, setTotalInput] = useState<number | null>(null);
+  const availablePoints = questions.reduce((sum, question) => sum + question.points, 0);
+  const total = totalInput ?? paper?.constraints.totalPoints ?? (availablePoints || 100);
   const [duration, setDuration] = useState<number>(
     paper?.constraints.durationMin ?? 90,
   );
-
-  // 题库刚生成时，旧的固定 100 分通常凑不出来（例如只有 30 分题目）。
-  // 没有现成试卷时，把默认目标同步到可用总分，确保教师第一次点「组卷」
-  // 得到的是一份可用的卷子；教师仍可自行改成其他分值。
-  useEffect(() => {
-    if (paper) return;
-    const availablePoints = questions.reduce((sum, question) => sum + question.points, 0);
-    if (availablePoints > 0) setTotal(availablePoints);
-  }, [paper, questions]);
 
   // 卷子实际多少分 —— 从产物现算,刷新前后一致
   const pickedIds = new Set(paper?.sections.flatMap((s) => s.questionIds) ?? []);
@@ -116,7 +108,7 @@ export function TeacherTools({
         <ToolCard title={t.tools.paper} className="md:col-span-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t.tools.paperTotal}>
-              <input type="number" data-field="total" className={cx(inputCls, "py-2 text-[14px]")} value={total} onChange={(e) => setTotal(Number(e.target.value))} />
+              <input type="number" data-field="total" className={cx(inputCls, "py-2 text-[14px]")} value={total} onChange={(e) => setTotalInput(Number(e.target.value))} />
             </Field>
             <Field label={t.tools.paperDuration}>
               <input type="number" data-field="duration" className={cx(inputCls, "py-2 text-[14px]")} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />

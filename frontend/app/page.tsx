@@ -94,14 +94,9 @@ function AppHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex min-h-[64px] w-full max-w-[1600px] items-center gap-3 px-6">
+      <div className="mx-auto flex min-h-[64px] w-full max-w-[1600px] flex-wrap items-center gap-3 px-5 py-2 sm:px-8">
         <span className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.04em] text-ink">
-          <span className="relative h-[18px] w-[18px] rounded-[5px] border-2 border-ink">
-            <span
-              className="absolute -right-1 -bottom-1 h-[7px] w-[7px] rounded-[3px] border-2 border-blue bg-surface"
-              aria-hidden
-            />
-          </span>
+          <span className="flex size-8 items-center justify-center rounded-[9px] bg-ink text-[17px] font-black tracking-[-0.12em] text-white">P<span className="text-[#9bb9ff]">.</span></span>
           PathPilot
         </span>
 
@@ -133,8 +128,8 @@ function AppHeader({
             </Badge>
           ) : null}
 
-          <Button className="min-h-0 px-3 py-1.5 text-[14px]" onClick={onBackToCourses} disabled={busy}>
-            Back to courses
+          <Button className="px-3 text-[14px]" onClick={onBackToCourses} disabled={busy}>
+            Your courses
           </Button>
         </div>
       </div>
@@ -449,7 +444,7 @@ function Setup({
   const buildingChapter = Boolean(course && chapter);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-12">
+    <div className="mx-auto w-full max-w-[1180px] px-5 py-9 sm:px-8 sm:py-12">
       <header className="mb-9 max-w-[64ch]">
         {buildingChapter ? (
           <a href={`/courses/${course?.id}`} className="text-sm font-semibold text-blue">
@@ -459,10 +454,10 @@ function Setup({
         <SectionLabel className={buildingChapter ? "mt-4" : undefined}>
           {buildingChapter ? "Chapter builder" : t.setup.eyebrow}
         </SectionLabel>
-        <h1 className="mt-3 text-[46px] leading-[1.06] font-bold tracking-[-0.05em] text-ink">
+        <h1 className="mt-3 text-[clamp(2.25rem,5vw,3.75rem)] leading-[1.06] font-semibold tracking-[-0.06em] text-ink">
           {buildingChapter ? `Build ${chapter?.title}` : t.setup.headline}
         </h1>
-        <p className="mt-3 text-[19px] leading-[1.6] text-body">
+        <p className="mt-3 text-[16px] leading-[1.6] text-body">
           {buildingChapter
             ? "Set the teaching brief for this chapter, then generate its editable draft."
             : t.setup.lede}
@@ -474,7 +469,7 @@ function Setup({
           <SectionLabel>{t.setup.brief}</SectionLabel>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Field label={t.setup.topic}>
+              <Field label={buildingChapter ? "Chapter topic" : t.setup.topic}>
                 <input className={inputCls} value={topic} onChange={(e) => setTopic(e.target.value)} />
               </Field>
             </div>
@@ -697,12 +692,6 @@ export default function Studio() {
   /** 左栏高亮:当前滚动到哪一页。 */
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // 教材语言持久化。首帧可能闪一下,但它只是一个下拉框,看不出来。
-  useEffect(() => {
-    const saved = window.localStorage.getItem(CONTENT_LANG_KEY);
-    if (saved) setContentLangState(normalizeLocale(saved));
-  }, []);
-
   // The editor is deliberately chapter-scoped. A direct visit goes to the
   // course catalogue; only the course detail page may open a chosen chapter.
   useEffect(() => {
@@ -720,6 +709,13 @@ export default function Studio() {
         setCourse(nextCourse);
         setChapter(nextChapter);
         setChapters(await Promise.all(nextCourse.chapterIds.map((id) => api.chapter(courseId, id))));
+        // The chapter brief comes from the selected course, never the demo Git sample.
+        setTopic(nextChapter.title === "Chapter 0" ? nextCourse.title : nextChapter.title);
+        setAudience(nextCourse.audience);
+        setDuration(nextCourse.durationMin);
+        setObjectives(nextCourse.learningObjectives.map((item) => item.text).join("\n"));
+        setMaterialText("");
+        setContentLangState(normalizeLocale(nextCourse.language));
         if (nextChapter.package) {
           await api.activateChapter(courseId, chapterId);
           setPkg(nextChapter.package);
