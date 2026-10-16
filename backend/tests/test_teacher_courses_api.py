@@ -135,3 +135,4 @@ async def test_teacher_can_attach_a_syllabus_when_setting_up_a_course():
     assert payload["syllabusFilename"] == "course-syllabus.md"
     assert payload["syllabusChars"] > 20
     assert payload["syllabusStatus"] == "ok"
+    assert "syllabusText" not in payload

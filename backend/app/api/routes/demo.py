@@ -277,7 +277,11 @@ def _camel_json(value: Any) -> Any:
 
 
 def _course_json(course: Any) -> dict[str, Any]:
-    return _camel_json(dataclasses.asdict(course))
+    # Keep the parsed syllabus server-side: it is generation context, not UI
+    # state.  The UI only needs its filename, parse status and character count.
+    payload = dataclasses.asdict(course)
+    payload.pop("syllabus_text", None)
+    return _camel_json(payload)
 
 
 def _chapter_json(chapter: Any) -> dict[str, Any]:
