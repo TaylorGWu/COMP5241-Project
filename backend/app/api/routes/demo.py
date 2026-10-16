@@ -37,7 +37,9 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import tempfile
 from collections.abc import AsyncIterator, Awaitable, Callable
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -56,7 +58,7 @@ from app.llm.client import ChatClient, build_deepseek_client
 from app.llm.ocr import make_ocr
 from app.services.agent import AgentStep
 from app.services.edit import EditResult, edit_artifact
-from app.services.ingest import IngestDeps
+from app.services.ingest import IngestDeps, SUPPORTED_SUFFIXES, ingest_file
 from app.services.patches import (
     InMemoryPatchStore,
     apply_patch,
@@ -366,6 +368,47 @@ async def unpublish_course(course_id: str) -> dict[str, Any]:
     return _course_json(COURSE_WORKSPACE.unpublish(course_id))
 
 
+@router.post("/courses/{course_id}/syllabus")
+async def attach_course_syllabus(course_id: str, request: Request) -> dict[str, Any]:
+    """Attach one teacher-owned syllabus and retain its extracted text in memory.
+
+    This demo accepts a raw upload body instead of multipart so it has no
+    hidden dependency on ``python-multipart``.  The browser sends the safe
+    filename in a header; the file itself is parsed by the existing material
+    ingestion pipeline and only the extracted reference text is retained.
+    """
+    _course_or_404(course_id)
+    filename = Path(request.headers.get("x-filename", "syllabus")).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise HTTPException(
+            status_code=422,
+            detail="不支持的 syllabus 格式。支持 PDF、PPTX、DOCX、Markdown 和 TXT。",
+        )
+    payload = await request.body()
+    if not payload:
+        raise HTTPException(status_code=422, detail="上传的 syllabus 是空文件。")
+    if len(payload) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="syllabus 不能超过 10 MB。")
+
+    with tempfile.TemporaryDirectory(prefix="pathpilot-syllabus-") as directory:
+        path = Path(directory) / filename
+        path.write_bytes(payload)
+        report = await ingest_file(path, deps=IngestDeps(ocr_image=_fake_ocr))
+
+    text = "\n\n".join(chunk.text for chunk in report.chunks).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail=report.message or "无法从 syllabus 中读取文字。")
+    course = COURSE_WORKSPACE.repository.update_course(
+        course_id,
+        syllabus_filename=filename,
+        syllabus_text=text,
+        syllabus_status=report.status,
+        syllabus_chars=report.extracted_chars,
+    )
+    return _course_json(course)
+
+
 @router.post("/courses/{course_id}/students/import")
 async def import_students(course_id: str, body: StudentImportBody) -> dict[str, Any]:
     _course_or_404(course_id)
@@ -462,12 +505,19 @@ async def delete_chapter(course_id: str, chapter_id: str) -> None:
 @router.post("/courses/{course_id}/chapters/{chapter_id}/generate")
 async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) -> dict[str, Any]:
     """Generate structured draft material into exactly one owned chapter."""
+    course = _course_or_404(course_id)
     chapter = _chapter_or_404(course_id, chapter_id)
     before = {"package": _package_json(chapter.package), "status": chapter.status}
     COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="generating")
     events: list[dict[str, Any]] = []
     try:
-        result, mode = await _run_generation(body, on_event=_collector(events))
+        material_text = "\n\n".join(
+            part for part in (course.syllabus_text, body.material_text) if part.strip()
+        )
+        result, mode = await _run_generation(
+            body.model_copy(update={"material_text": material_text}),
+            on_event=_collector(events),
+        )
     except Exception:
         COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
         raise

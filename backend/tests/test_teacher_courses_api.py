@@ -118,3 +118,20 @@ async def test_teacher_can_import_students_create_an_invite_and_view_actionable_
     assert analytics.status_code == 200
     assert analytics.json()["enrolledCount"] == 1
     assert analytics.json()["averageScore"] == 0
+
+
+async def test_teacher_can_attach_a_syllabus_when_setting_up_a_course():
+    course = await create_course("Software engineering foundations")
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        uploaded = await client.post(
+            f"/api/demo/courses/{course['id']}/syllabus",
+            content=b"Course outcomes\n- Explain version control\n- Review a pull request",
+            headers={"content-type": "application/octet-stream", "x-filename": "course-syllabus.md"},
+        )
+
+    assert uploaded.status_code == 200, uploaded.text
+    payload = uploaded.json()
+    assert payload["syllabusFilename"] == "course-syllabus.md"
+    assert payload["syllabusChars"] > 20
+    assert payload["syllabusStatus"] == "ok"

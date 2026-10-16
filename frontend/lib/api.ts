@@ -260,6 +260,9 @@ export type TeacherCourse = {
   durationMin: number;
   status: "draft" | "published";
   chapterIds: string[];
+  syllabusFilename?: string | null;
+  syllabusStatus?: "ok" | "degraded" | "failed" | null;
+  syllabusChars?: number;
 };
 
 export type TeacherChapter = {
@@ -494,6 +497,22 @@ export const api = {
     durationMin: number;
     language: string;
   }) => post<TeacherCourse>("/api/demo/courses", input),
+
+  uploadSyllabus: async (courseId: string, file: File): Promise<TeacherCourse> => {
+    const res = await fetch(`${API_BASE}/api/demo/courses/${courseId}/syllabus`, {
+      method: "POST",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "X-Filename": file.name,
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    }
+    return (await res.json()) as TeacherCourse;
+  },
 
   courses: () => get<{ courses: TeacherCourse[] }>("/api/demo/courses"),
 

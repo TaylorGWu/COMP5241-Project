@@ -13,6 +13,7 @@ export default function CoursesPage() {
   const [title, setTitle] = useState("");
   const [audience, setAudience] = useState("University beginners");
   const [duration, setDuration] = useState(45);
+  const [syllabus, setSyllabus] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,6 +25,7 @@ export default function CoursesPage() {
     setBusy(true); setError("");
     try {
       const course = await api.createCourse({ title: title.trim(), description: "", audience, durationMin: duration, language: "zh-HK" });
+      if (syllabus) await api.uploadSyllabus(course.id, syllabus);
       router.push(`/courses/${course.id}`);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -38,11 +40,12 @@ export default function CoursesPage() {
     {error ? <p className="mb-5 rounded-sm border border-amber/30 bg-amber-soft p-3 text-sm text-amber">{error}</p> : null}
     <Card className="p-6">
       <SectionLabel>Create a course</SectionLabel>
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_180px_130px]">
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_220px_130px]">
         <Field label="Course title"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Git collaboration" /></Field>
-        <Field label="Learners"><input className={inputCls} value={audience} onChange={(e) => setAudience(e.target.value)} /></Field>
+        <Field label="Learners"><select className={inputCls} value={audience} onChange={(e) => setAudience(e.target.value)}><option>University beginners</option><option>Computer science undergraduates</option><option>Mixed-level cohort</option><option>Working professionals</option></select></Field>
         <Field label="Minutes"><input className={inputCls} type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} /></Field>
       </div>
+      <div className="mt-4 max-w-[640px]"><Field label="Syllabus or course outline" hint="Optional · PDF, DOCX, PPTX, Markdown or TXT · up to 10 MB"><input className={inputCls} type="file" accept=".pdf,.docx,.pptx,.md,.markdown,.txt" onChange={(e) => setSyllabus(e.target.files?.[0] ?? null)} />{syllabus ? <p className="mt-2 text-xs text-muted">Attached: {syllabus.name}</p> : null}</Field></div>
       <Button variant="primary" className="mt-4" disabled={busy || !title.trim()} onClick={create}>{busy ? "Creating…" : "Create course"}</Button>
     </Card>
     <section className="mt-8">

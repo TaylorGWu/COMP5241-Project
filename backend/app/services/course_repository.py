@@ -28,6 +28,12 @@ class Course:
     chapter_ids: list[str] = field(default_factory=list)
     learning_objectives: list[dict[str, str]] = field(default_factory=list)
     student_ids: list[str] = field(default_factory=list)
+    # The parsed syllabus belongs to the course, not to any one chapter.  It is
+    # folded into each chapter-generation request as teacher-provided context.
+    syllabus_filename: str | None = None
+    syllabus_text: str = ""
+    syllabus_status: str | None = None
+    syllabus_chars: int = 0
 
 
 @dataclass
@@ -128,7 +134,11 @@ class InMemoryCourseRepository:
 
     def update_course(self, course_id: str, **changes: Any) -> Course:
         course = self.get_course(course_id)
-        allowed = {"title", "description", "audience", "language", "duration_min", "learning_objectives", "status"}
+        allowed = {
+            "title", "description", "audience", "language", "duration_min",
+            "learning_objectives", "status", "syllabus_filename", "syllabus_text",
+            "syllabus_status", "syllabus_chars",
+        }
         unexpected = set(changes) - allowed
         if unexpected:
             raise ValueError(f"cannot update {sorted(unexpected)}")
