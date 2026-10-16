@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Badge, Button, Card, ErrorBar, Field, SectionLabel, Segmented, inputCls } from "@/components/ui";
+import { TeacherNavigation } from "@/components/TeacherNavigation";
 import { api, type CourseActivity, type CourseAnalytics, type TeacherChapter, type TeacherCourse } from "@/lib/api";
 
 type Tab = "curriculum" | "students" | "insights" | "activity" | "settings";
@@ -27,7 +28,6 @@ export default function CourseDetailPage() {
   const [description, setDescription] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [subject, setSubject] = useState("Software Engineering");
-  const [level, setLevel] = useState("Undergraduate");
   const [objectivesText, setObjectivesText] = useState("");
   const [activity, setActivity] = useState<CourseActivity[]>([]);
   const [busy, setBusy] = useState(false);
@@ -43,7 +43,6 @@ export default function CourseDetailPage() {
     setDescription(nextCourse.description);
     setCourseCode(nextCourse.courseCode);
     setSubject(nextCourse.subject);
-    setLevel(nextCourse.level);
     setObjectivesText(nextCourse.learningObjectives.map((objective) => objective.text).join("\n"));
   };
   const loadAnalytics = async () => setAnalytics(await api.analytics(courseId));
@@ -102,7 +101,7 @@ export default function CourseDetailPage() {
   });
   const saveCourse = () => withBusy(async () => {
     const updated = await api.updateCourse(courseId, {
-      title: courseTitle.trim(), description, courseCode, subject, level,
+      title: courseTitle.trim(), description, courseCode, subject,
       learningObjectives: objectivesText.split("\n").map((text, index) => ({ id: `LO${index + 1}`, text: text.trim() })).filter((objective) => objective.text),
     });
     setCourse(updated); setNotice("Course details saved.");
@@ -114,13 +113,13 @@ export default function CourseDetailPage() {
   });
 
   const ready = chapters.filter((chapter) => chapter.status === "ready").length;
-  if (!course) return <main className="min-h-screen bg-soft/40"><div className="mx-auto w-full max-w-[760px] px-6 py-12"><button type="button" onClick={() => router.push("/courses")} className="text-sm font-semibold text-blue">← Course catalogue</button>{error ? <div className="mt-6"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : <Card className="mt-6 p-6"><SectionLabel>Loading course</SectionLabel><p className="mt-2 text-sm text-muted">Opening the teacher workspace…</p></Card>}</div></main>;
+  if (!course) return <main className="min-h-screen bg-soft/40"><div className="mx-auto w-full max-w-[760px] px-6 py-8"><TeacherNavigation active="courses" />{error ? <div className="mt-6"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : <Card className="mt-6 p-6"><SectionLabel>Loading course</SectionLabel><p className="mt-2 text-sm text-muted">Opening the teacher workspace…</p></Card>}</div></main>;
   return <main className="min-h-screen bg-soft/40">
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
-      <button type="button" onClick={() => router.push("/courses")} className="text-sm font-semibold text-blue">← Course catalogue</button>
+      <TeacherNavigation active="courses" />
       {course ? <header className="mt-5 rounded-md bg-ink px-7 py-8 text-white">
         <SectionLabel className="text-[#a9c2ff]">Teacher course studio</SectionLabel>
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-5"><div><div className="flex items-center gap-3"><h1 className="text-[38px] font-bold tracking-[-0.05em]">{course.title}</h1><Badge tone={course.status === "published" ? "green" : "amber"}>{course.status}</Badge></div><p className="mt-2 text-[15px] text-[#c4d0e5]">{course.courseCode || "Uncoded"} · {course.subject} · {course.level}</p><p className="mt-1 text-[14px] text-[#9dafc7]">{course.audience} · {course.durationMin} min · {chapters.length} chapters</p></div><Button variant="primary" onClick={togglePublish} disabled={busy}>{course.status === "published" ? "Unpublish course" : "Publish reviewed course"}</Button></div>
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-5"><div><div className="flex items-center gap-3"><h1 className="text-[38px] font-bold tracking-[-0.05em]">{course.title}</h1><Badge tone={course.status === "published" ? "green" : "amber"}>{course.status}</Badge></div><p className="mt-2 text-[15px] text-[#c4d0e5]">{course.courseCode || "No course code"} · {course.subject}</p><p className="mt-1 text-[14px] text-[#9dafc7]">{course.audience} · {course.durationMin} min · {chapters.length} chapters</p></div><Button variant="primary" onClick={togglePublish} disabled={busy}>{course.status === "published" ? "Unpublish course" : "Publish reviewed course"}</Button></div>
       </header> : null}
       {error ? <div className="mt-5"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
       {notice ? <p className="mt-5 rounded-sm border border-green/30 bg-green-soft p-3 text-sm text-green">{notice}</p> : null}
@@ -138,7 +137,7 @@ export default function CourseDetailPage() {
 
       {tab === "activity" ? <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]"><Card className="p-6"><SectionLabel>Review trail</SectionLabel><p className="mt-2 text-sm leading-6 text-muted">A compact evidence trail of AI generation, instructor changes and publication decisions. It supports review; it does not silently publish AI output.</p><ol className="mt-5 space-y-3">{activity.map((item) => <li key={item.id} className="rounded-sm border border-line p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold text-ink">{item.reason}</p><Badge tone={item.kind === "publish" ? "green" : item.kind === "generation" ? "blue" : "neutral"}>{item.kind.replace("-", " ")}</Badge></div><p className="mt-2 text-sm text-muted">Changed: {item.changedFields.map((field) => field.replaceAll("_", " ")).join(", ") || "recorded event"}{item.chapterId ? " · chapter-owned" : " · course-level"}</p></li>)}{!activity.length ? <li className="rounded-sm bg-soft p-5 text-sm leading-6 text-muted">No review events yet. Generate a chapter, save the blueprint or publish a reviewed course to begin this record.</li> : null}</ol></Card><Card className="p-5"><SectionLabel>Demo evidence</SectionLabel><p className="mt-3 text-sm leading-6 text-muted">Use this screen during usability sessions to distinguish what the model drafted from what the teacher reviewed and published. Record real sessions separately; this prototype must not invent user evidence.</p></Card></div> : null}
 
-      {tab === "settings" ? <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px]"><Card className="p-6"><SectionLabel>Course details</SectionLabel><div className="mt-5 grid gap-4"><Field label="Course title"><input className={inputCls} value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} /></Field><div className="grid gap-4 sm:grid-cols-[150px_1fr_180px]"><Field label="Course code"><input className={inputCls} value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="e.g. SE-101" /></Field><Field label="Subject"><select className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)}><option>Software Engineering</option><option>Computing Foundations</option><option>AI &amp; Data</option><option>Professional Development</option></select></Field><Field label="Level"><select className={inputCls} value={level} onChange={(e) => setLevel(e.target.value)}><option>Undergraduate</option><option>Postgraduate</option><option>Professional</option></select></Field></div><Field label="Course description"><textarea className={`${inputCls} min-h-[110px]`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What will learners be able to do?" /></Field><Field label="Learning outcomes" hint="One outcome per line"><textarea className={`${inputCls} min-h-[130px]`} value={objectivesText} onChange={(e) => setObjectivesText(e.target.value)} placeholder={"Explain branch isolation\nReview a pull request before merging"} /></Field></div><Button variant="primary" className="mt-5" disabled={busy || !courseTitle.trim()} onClick={saveCourse}>Save blueprint</Button></Card><Card className="p-5"><SectionLabel>Publication check</SectionLabel><p className="mt-3 text-sm leading-6 text-muted">A course can publish only after at least one chapter is ready. Generated material remains a draft until you explicitly publish it.</p><p className="mt-4 text-sm font-semibold text-ink">{ready} of {chapters.length} chapters ready</p><Button variant={course?.status === "published" ? "ghost" : "primary"} className="mt-4 w-full" disabled={busy} onClick={togglePublish}>{course?.status === "published" ? "Unpublish course" : "Publish reviewed course"}</Button></Card></div> : null}
+      {tab === "settings" ? <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px]"><Card className="p-6"><SectionLabel>Course details</SectionLabel><div className="mt-5 grid gap-4"><Field label="Course title"><input className={inputCls} value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} /></Field><div className="grid gap-4 sm:grid-cols-[150px_1fr]"><Field label="Course code"><input className={inputCls} value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="e.g. SE-101" /></Field><Field label="Subject"><select className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)}><option>Software Engineering</option><option>Computing Foundations</option><option>AI &amp; Data</option><option>Professional Development</option></select></Field></div><Field label="Course description"><textarea className={`${inputCls} min-h-[110px]`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What will learners be able to do?" /></Field><Field label="Learning outcomes" hint="One outcome per line"><textarea className={`${inputCls} min-h-[130px]`} value={objectivesText} onChange={(e) => setObjectivesText(e.target.value)} placeholder={"Explain branch isolation\nReview a pull request before merging"} /></Field></div><Button variant="primary" className="mt-5" disabled={busy || !courseTitle.trim()} onClick={saveCourse}>Save blueprint</Button></Card><Card className="p-5"><SectionLabel>Publication check</SectionLabel><p className="mt-3 text-sm leading-6 text-muted">A course can publish only after at least one chapter is ready. Generated material remains a draft until you explicitly publish it.</p><p className="mt-4 text-sm font-semibold text-ink">{ready} of {chapters.length} chapters ready</p><Button variant={course?.status === "published" ? "ghost" : "primary"} className="mt-4 w-full" disabled={busy} onClick={togglePublish}>{course?.status === "published" ? "Unpublish course" : "Publish reviewed course"}</Button></Card></div> : null}
     </div>
   </main>;
 }
