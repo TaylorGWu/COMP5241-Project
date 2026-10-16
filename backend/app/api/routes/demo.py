@@ -236,6 +236,10 @@ class CourseCreateBody(BaseModel):
     audience: str = "非计算机专业初学者"
     duration_min: int = Field(default=45, ge=10, le=180, alias="durationMin")
     language: str = "zh-HK"
+    course_code: str = Field(default="", max_length=24, alias="courseCode")
+    subject: str = Field(default="Software Engineering", min_length=1, max_length=80)
+    level: str = Field(default="Undergraduate", min_length=1, max_length=40)
+    learning_objectives: list[str] = Field(default_factory=list, max_length=8, alias="learningObjectives")
 
 
 class CoursePatchBody(BaseModel):
@@ -244,6 +248,10 @@ class CoursePatchBody(BaseModel):
     audience: str | None = None
     duration_min: int | None = Field(default=None, ge=10, le=180, alias="durationMin")
     language: str | None = None
+    course_code: str | None = Field(default=None, max_length=24, alias="courseCode")
+    subject: str | None = Field(default=None, min_length=1, max_length=80)
+    level: str | None = Field(default=None, min_length=1, max_length=40)
+    learning_objectives: list[dict[str, str]] | None = Field(default=None, max_length=8, alias="learningObjectives")
 
 
 class ChapterCreateBody(BaseModel):
@@ -332,12 +340,21 @@ async def list_courses() -> dict[str, Any]:
 
 @router.post("/courses", status_code=201)
 async def create_course(body: CourseCreateBody) -> dict[str, Any]:
+    objectives = [
+        {"id": f"LO{index}", "text": objective.strip()}
+        for index, objective in enumerate(body.learning_objectives, start=1)
+        if objective.strip()
+    ]
     course = COURSE_WORKSPACE.create_course(
         title=body.title,
         description=body.description,
         audience=body.audience,
         duration_min=body.duration_min,
         language=body.language,
+        course_code=body.course_code,
+        subject=body.subject,
+        level=body.level,
+        learning_objectives=objectives,
     )
     return _course_json(course)
 
@@ -349,10 +366,23 @@ async def get_course(course_id: str) -> dict[str, Any]:
 
 @router.patch("/courses/{course_id}")
 async def update_course(course_id: str, body: CoursePatchBody) -> dict[str, Any]:
-    _course_or_404(course_id)
+    course = _course_or_404(course_id)
     changes = body.model_dump(exclude_none=True)
     try:
-        return _course_json(COURSE_WORKSPACE.repository.update_course(course_id, **changes))
+        if not changes:
+            return _course_json(course)
+        before = {key: dataclasses.asdict(course).get(key) for key in changes}
+        updated = COURSE_WORKSPACE.repository.update_course(course_id, **changes)
+        COURSE_WORKSPACE.record_version(
+            course_id,
+            None,
+            kind="course-update",
+            reason="Instructor updated the course blueprint",
+            changed_fields=list(changes),
+            before=before,
+            after={key: dataclasses.asdict(updated).get(key) for key in changes},
+        )
+        return _course_json(updated)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
@@ -445,6 +475,18 @@ async def course_analytics(course_id: str) -> dict[str, Any]:
         "averageScore": analytics["averageScore"],
         "mostMissed": analytics["mostMissed"],
         "students": students,
+    }
+
+
+@router.get("/courses/{course_id}/activity")
+async def course_activity(course_id: str) -> dict[str, Any]:
+    """Reviewable, read-only record of instructor and AI course changes."""
+    _course_or_404(course_id)
+    return {
+        "activity": [
+            _camel_json(dataclasses.asdict(version))
+            for version in reversed(COURSE_WORKSPACE.versions(course_id))
+        ]
     }
 
 

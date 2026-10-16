@@ -260,6 +260,10 @@ export type TeacherCourse = {
   durationMin: number;
   status: "draft" | "published";
   chapterIds: string[];
+  courseCode: string;
+  subject: string;
+  level: string;
+  learningObjectives: { id: string; text: string }[];
   syllabusFilename?: string | null;
   syllabusStatus?: "ok" | "degraded" | "failed" | null;
   syllabusChars?: number;
@@ -289,6 +293,17 @@ export type CourseAnalytics = {
   averageScore: number;
   mostMissed: { questionId: string; wrongCount: number }[];
   students: EnrolledStudent[];
+};
+
+export type CourseActivity = {
+  id: string;
+  courseId: string;
+  chapterId: string | null;
+  kind: string;
+  reason: string;
+  changedFields: string[];
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
 };
 
 // ── 教师端四个增量:出题 / 组卷 / 白话化 / 导出 ──────────────
@@ -496,6 +511,10 @@ export const api = {
     audience: string;
     durationMin: number;
     language: string;
+    courseCode?: string;
+    subject?: string;
+    level?: string;
+    learningObjectives?: string[];
   }) => post<TeacherCourse>("/api/demo/courses", input),
 
   uploadSyllabus: async (courseId: string, file: File): Promise<TeacherCourse> => {
@@ -520,7 +539,7 @@ export const api = {
 
   updateCourse: (
     courseId: string,
-    changes: Partial<Pick<TeacherCourse, "title" | "description" | "audience" | "durationMin" | "language">>,
+    changes: Partial<Pick<TeacherCourse, "title" | "description" | "audience" | "durationMin" | "language" | "courseCode" | "subject" | "level" | "learningObjectives">>,
   ) => patch<TeacherCourse>(`/api/demo/courses/${courseId}`, changes),
 
   publishCourse: (courseId: string) => post<TeacherCourse>(`/api/demo/courses/${courseId}/publish`, {}),
@@ -550,6 +569,7 @@ export const api = {
 
   createInvite: (courseId: string) => post<{ code: string }>(`/api/demo/courses/${courseId}/invites`, {}),
   analytics: (courseId: string) => get<CourseAnalytics>(`/api/demo/courses/${courseId}/analytics`),
+  activity: (courseId: string) => get<{ activity: CourseActivity[] }>(`/api/demo/courses/${courseId}/activity`),
 
   activateChapter: (courseId: string, chapterId: string) =>
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),

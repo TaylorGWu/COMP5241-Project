@@ -28,6 +28,11 @@ class Course:
     chapter_ids: list[str] = field(default_factory=list)
     learning_objectives: list[dict[str, str]] = field(default_factory=list)
     student_ids: list[str] = field(default_factory=list)
+    # Catalogue metadata mirrors the compact, scannable course identity that
+    # teachers and learners need before opening the curriculum.
+    course_code: str = ""
+    subject: str = "Software Engineering"
+    level: str = "Undergraduate"
     # The parsed syllabus belongs to the course, not to any one chapter.  It is
     # folded into each chapter-generation request as teacher-provided context.
     syllabus_filename: str | None = None
@@ -80,7 +85,7 @@ class Attempt:
 
 
 class CourseRepository(Protocol):
-    def create_course(self, *, title: str, description: str, audience: str, language: str, duration_min: int) -> Course: ...
+    def create_course(self, *, title: str, description: str, audience: str, language: str, duration_min: int, course_code: str = "", subject: str = "Software Engineering", level: str = "Undergraduate", learning_objectives: list[dict[str, str]] | None = None) -> Course: ...
 
     def get_course(self, course_id: str) -> Course: ...
 
@@ -104,6 +109,10 @@ class InMemoryCourseRepository:
         audience: str,
         language: str,
         duration_min: int,
+        course_code: str = "",
+        subject: str = "Software Engineering",
+        level: str = "Undergraduate",
+        learning_objectives: list[dict[str, str]] | None = None,
     ) -> Course:
         if not title.strip():
             raise ValueError("title is required")
@@ -116,6 +125,10 @@ class InMemoryCourseRepository:
             audience=audience.strip(),
             language=language.strip() or "zh-HK",
             duration_min=duration_min,
+            course_code=course_code.strip(),
+            subject=subject.strip() or "Software Engineering",
+            level=level.strip() or "Undergraduate",
+            learning_objectives=list(learning_objectives or []),
         )
         self._courses[course.id] = course
         # 课程可先有一个明确的起始草稿，但它不是不可改的「第一章」。
@@ -136,7 +149,7 @@ class InMemoryCourseRepository:
         course = self.get_course(course_id)
         allowed = {
             "title", "description", "audience", "language", "duration_min",
-            "learning_objectives", "status", "syllabus_filename", "syllabus_text",
+            "learning_objectives", "course_code", "subject", "level", "status", "syllabus_filename", "syllabus_text",
             "syllabus_status", "syllabus_chars",
         }
         unexpected = set(changes) - allowed
@@ -147,7 +160,7 @@ class InMemoryCourseRepository:
                 raise ValueError("title is required")
             if key == "duration_min" and int(value) <= 0:
                 raise ValueError("duration_min must be positive")
-            setattr(course, key, value.strip() if key in {"title", "description", "audience", "language"} else value)
+            setattr(course, key, value.strip() if key in {"title", "description", "audience", "language", "course_code", "subject", "level"} else value)
         return course
 
     def create_chapter(self, course_id: str, *, title: str, summary: str = "") -> Chapter:

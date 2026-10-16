@@ -33,6 +33,66 @@ async def test_course_api_creates_draft_with_first_chapter_and_lists_it():
     assert listed.json()["courses"][0]["id"] == course["id"]
 
 
+async def test_course_creation_keeps_a_catalogue_ready_teaching_blueprint():
+    response = await request(
+        "POST",
+        "/api/demo/courses",
+        {
+            "title": "Git collaboration",
+            "description": "A reviewed collaboration mini-course",
+            "audience": "University beginners",
+            "durationMin": 90,
+            "courseCode": "SE-101",
+            "subject": "Software Engineering",
+            "level": "Undergraduate",
+            "learningObjectives": ["Explain branch isolation", "Review a pull request before merging"],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    course = response.json()
+    assert course["courseCode"] == "SE-101"
+    assert course["subject"] == "Software Engineering"
+    assert course["level"] == "Undergraduate"
+    assert course["learningObjectives"] == [
+        {"id": "LO1", "text": "Explain branch isolation"},
+        {"id": "LO2", "text": "Review a pull request before merging"},
+    ]
+
+
+async def test_course_blueprint_edits_and_publication_leave_an_audit_trail():
+    course = await create_course("Git collaboration")
+    course_id = course["id"]
+    chapter_id = course["chapterIds"][0]
+
+    updated = await request(
+        "PATCH",
+        f"/api/demo/courses/{course_id}",
+        {
+            "courseCode": "SE-101",
+            "subject": "Software Engineering",
+            "level": "Undergraduate",
+            "learningObjectives": [{"id": "LO1", "text": "Explain branch isolation"}],
+        },
+    )
+    await request(
+        "PATCH",
+        f"/api/demo/courses/{course_id}/chapters/{chapter_id}",
+        {"status": "ready", "package": {"slides": []}},
+    )
+    published = await request("POST", f"/api/demo/courses/{course_id}/publish")
+    activity = await request("GET", f"/api/demo/courses/{course_id}/activity")
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["courseCode"] == "SE-101"
+    assert published.status_code == 200, published.text
+    # The UI intentionally shows the newest review event first.
+    assert [item["kind"] for item in activity.json()["activity"]] == ["publish", "course-update"]
+    assert activity.json()["activity"][1]["changedFields"] == [
+        "course_code", "subject", "level", "learning_objectives"
+    ]
+
+
 async def test_chapter_routes_keep_order_and_course_ownership():
     first = await create_course("Git")
     second = await create_course("AI")

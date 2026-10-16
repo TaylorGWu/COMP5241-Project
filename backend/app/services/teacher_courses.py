@@ -20,8 +20,8 @@ class TeacherCourseService:
         self._attempt_numbers = count(1)
         self._invite_numbers = count(1)
 
-    def create_course(self, *, title: str, description: str, audience: str, duration_min: int, language: str = "zh-HK") -> Course:
-        return self.repository.create_course(title=title, description=description, audience=audience, language=language, duration_min=duration_min)
+    def create_course(self, *, title: str, description: str, audience: str, duration_min: int, language: str = "zh-HK", course_code: str = "", subject: str = "Software Engineering", level: str = "Undergraduate", learning_objectives: list[dict[str, str]] | None = None) -> Course:
+        return self.repository.create_course(title=title, description=description, audience=audience, language=language, duration_min=duration_min, course_code=course_code, subject=subject, level=level, learning_objectives=learning_objectives)
 
     def publish(self, course_id: str) -> Course:
         course = self.repository.get_course(course_id)
