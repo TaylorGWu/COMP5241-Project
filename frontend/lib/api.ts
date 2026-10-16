@@ -566,6 +566,22 @@ export const api = {
       input,
     ),
 
+  generateChapterStream: (
+    courseId: string,
+    chapterId: string,
+    input: GenerateInput,
+    handlers: {
+      onProgress?: (e: ProgressEvent) => void;
+      onResult: (r: GenerateResponse & { chapter: TeacherChapter }) => void;
+      signal?: AbortSignal;
+    },
+  ) =>
+    streamRequest(`/api/demo/courses/${courseId}/chapters/${chapterId}/generate/stream`, input, {
+      onProgress: (data) => handlers.onProgress?.(data as unknown as ProgressEvent),
+      onResult: (data) => handlers.onResult(data as unknown as GenerateResponse & { chapter: TeacherChapter }),
+      signal: handlers.signal,
+    }),
+
   /** 出题。学习目标取自产物的大纲,不用前端再传一遍。 */
   questions: (countPerObjective: number, useReal: boolean, language: string) =>
     post<QuestionsResponse>("/api/demo/questions", {

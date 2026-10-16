@@ -136,3 +136,26 @@ async def test_teacher_can_attach_a_syllabus_when_setting_up_a_course():
     assert payload["syllabusChars"] > 20
     assert payload["syllabusStatus"] == "ok"
     assert "syllabusText" not in payload
+
+
+async def test_chapter_generation_stream_uses_the_course_syllabus(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course("Software engineering foundations")
+    chapter_id = course["chapterIds"][0]
+    syllabus = "Course outcome: explain pull-request review before merging."
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        attached = await client.post(
+            f"/api/demo/courses/{course['id']}/syllabus",
+            content=syllabus.encode(),
+            headers={"content-type": "application/octet-stream", "x-filename": "syllabus.md"},
+        )
+        streamed = await client.post(
+            f"/api/demo/courses/{course['id']}/chapters/{chapter_id}/generate/stream",
+            json={"topic": "Git review", "audience": "Beginners", "duration_min": 30, "use_real_model": False},
+        )
+
+    assert attached.status_code == 200
+    assert streamed.status_code == 200, streamed.text
+    assert "event: result" in streamed.text
+    assert syllabus in streamed.text

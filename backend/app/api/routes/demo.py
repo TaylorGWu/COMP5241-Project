@@ -506,21 +506,24 @@ async def delete_chapter(course_id: str, chapter_id: str) -> None:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
-@router.post("/courses/{course_id}/chapters/{chapter_id}/generate")
-async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) -> dict[str, Any]:
-    """Generate structured draft material into exactly one owned chapter."""
+async def _run_chapter_generation(
+    course_id: str,
+    chapter_id: str,
+    body: GenerateBody,
+    on_event: Callable[[ProgressEvent], None] | None = None,
+) -> tuple[Any, PipelineResult, str]:
+    """Run one chapter-owned generation without leaking through the singleton flow."""
     course = _course_or_404(course_id)
     chapter = _chapter_or_404(course_id, chapter_id)
     before = {"package": _package_json(chapter.package), "status": chapter.status}
     COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="generating")
-    events: list[dict[str, Any]] = []
     try:
         material_text = "\n\n".join(
             part for part in (course.syllabus_text, body.material_text) if part.strip()
         )
         result, mode = await _run_generation(
             body.model_copy(update={"material_text": material_text}),
-            on_event=_collector(events),
+            on_event=on_event,
         )
     except Exception:
         COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
@@ -540,6 +543,16 @@ async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) 
         changed_fields=["package", "materials", "status"],
         before=before,
         after={"package": _package_json(result.package), "status": "ready"},
+    )
+    return chapter, result, mode
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/generate")
+async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) -> dict[str, Any]:
+    """Generate structured draft material into exactly one owned chapter."""
+    events: list[dict[str, Any]] = []
+    chapter, result, mode = await _run_chapter_generation(
+        course_id, chapter_id, body, on_event=_collector(events)
     )
     return {
         "chapter": _chapter_json(chapter),
@@ -796,6 +809,37 @@ async def generate_stream(body: GenerateBody, request: Request) -> StreamingResp
         result, mode = await _run_generation(body, on_event=on_event)
         # 最终结果里带上完整事件列表,和同步端点保持一致
         return _generation_payload(result, mode, events)
+
+    return _sse_response(_sse_stream(request, job))
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/generate/stream")
+async def generate_chapter_stream(
+    course_id: str,
+    chapter_id: str,
+    body: GenerateBody,
+    request: Request,
+) -> StreamingResponse:
+    """Stream a generation job while keeping its result owned by one chapter."""
+    # Report a bad course/chapter immediately, rather than opening a stream
+    # that only later produces an error frame.
+    _chapter_or_404(course_id, chapter_id)
+
+    async def job(emit: Callable[[str, Any], None]) -> dict[str, Any]:
+        events: list[dict[str, Any]] = []
+
+        def on_event(event: ProgressEvent) -> None:
+            payload = event.to_dict()
+            events.append(payload)
+            emit("progress", payload)
+
+        chapter, result, mode = await _run_chapter_generation(
+            course_id, chapter_id, body, on_event=on_event
+        )
+        return {
+            "chapter": _chapter_json(chapter),
+            **_generation_payload(result, mode, events),
+        }
 
     return _sse_response(_sse_stream(request, job))
 

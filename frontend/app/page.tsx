@@ -83,12 +83,12 @@ function AppHeader({
   title,
   modelMode,
   busy,
-  onStartOver,
+  onBackToCourses,
 }: {
   title?: string;
   modelMode?: string;
   busy: boolean;
-  onStartOver: () => void;
+  onBackToCourses: () => void;
 }) {
   const { t, locale, setLocale } = useI18n();
 
@@ -133,8 +133,8 @@ function AppHeader({
             </Badge>
           ) : null}
 
-          <Button className="min-h-0 px-3 py-1.5 text-[14px]" onClick={onStartOver} disabled={busy}>
-            {t.app.startOver}
+          <Button className="min-h-0 px-3 py-1.5 text-[14px]" onClick={onBackToCourses} disabled={busy}>
+            Back to courses
           </Button>
         </div>
       </div>
@@ -889,22 +889,19 @@ export default function Studio() {
       const controller = new AbortController();
       abortRef.current = controller;
 
-      // ★ 流式生成:进度**边跑边来**,不再等生成完才一次性给。
-      //   后端两条路是同一个实现,所以这里拿到的包和 api.generate() 完全一致。
-      await api.generateStream(payload(), {
+      // ★ 流式生成:进度**边跑边来**,不再等生成完才一次性给。请求必须
+      // 带着 course/chapter ownership，才能自动采用该课程的 syllabus。
+      await api.generateChapterStream(course.id, chapter.id, payload(), {
         signal: controller.signal,
         onProgress: (ev) => {
           setEvents((old) => [...old, ev]);
         },
         onResult: (r) => {
           setGen(r);
-          // The legacy stream returns the shared IR package. Persist that exact
-          // package under the selected course chapter so course ownership—not a
-          // global singleton—remains the teacher-facing source of truth.
-          void api.updateChapter(course.id, chapter.id, {
-            package: r.package,
-            status: "ready",
-          }).then(setChapter).catch((error) => setError(error instanceof Error ? error.message : String(error)));
+          // The chapter-owned backend stream has already committed its package
+          // and version record. Keep the selected chapter metadata in sync.
+          setChapter(r.chapter);
+          setChapters((items) => items.map((item) => item.id === r.chapter.id ? r.chapter : item));
           // ═══════════════════════════════════════════════════════
           // 为什么不立刻切到工作台
           // ═══════════════════════════════════════════════════════
@@ -1009,24 +1006,12 @@ export default function Studio() {
       setEditing(null);
     });
 
-  const onStartOver = () =>
-    run(async () => {
-      await api.reset();
-      setGen(null);
-      setPkg(null);
-      setCourse(null);
-      setChapter(null);
-      setChapters([]);
-      setPatches([]);
-      setEvents([]);
-      setReply("");
-      setCallNames([]);
-      setError("");
-      setIntegrity(null);
-      setEditing(null);
-      setView("slides");
-      setActiveId(null);
-    });
+  const onBackToCourses = () => {
+    onCancel();
+    window.localStorage.removeItem("pathpilot.activeCourse");
+    window.localStorage.removeItem("pathpilot.activeChapter");
+    router.push("/courses");
+  };
 
   const slides = useMemo(() => pkg?.slideDeck?.slides ?? [], [pkg]);
   const timeline = useMemo(() => pkg?.lessonPlan?.timeline ?? [], [pkg]);
@@ -1176,7 +1161,7 @@ export default function Studio() {
         title={pkg ? pkg.project.meta.title : undefined}
         modelMode={gen?.model_mode}
         busy={busy}
-        onStartOver={onStartOver}
+        onBackToCourses={onBackToCourses}
       />
 
       {error ? (
