@@ -16,7 +16,7 @@ import { useState } from "react";
 import { Badge, Button, Dot, Field, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import type { Messages } from "@/lib/i18n-config";
-import type { Slide } from "@/lib/api";
+import { API_BASE, type Slide } from "@/lib/api";
 
 const LAYOUTS = ["title", "bullets", "diagram", "twoCol", "code", "quiz"] as const;
 
@@ -68,9 +68,49 @@ function Bullets({ items, twoCol }: { items: string[]; twoCol?: boolean }) {
   );
 }
 
+/**
+ * 示意图只读 IR 的 assetId。后端把 Mermaid 的节点关系转成固定 SVG 模板；
+ * 浏览器从不执行 Mermaid 源码，避免「源码框」既难看又让图形渲染成为攻击面。
+ */
+function DiagramVisual({
+  assetId,
+  title,
+}: {
+  assetId?: string;
+  title: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (!assetId || failed) {
+    return (
+      <div className="grid h-full place-items-center rounded-[18px] border border-dashed border-line bg-[#f4f7fc] p-5 text-center">
+        <div>
+          <p className="text-[11px] font-bold tracking-[0.12em] text-blue uppercase">Visual map</p>
+          <p className="mt-2 text-[14px] leading-[1.45] text-muted">
+            The diagram is unavailable. Its teaching points remain alongside it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <figure className="relative flex h-full items-center justify-center overflow-hidden rounded-[18px] border border-line bg-[#f7f9fd] p-2">
+      <img
+        src={`${API_BASE}/api/demo/assets/${encodeURIComponent(assetId)}.svg`}
+        alt={`Visual explanation for ${title}`}
+        className="h-full w-full object-contain"
+        onError={() => setFailed(true)}
+      />
+      <figcaption className="absolute left-4 top-4 rounded-full bg-surface/95 px-2.5 py-1 text-[10px] font-bold tracking-[0.1em] text-muted shadow-sm uppercase">
+        Visual map
+      </figcaption>
+    </figure>
+  );
+}
+
 /** 按 layout 渲染版面。每个分支都只读 IR,不读任何界面状态。 */
 function SlideBody({ slide }: { slide: Slide }) {
-  const { t } = useI18n();
   const { layout, title, bullets } = slide;
   const visual = slide.visuals[0];
 
@@ -101,20 +141,8 @@ function SlideBody({ slide }: { slide: Slide }) {
       <div className="flex h-full flex-col">
         <SlideTitle>{title}</SlideTitle>
         <div className="flex min-h-0 flex-1 gap-6">
-          {/* 图还没渲染成 PNG 之前把源码显示出来 ——
-              一个空框说明不了任何事,源码至少告诉你这张图会画成什么。 */}
-          <div className="flex flex-1 flex-col justify-center gap-2.5 overflow-hidden rounded-sm border border-dashed border-line bg-soft px-5 py-4">
-            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-muted uppercase">
-              {visual?.kind ?? "figure"} ·{" "}
-              {visual?.assetId ? visual.assetId : t.slide.notGenerated}
-            </p>
-            {visual?.spec?.code ? (
-              <pre className="overflow-hidden font-mono text-[13px] leading-[1.5] whitespace-pre-wrap text-body">
-                {visual.spec.code}
-              </pre>
-            ) : (
-              <p className="text-[13px] text-muted">{t.slide.noSource}</p>
-            )}
+          <div className="min-w-0 flex-1">
+            <DiagramVisual assetId={visual?.assetId} title={title} />
           </div>
           {bullets.length ? (
             <div className="w-[38%] overflow-hidden">

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LessonPlan } from "@/components/LessonPlan";
 import { ReviewMargin } from "@/components/ReviewMargin";
+import { TeacherTools } from "@/components/TeacherTools";
 import { SlideCanvas } from "@/components/SlideCanvas";
 import {
   Badge,
@@ -857,6 +858,38 @@ export default function Studio() {
       }
     });
 
+  // ── 教师端后几步:出题 / 组卷 / 白话化 ──
+  // 三个都直接返回新的 package,和生成走同一条路 —— 它们产出新产物,
+  // 不是「修改已有内容」,所以不走 patch。教师改某一页内容仍然只能走 patch。
+
+  const onQuestions = () =>
+    run(async () => {
+      const r = await api.questions(2, useReal, contentLang);
+      setPkg(r.package);
+      setGen((g) => (g ? { ...g, model_mode: r.model_mode } : g));
+    });
+
+  const onPaper = (totalPoints: number, durationMin: number) =>
+    run(async () => {
+      const r = await api.paper({
+        total_points: totalPoints,
+        duration_min: durationMin,
+        // 留空 = 覆盖全部目标,由后端从大纲取
+        coverage: [],
+        easy: 0,
+        medium: 0,
+        hard: 0,
+      });
+      setPkg(r.package);
+    });
+
+  const onGlossary = () =>
+    run(async () => {
+      const r = await api.glossary(useReal, contentLang);
+      setPkg(r.package);
+      setGen((g) => (g ? { ...g, model_mode: r.model_mode } : g));
+    });
+
   const onApply = (id: string) =>
     run(async () => {
       const r = await api.apply(id);
@@ -1031,6 +1064,45 @@ export default function Studio() {
   }, [pending, step]);
 
   const requestCoverage = (o: { id: string; text: string }) => setEditMessage(t.margin.coverGap(o.id, o.text));
+
+  // ── 刷新之后把产物接回来 ────────────────────────────────────
+  //
+  // 没有这一步,生成结果只活在 React state 里:后端 `/state` 明明还留着
+  // 那份产物,页面一刷新却回到 Setup —— 对教师来说就是「白做了」。
+  //
+  // 为什么要在挂载时拉而不是靠 localStorage:
+  // 产物在**后端**。前端存一份副本的话,两边迟早不一致 ——
+  // L2 改完产物以后,前端那份就是旧的。
+  //
+  // 失败不报错也不挡住用户:拉不回来最多是从头开始,比弹一个红条好。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await api.state();
+        if (cancelled || !s.has_package || !s.package) return;
+        setPkg(s.package);
+        setPatches(s.patches ?? []);
+        setIntegrity((s.integrity_issues ?? []).length === 0);
+        setGen((g) =>
+          g ?? {
+            model_mode: s.model_mode ?? "",
+            events: [],
+            materials: [],
+            outline: null,
+            package: s.package as CoursePackage,
+            integrity_issues: s.integrity_issues ?? [],
+            agents: [],
+          },
+        );
+      } catch {
+        // 后端没起来或状态已清 —— 停在 Setup 就行
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -1261,12 +1333,15 @@ export default function Studio() {
                 onRequestCoverage={requestCoverage}
               />
 
-              <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-                <Button disabled className="min-h-0 px-3 py-1.5 text-[13px]">
-                  {t.margin.export}
-                </Button>
-                <span className="text-[12px] text-muted">{t.margin.exportNote}</span>
-              </div>
+              {pkg ? (
+                <TeacherTools
+                  pkg={pkg}
+                  busy={busy}
+                  onQuestions={onQuestions}
+                  onPaper={onPaper}
+                  onGlossary={onGlossary}
+                />
+              ) : null}
             </aside>
           </div>
         </>

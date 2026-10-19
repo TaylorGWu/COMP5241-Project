@@ -123,8 +123,8 @@ Build this end-to-end flow before adding advanced AI features.
 | Priority | Scope |
 | --- | --- |
 | **Must** | Role-based login, course catalogue, course player, MCQ, progress tracking, instructor course creation/editing/publishing, basic analytics, one AI course-draft feature |
-| **Should** | Student onboarding and recommendations, CSV student import, scenario-based activity |
-| **Could** | AI requirements-elicitation role-play, badges, learner-generated private study path |
+| **Should** | Student onboarding and recommendations, CSV student import |
+| **Could** | Badges, learner-generated private study path |
 | **Won't for this release** | Payments, live classes, social feed/forum, unrestricted AI tutor, complex recommendation algorithm |
 
 ### Tasks
@@ -278,7 +278,7 @@ Instructor creates and publishes a course
 | Member B | Course player: lessons, MCQ, scenario activity, feedback, progress UI | Student-flow testing |
 | Member C | Instructor portal: AI course builder UI, editor, publishing, CSV import | Instructor usability testing |
 | Member D | FastAPI and data: Auth, RBAC, course/enrolment/attempt APIs, PostgreSQL | ERD, API documentation, analytics queries |
-| Member E | AI and quality: generation endpoints, role-play/rubric feedback, JSON validation | Deployment, integration tests, release readiness |
+| Member E | AI and quality: generation endpoints, JSON validation | Deployment, integration tests, release readiness |
 
 ### Shared responsibilities
 

@@ -187,31 +187,6 @@ function PatchRow({
   );
 }
 
-/** 键盘快捷键图例。审阅是最适合用键盘的场景,所以直接把按键写出来。 */
-function KeyLegend() {
-  const { t } = useI18n();
-  const keys: [string, string][] = [
-    ["A", t.keys.approve],
-    ["R", t.keys.reject],
-    ["J", t.keys.next],
-    ["K", t.keys.prev],
-    ["V", t.keys.toggle],
-  ];
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <span className="text-[11px] font-bold text-muted">{t.keys.label}</span>
-      {keys.map(([k, label]) => (
-        <span key={k} className="flex items-center gap-1 text-[11px] text-muted">
-          <kbd className="rounded border border-line bg-soft px-1 py-px font-mono text-[10px] font-bold text-body">
-            {k}
-          </kbd>
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function ReviewMargin({
   patches,
   reply,
@@ -385,9 +360,6 @@ export function ReviewMargin({
         )}
       </section>
 
-      <section className="border-t border-line pt-4">
-        <KeyLegend />
-      </section>
     </div>
   );
 }
