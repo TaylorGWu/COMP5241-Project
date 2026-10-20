@@ -9,8 +9,9 @@ layer, or a generated media asset.
 
 The intended learning loop remains the existing one: a teacher reviews a
 draft, previewing the animation as part of the same slide, before publishing
-the course. Students see the approved animation once when they arrive at a
-slide and can replay it.
+the course. The first implementation is intentionally teacher-side only;
+student-player playback remains a later follow-up once the animation contract
+has been tested with instructors.
 
 ## Scope and non-goals
 
@@ -50,11 +51,13 @@ teaching prose, replace visual assets, or embed HTML/CSS/JavaScript.
 }
 ```
 
-Allowed targets are `title`, `bullet:<zero-based index>`, a named visual
-region, and a Mermaid node identifier owned by a slide diagram. The validator
-rejects missing targets, duplicate conflicting steps, negative timing, timing
-beyond the bounded slide duration, and animation plans on layouts that cannot
-address the requested target.
+Allowed targets are `title`, `bullet:<zero-based index>`, and
+`visual:<visual-id>` for an existing visual region. The first implementation
+reveals a complete deterministic diagram as one visual region; individual
+Mermaid-node animation is deferred until the renderer can safely address
+inline SVG nodes. The validator rejects missing targets, duplicate conflicting
+steps, negative timing, timing beyond the bounded slide duration, and
+animation plans on layouts that cannot address the requested target.
 
 The Python schema uses safe defaults (`animation = None`) and the TypeScript
 `Slide` type mirrors the optional structure. Stored legacy records therefore
@@ -80,7 +83,7 @@ removed nor replaced with a different content string.
 | --- | --- |
 | Bullet/explanation | Reveal one idea at a time; briefly emphasise the current idea before the next one. |
 | Scenario/worked example | Reveal actor, constraint, evidence, and consequence in the order prescribed by its teaching role. |
-| Mermaid sequence/mechanism | Reveal nodes and relationship strokes in the plan order. A rendering failure falls back to the normal static diagram. |
+| Mermaid sequence/mechanism | Reveal the already-rendered diagram at the point it becomes relevant. A rendering failure falls back to the normal static diagram. |
 | Title/quiz/code | Static by default. Only title or deliberately supplied supported targets may animate; a quiz never delays answer choices. |
 
 When an animation plan is missing, invalid, disabled, or motion reduction is
@@ -93,10 +96,10 @@ In the teacher workspace, slides remain static by default. A compact
 `Preview animation` control starts playback for the active slide and exposes a
 `Replay` action once it finishes. The control does not affect course data.
 
-In the student lesson player, an eligible animation begins once per visit to
-an active slide. The student can replay it; navigating away cancels timers and
-returning starts a new visit. `prefers-reduced-motion: reduce` disables timed
-effects and shows the completed slide immediately.
+Student-player autoplay and replay are explicitly deferred from this first
+implementation. The teacher preview still respects `prefers-reduced-motion:
+reduce`, shows the completed slide immediately, and supplies the evidence
+needed to decide whether student-facing playback is useful.
 
 ## Generation, review, and authority
 
@@ -146,7 +149,7 @@ Frontend tests verify that:
 - replay resets to the first teaching step without duplicating content;
 - changing slide/unmounting cancels pending timers;
 - reduced motion renders the completed state and does not schedule playback;
-- the teacher preview control is opt-in while student playback is automatic;
+- the teacher preview control is opt-in and does not mutate course data;
 - PPTX export receives the original visible content and no renderer invokes an
   AI or media service.
 
