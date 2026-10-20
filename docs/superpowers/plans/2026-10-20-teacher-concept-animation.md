@@ -381,7 +381,7 @@ git commit -m "feat: preview teaching animations in course workspace"
 ## Task 5: Protect exports and close the implementation evidence
 
 **Files:**
-- Modify: `backend/tests/test_exporters.py`
+- Create: `backend/tests/test_exporters.py`
 - Modify: `backend/tests/test_slide_animation.py`
 - Modify: `docs/superpowers/specs/2026-10-20-concept-animation-design.md`
 
@@ -393,13 +393,17 @@ git commit -m "feat: preview teaching animations in course workspace"
 
 ```python
 def test_pptx_export_ignores_animation_metadata_but_keeps_slide_content():
+    project = Project(id="p1", meta=ProjectMeta(title="Git", audience="beginner", duration_min=10))
     deck = SlideDeck(artifact_id="deck", slides=[Slide(
         id="s1", order=1, layout="bullets", title="Commit",
         bullets=["History is visible"],
         animation=SlideAnimation(steps=[AnimationStep(kind="reveal", target="bullet:0", at_ms=0)]),
     )])
-    pptx = slide_deck_to_pptx(deck)
-    assert b"Commit" in pptx
+    pptx = slide_deck_to_pptx(project, deck)
+    presentation = Presentation(io.BytesIO(pptx))
+    text = "\n".join(shape.text for shape in presentation.slides[0].shapes if shape.has_text_frame)
+    assert "Commit" in text
+    assert "History is visible" in text
 ```
 
 - [ ] **Step 2: Run the test and verify it fails only if metadata leaks into exporter logic**
