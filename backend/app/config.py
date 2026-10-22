@@ -21,6 +21,9 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from pydantic import field_validator
 
 from pydantic_settings import (
     BaseSettings,
@@ -51,6 +54,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     app_env: str = "development"
+    # HTTPS is mandatory outside the explicitly loopback-only development mode.
+    auth_cookie_secure: bool = False
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/comp5241"
     redis_url: str = "redis://localhost:6379"
@@ -87,6 +92,19 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+
+    @field_validator("cors_origins")
+    @classmethod
+    def exact_origins(cls, origins: list[str]) -> list[str]:
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme not in ("http", "https") or not parsed.hostname
+                or parsed.username or parsed.password or parsed.path
+                or parsed.query or parsed.fragment or "*" in origin
+            ):
+                raise ValueError("CORS origins must be exact HTTP(S) origins without paths or wildcards")
+        return origins
 
     @classmethod
     def settings_customise_sources(

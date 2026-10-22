@@ -21,3 +21,5 @@ pillow
 pytest
 pytest-asyncio
 respx
+argon2-cffi>=25.1.0
+python-multipart>=0.0.32
