@@ -12,7 +12,7 @@
 | [REQUIREMENTS_DESK_RESEARCH.md](REQUIREMENTS_DESK_RESEARCH.md) · [中文译本](REQUIREMENTS_DESK_RESEARCH.zh.md) | 🇬🇧 / 🇨🇳 | 🟡 证据来源 | 桌面研究 + 内部角色工作坊。**不是用户访谈证据** |
 | [competitor_analysis/README.md](competitor_analysis/README.md) · [中文译本](competitor_analysis/README.zh.md) | 🇬🇧 / 🇨🇳 | 🟢 完成 | 4 家竞品分析,含证据边界与 limitations 声明 |
 | [project_overivew.pdf](project_overivew.pdf) | 🇬🇧 | ⚪ 外部 | 课程官方大纲,非本组产出 |
-| [prototypes/](prototypes/) | — | 🟡 草案 | 学生端方向稿(4 页 HTML + CSS)。**教师端与管理员端尚未开始** |
+| [prototypes/](prototypes/) | — | 🟡 草案 | 学生端 HTML 方向稿；教师端可运行原型位于 `frontend/` 与 `backend/`，不在本目录 |
 | [prototypes/explorations/](prototypes/explorations/) | — | ⚪ 归档 | 5 个被否决的学生端探索版本,保留作过程证据 |
 | [../AGENTS.md](../AGENTS.md) | 🇨🇳 | 🟡 待确认 | Agent 工作规则,尚未经团队会议确认 |
 
@@ -28,8 +28,8 @@ backend/     FastAPI 后端(见 backend/README.md)
   app/api/deps.py      角色鉴权(后端强制)
   config/models.yaml   模型配置
   env.yaml.example     本地配置模板(复制为 env.yaml,已忽略)
-  tests/               14 个 IR 校验测试
-frontend/    Next.js 前端(create-next-app 生成)
+  tests/               IR、agent、审核、持久化、接口与导出回归测试
+frontend/    Next.js 教师端原型
   app/                 路由与页面
 .venv/       本地 Python 3.12 环境(git 已忽略)
 ```

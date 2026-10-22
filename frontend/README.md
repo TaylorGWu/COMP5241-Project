@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 教师端前端
 
-## Getting Started
+Next.js App Router + React + TypeScript。项目安装、后端配置与功能边界见 [根目录 README](../README.md)。
 
-First, run the development server:
+## 本机开发
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 <http://127.0.0.1:3000/courses>。默认后端地址为 `http://127.0.0.1:8000`；可设置 `NEXT_PUBLIC_API_BASE` 后重启。密钥仅放后端，不得用前端环境变量传递。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 主要入口
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/courses/page.tsx`：课程卡片、搜索与筛选。
+- `app/courses/[courseId]/page.tsx`：课程大纲、章节管理与设置。
+- `app/courses/[courseId]/chapters/[chapterId]/page.tsx`：章节生成、预览与审核。
+- `components/ReviewMargin.tsx`：待确认修改与差异审核。
+- `lib/api.ts`：后端请求与生成事件流。
 
-## Learn More
+课程内容由后端 SQLite 持久化；浏览器不是唯一存储。AI 建议必须由教师确认，不能自动接受或发布。
 
-To learn more about Next.js, take a look at the following resources:
+## 验证与构建
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+node --experimental-strip-types --test tests/*.test.mjs
+npx tsc --noEmit --incremental false
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+测试命令使用支持 TypeScript type stripping 的 Node.js（本机验证使用 22.14）。构建后可运行 `npm run start`，后端仍需单独启动。自动测试不能替代响应式布局、键盘操作与真实模型内容的人工检查。

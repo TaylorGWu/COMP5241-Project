@@ -57,7 +57,7 @@ cd backend
 
 ```bash
 cd backend
-../.venv/bin/pytest          # 32 个测试
+../.venv/bin/pytest
 ```
 
 测试断言的是**工具调用序列**,不是模型输出的文本 ——
