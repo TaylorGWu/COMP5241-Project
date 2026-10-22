@@ -47,12 +47,21 @@ test("course library follows a browsable catalogue flow rather than a single fla
 test("course catalogue actions use clear labels instead of decorative arrows", async () => {
   const source = await readFile(coursesPagePath, "utf8");
 
-  assert.match(source, />New course<\/Link>/);
+  assert.doesNotMatch(source, />New course<\/Link>/);
+  assert.match(source, /<TeacherNavigation active="courses"/);
   assert.match(source, />Continue building<\/span>/);
   assert.match(source, />Create your first course<\/Link>/);
   assert.doesNotMatch(source, /New course <span/);
   assert.doesNotMatch(source, /Continue building <b/);
   assert.doesNotMatch(source, /Create your first course →/);
+});
+
+test("teacher navigation gives both destinations the same visual treatment", async () => {
+  const nav = await readFile(new URL("../components/TeacherNavigation.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.doesNotMatch(nav, /teacher-nav__link--create/);
+  assert.doesNotMatch(css, /teacher-nav__link--create/);
+  assert.match(nav, /aria-current=/);
 });
 
 test("course creation uses a compact heading without a decorative back arrow", async () => {

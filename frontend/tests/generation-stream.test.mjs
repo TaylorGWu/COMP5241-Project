@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import { api } from "../lib/api.ts";
+import { setCsrfToken } from "../lib/auth.ts";
 
 const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
+beforeEach(() => setCsrfToken("explicit-test-session-csrf"));
+afterEach(() => { globalThis.fetch = originalFetch; setCsrfToken(null); });
 
 test("generation reports the backend error frame instead of a generic missing-result error", async () => {
   const frame = 'event: error\ndata: {"error":{"code":"HTTPException","message":"未配置模型密钥。请配置 DEEPSEEK_API_KEY。"}}\n\n';

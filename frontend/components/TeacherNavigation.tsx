@@ -1,14 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { AccountActions } from "@/components/AccountPages";
 
 import { cx } from "@/components/ui";
 import { PRODUCT_NAME } from "@/lib/brand";
 
 /** Navigation shared by the course library, creation flow and course workspace. */
 export function TeacherNavigation({ active }: { active: "courses" | "create" | null }) {
-  const item = (selected: boolean, create = false) => cx(
+  const item = (selected: boolean) => cx(
     "teacher-nav__link",
     selected && "is-active",
-    create && "teacher-nav__link--create",
   );
 
   return (
@@ -19,7 +21,8 @@ export function TeacherNavigation({ active }: { active: "courses" | "create" | n
       </Link>
       <nav aria-label="Teacher navigation" className="flex items-center gap-6">
         <Link href="/courses" className={item(active === "courses")} aria-current={active === "courses" ? "page" : undefined}>Your courses</Link>
-        <Link href="/courses/new" className={item(active === "create", true)} aria-current={active === "create" ? "page" : undefined}>Create course</Link>
+        <Link href="/courses/new" className={item(active === "create")} aria-current={active === "create" ? "page" : undefined}>Create course</Link>
+        <AccountActions />
       </nav>
     </header>
   );

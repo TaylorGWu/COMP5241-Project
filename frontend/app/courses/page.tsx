@@ -47,7 +47,6 @@ export default function CoursesPage() {
             <div className="course-library-title-row"><h1>Your courses</h1></div>
             <p>Manage your teaching materials and continue where you left off.</p>
           </div>
-          <Link href="/courses/new" className="course-library-create">New course</Link>
         </header>
 
         {error ? <div className="mt-7"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}

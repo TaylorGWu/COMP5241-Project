@@ -9,7 +9,9 @@ import { LOCALE_COOKIE, normalizeLocale } from "@/lib/i18n-config";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { ThemeProvider } from "@/lib/theme";
 import { SystemSettings } from "@/components/SystemSettings";
+import { AccountProvider } from "@/components/AccountProvider";
 import "./globals.css";
+import "./public.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,8 +24,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${PRODUCT_NAME} · Teacher workspace`,
-  description: "Draft course material with AI, then review it before it reaches students.",
+  title: `${PRODUCT_NAME} · Good teaching, made tangible`,
+  description: "Focused software engineering lessons. AI to draft, teachers to decide.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -41,8 +43,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <ThemeProvider>
           <I18nProvider initialLocale={locale}>
+            <AccountProvider>
             {children}
             <SystemSettings />
+            </AccountProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

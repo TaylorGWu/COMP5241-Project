@@ -1,11 +1,12 @@
 /**
  * demo 接口的客户端封装。
  *
- * ⚠️ 这里连的是 `/api/demo/*` —— **仅供本地测试的内存版接口**。
- * 正式的 `/api/artifacts/*` 需要认证和数据库,还没做(见设计规格 §13)。
+ * SQLite-backed prototype endpoints. Authenticated cookie transport is shared
+ * by JSON, streams, uploads and deletes; authorization remains on the backend.
  */
 
 import { chapterDeckPath, chapterDiagramPath, chapterToolPath } from "./routes.ts";
+import { authFetch } from "./auth.ts";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
@@ -28,7 +29,7 @@ function apiErrorMessage(payload: unknown, fallback: string): string {
 }
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await authFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -42,7 +43,7 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await authFetch(path, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -55,7 +56,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { signal });
+  const res = await authFetch(path, { signal });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
     throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
@@ -134,7 +135,7 @@ async function streamRequest(
     signal?: AbortSignal;
   },
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await authFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -509,10 +510,10 @@ export type GenerateInput = {
 export const exportUrls = {
   deck: (courseId: string, chapterId: string, includeQuestions = false) =>
     `${API_BASE}${chapterDeckPath(courseId, chapterId)}${includeQuestions ? "?include_questions=true" : ""}`,
-  lessonPlan: () => `${API_BASE}/api/demo/export/lesson-plan.docx`,
+  lessonPlan: (courseId: string, chapterId: string) => `${API_BASE}${chapterToolPath(courseId, chapterId, "export/lesson-plan.docx")}`,
   /** `answers=false` 是学生版(不含答案与解析)。 */
-  examPaper: (answers: boolean) =>
-    `${API_BASE}/api/demo/export/exam-paper.docx?answers=${answers}`,
+  examPaper: (courseId: string, chapterId: string, answers: boolean) =>
+    `${API_BASE}${chapterToolPath(courseId, chapterId, "export/exam-paper.docx")}?answers=${answers}`,
 };
 
 export const assetUrls = {
@@ -625,7 +626,7 @@ export const api = {
   }) => post<TeacherCourse>("/api/demo/courses", input),
 
   uploadSyllabus: async (courseId: string, file: File): Promise<TeacherCourse> => {
-    const res = await fetch(`${API_BASE}/api/demo/courses/${courseId}/syllabus`, {
+    const res = await authFetch(`/api/demo/courses/${courseId}/syllabus`, {
       method: "POST",
       headers: {
         "Content-Type": file.type || "application/octet-stream",
@@ -659,7 +660,7 @@ export const api = {
     post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters`, input),
 
   deleteChapter: async (courseId: string, chapterId: string) => {
-    const res = await fetch(`${API_BASE}/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" });
+    const res = await authFetch(`/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" });
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
       throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));

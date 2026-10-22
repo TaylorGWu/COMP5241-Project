@@ -196,9 +196,9 @@ export function ExportMenu({
         </label>
         <div className="mt-3 flex flex-wrap gap-2">
           <ExportLink kind="deck" href={exportUrls.deck(courseId, chapterId, includeQuestions)} label={t.tools.exportDeck} />
-          <ExportLink kind="plan" href={exportUrls.lessonPlan()} label={t.tools.exportPlan} />
-          <ExportLink kind="exam-teacher" href={exportUrls.examPaper(true)} label={t.tools.exportExamTeacher} disabled={!paper} />
-          <ExportLink kind="exam-student" href={exportUrls.examPaper(false)} label={t.tools.exportExamStudent} disabled={!paper} />
+          <ExportLink kind="plan" href={exportUrls.lessonPlan(courseId, chapterId)} label={t.tools.exportPlan} />
+          <ExportLink kind="exam-teacher" href={exportUrls.examPaper(courseId, chapterId, true)} label={t.tools.exportExamTeacher} disabled={!paper} />
+          <ExportLink kind="exam-student" href={exportUrls.examPaper(courseId, chapterId, false)} label={t.tools.exportExamStudent} disabled={!paper} />
         </div>
         <p className="mt-3 text-[12px] leading-[1.45] text-muted">{t.tools.exportNote}</p>
       </div>

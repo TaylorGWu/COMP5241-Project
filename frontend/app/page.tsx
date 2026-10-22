@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { PublicHome } from "@/components/PublicHome";
 
-/** The teacher starts from courses, never from an unscoped editor. */
 export default function Home() {
-  redirect("/courses");
+  return <PublicHome />;
 }

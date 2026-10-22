@@ -663,12 +663,9 @@ main :is(input, select, textarea)::placeholder { color: color-mix(in srgb, var(-
 }
 .teacher-nav > a { letter-spacing: -.025em; }
 .teacher-nav nav { gap: .625rem; }
-.teacher-nav nav a.teacher-nav__link { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; padding: .5rem .875rem; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface); color: var(--color-body); font-size: .8125rem; font-weight: 600; line-height: 1.4; text-decoration: none; white-space: nowrap; transition: background-color .16s ease, border-color .16s ease, color .16s ease; }
-.teacher-nav nav a.teacher-nav__link:hover { border-color: var(--color-blue); background: var(--color-blue-soft); color: var(--color-blue-deep); }
+.teacher-nav nav a.teacher-nav__link { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; padding: .5rem .875rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--color-body); font-size: .8125rem; font-weight: 600; line-height: 1.4; text-decoration: none; white-space: nowrap; transition: background-color .16s ease, color .16s ease; }
+.teacher-nav nav a.teacher-nav__link:hover { background: var(--color-blue-soft); color: var(--color-blue-deep); }
 .teacher-nav nav a.teacher-nav__link.is-active { border-color: transparent; background: var(--color-blue-soft); color: var(--color-blue-deep); }
-.teacher-nav nav a.teacher-nav__link--create { border-color: var(--color-blue); background: var(--color-blue); color: var(--color-surface); }
-.teacher-nav nav a.teacher-nav__link--create:hover,
-.teacher-nav nav a.teacher-nav__link--create.is-active { border-color: var(--color-blue-deep); background: var(--color-blue-deep); color: var(--color-surface); }
 @media (max-width: 560px) {
   .teacher-nav nav { padding: .625rem 0; justify-content: flex-start; }
   .teacher-nav nav a.teacher-nav__link { min-height: 44px; }
