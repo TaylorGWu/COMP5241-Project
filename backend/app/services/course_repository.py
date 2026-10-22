@@ -7,13 +7,24 @@ store can later be replaced by a database implementation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from itertools import count
+from collections.abc import Callable
 from typing import Any, Literal, Protocol
 
 
 CourseStatus = Literal["draft", "published"]
 ChapterStatus = Literal["empty", "generating", "draft", "ready", "failed"]
+
+
+def _next_number(items: dict[str, Any], prefix: str) -> int:
+    """Find the largest numeric demo id while tolerating malformed local state."""
+    numbers = [
+        int(item_id.removeprefix(prefix))
+        for item_id in items
+        if item_id.startswith(prefix) and item_id.removeprefix(prefix).isdigit()
+    ]
+    return max(numbers, default=0)
 
 
 @dataclass
@@ -95,11 +106,71 @@ class CourseRepository(Protocol):
 class InMemoryCourseRepository:
     """A deterministic store with strict course/chapter ownership checks."""
 
-    def __init__(self) -> None:
+    def __init__(self, on_change: Callable[[], None] | None = None) -> None:
         self._courses: dict[str, Course] = {}
         self._chapters: dict[str, Chapter] = {}
         self._course_numbers = count(1)
         self._chapter_numbers = count(1)
+        self._on_change = on_change
+
+    def set_on_change(self, callback: Callable[[], None] | None) -> None:
+        self._on_change = callback
+
+    def _changed(self) -> None:
+        if self._on_change is not None:
+            self._on_change()
+
+    @staticmethod
+    def _snapshot_value(value: Any) -> Any:
+        """Convert IR models and dataclasses into JSON-safe demo state."""
+        if hasattr(value, "model_dump"):
+            return value.model_dump(by_alias=True)
+        if is_dataclass(value):
+            return {
+                item.name: InMemoryCourseRepository._snapshot_value(
+                    getattr(value, item.name)
+                )
+                for item in fields(value)
+            }
+        if isinstance(value, dict):
+            return {str(key): InMemoryCourseRepository._snapshot_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [InMemoryCourseRepository._snapshot_value(item) for item in value]
+        return value
+
+    def snapshot(self) -> dict[str, list[dict[str, Any]]]:
+        """Return the course and chapter state required to survive dev reloads."""
+        return {
+            "courses": [self._snapshot_value(course) for course in self._courses.values()],
+            "chapters": [self._snapshot_value(chapter) for chapter in self._chapters.values()],
+        }
+
+    @classmethod
+    def from_snapshot(cls, snapshot: dict[str, Any]) -> "InMemoryCourseRepository":
+        """Restore a previously written local demo snapshot; malformed rows are skipped."""
+        repo = cls()
+        courses = snapshot.get("courses", [])
+        chapters = snapshot.get("chapters", [])
+        if not isinstance(courses, list) or not isinstance(chapters, list):
+            return repo
+        for raw in courses:
+            if isinstance(raw, dict):
+                try:
+                    course = Course(**raw)
+                except (TypeError, ValueError):
+                    continue
+                repo._courses[course.id] = course
+        for raw in chapters:
+            if isinstance(raw, dict):
+                try:
+                    chapter = Chapter(**raw)
+                except (TypeError, ValueError):
+                    continue
+                if chapter.course_id in repo._courses:
+                    repo._chapters[chapter.id] = chapter
+        repo._course_numbers = count(_next_number(repo._courses, "course-") + 1)
+        repo._chapter_numbers = count(_next_number(repo._chapters, "chapter-") + 1)
+        return repo
 
     def create_course(
         self,
@@ -134,6 +205,7 @@ class InMemoryCourseRepository:
         # 课程可先有一个明确的起始草稿，但它不是不可改的「第一章」。
         # 教师可以改名、再新增章节；这样既减少空白页，又保留课程优先的结构。
         self.create_chapter(course.id, title="Chapter 0")
+        self._changed()
         return course
 
     def list_courses(self) -> list[Course]:
@@ -150,7 +222,7 @@ class InMemoryCourseRepository:
         allowed = {
             "title", "description", "audience", "language", "duration_min",
             "learning_objectives", "course_code", "subject", "level", "status", "syllabus_filename", "syllabus_text",
-            "syllabus_status", "syllabus_chars",
+            "syllabus_status", "syllabus_chars", "student_ids",
         }
         unexpected = set(changes) - allowed
         if unexpected:
@@ -161,6 +233,7 @@ class InMemoryCourseRepository:
             if key == "duration_min" and int(value) <= 0:
                 raise ValueError("duration_min must be positive")
             setattr(course, key, value.strip() if key in {"title", "description", "audience", "language", "course_code", "subject", "level"} else value)
+        self._changed()
         return course
 
     def create_chapter(self, course_id: str, *, title: str, summary: str = "") -> Chapter:
@@ -176,6 +249,7 @@ class InMemoryCourseRepository:
         )
         self._chapters[chapter.id] = chapter
         course.chapter_ids.append(chapter.id)
+        self._changed()
         return chapter
 
     def get_chapter(self, course_id: str, chapter_id: str) -> Chapter:
@@ -198,6 +272,7 @@ class InMemoryCourseRepository:
             if key == "title" and not str(value).strip():
                 raise ValueError("chapter title is required")
             setattr(chapter, key, value.strip() if key in {"title", "summary"} else value)
+        self._changed()
         return chapter
 
     def reorder_chapters(self, course_id: str, chapter_ids: list[str]) -> list[Chapter]:
@@ -208,6 +283,7 @@ class InMemoryCourseRepository:
         chapters = [self.get_chapter(course_id, chapter_id) for chapter_id in chapter_ids]
         for index, chapter in enumerate(chapters, start=1):
             chapter.order = index
+        self._changed()
         return chapters
 
     def delete_chapter(self, course_id: str, chapter_id: str) -> None:
@@ -218,3 +294,4 @@ class InMemoryCourseRepository:
         course.chapter_ids.remove(chapter_id)
         del self._chapters[chapter_id]
         self.reorder_chapters(course_id, course.chapter_ids)
+        self._changed()

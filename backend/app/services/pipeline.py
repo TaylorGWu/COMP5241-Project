@@ -66,6 +66,11 @@ from app.schemas.ir import (
     TimelineEntry,
 )
 from app.services.agent import AgentResult, AgentStep, ToolCallRecord, run_agent
+from app.services.instructional_quality import (
+    SectionQualityIssue,
+    validate_section_quality,
+)
+from app.services.animation import normalize_slide_animation
 from app.services.tools import SectionDeps, build_section_tools
 
 # ────────────────────────────────────────────────────────────────
@@ -91,13 +96,65 @@ SECTION_SYSTEM_PROMPT = """你在为软件工程迷你课程撰写一节内容�
 3. 写完后调用 write_section 提交。这是本节的最后一步。
 4. 如果某句话来自讲义,在 sourceRefs 里标注页码,并把 origin 设为 "sourced";
    如果是你自己补充的,origin 设为 "ai"。不要声称有来源却拿不出来。
-5. **一节写 2–4 页**,每页要点不超过 5 条、每条不超过 30 字。
+5. **一节固定写 4 页**：explain → worked_example → check_understanding → transfer/recap。
+   每页写 3–5 条彼此不同、能支持教师讲解或学生判断的要点；每条用一至两句表达
+   一个完整信息单元，包含结论及其依据、条件或具体例子。中文通常 25–60 字，英文通常
+   12–28 词；这是可读性参考，不要为凑字数删掉技术前提或添加废话。
+   speakerNotes 应足以支持这一页的实际授课：写清如何引入、如何解释、预期学生回答
+   以及如何追问或纠错。通常中文 120–220 字、英文 80–140 词，避免只复述 bullets。
    `write_section` 的参数是一次性提交的 JSON,内容太长会被截断导致提交失败。
 6. 传 Mermaid 代码时,**字符串里的换行必须写成 \\n 两个字符**,
    不能出现真正的换行符 —— 否则 JSON 不合法,提交会失败。
 7. **本节只调用一次 write_plan_entry**,写一条教案环节概括这一节怎么上。
    时长不用纠结 —— 系统会按大纲统一调整。
+8. 每节必须包含至少一页**具体工程情境**或失败案例:交代角色、约束和后果,
+   不能只写抽象定义。随后用图、代码或材料证据解释原因,让学生作出一个明确的**决策**或判断。
+9. 每节必须有一页 layout="quiz" 的随堂**练习**。题干放在 title,选项或判断线索放在 bullets;
+   speakerNotes 必须给出正确判断、一个常见错误思路及其**反馈**。这不是期末题,是检查理解。
+10. 每页只承担一个教学动作:引出问题、解释证据、比较决策、指导操作或检查理解。
+    不要用空泛总结、重复结论或超过 3 条的同义 bullet 凑页数。
+11. 本节必须按 teachingArc 形成：explain → worked_example → guided_practice 或
+    check_understanding → transfer 或 recap。案例页写出角色、约束、证据和后果；
+    练习页写出学生可执行的判断/操作及讲稿反馈。
+12. visualPurpose=sequence/mechanism 时才调用 make_diagram；
+    comparison/scenario/evidence/none 不得为了配图调用流程图。
+13. Mermaid 图不是装饰：节点必须是当前页的真实角色、对象或动作，边要写出
+    关系（例如提交、查看、比较、确认）。禁止 Step 1/2、概念图、应用、开始/结束
+    这类占位标签；若说不清一个具体关系，就不要调用 make_diagram。
+    每节最多生成一张解释核心关系的图。拿到 asset_id 后写入 visual.assetId 即可，
+    不要反复调用图示工具寻求更漂亮的图；图示失败只修正一次，仍失败改用文字/比较页。
+    优先完成教案与 write_section 提交，不能耗尽轮数仍没有可读的教学内容。
+14. `animation` 是可选的教师预览元数据，不会改变页面内容。仅在已有内容适合按步骤讲解时使用：
+    target 只能是 title、bullet:0 这类已有 bullet，或 visual:已有视觉 id；
+    kind 只能是 reveal/emphasis/sequence，且 sequence 只能指向 visual。不要为封面或 quiz 添加 animation。
+15. 内容深度按教学动作区分：
+    explain：解释概念是什么、解决什么问题、如何运作及一个适用边界；首次出现术语时解释。
+    worked_example：沿用本节情境，给出具体输入/初始状态 → 判断依据 → 操作 → 可观察结果；
+    不能只有角色、限制、后果的标签。关键推理必须在页面可见，补充解释放讲稿。
+    check_understanding：让学生针对已教过的情境作出判断；干扰项对应真实误解、长度相近；
+    正确选项不能总在 B，也不能靠措辞明显更完整来猜。讲稿解释正确与错误选项的依据。
+    transfer/recap：改变案例的一个条件，让学生说明原来的做法是否仍适用及原因；
+    不要只写“学以致用”“总结所学”或再次罗列名词。
+16. 技术准确性优先：命令、代码、版本、前置条件和副作用须明确；给出操作后的验证方式。
+    区分本地/远端、未提交/已提交、一般规则/例外，避免“永远”“一定”等无条件断言。
+    不确定的数值、研究结论或 API 行为不编造；材料不足时说明假设，留给教师核对。
+    操作链必须闭合：本地修改不等于远端已更新，保存不等于已发布；若结果涉及他人，
+    不得遗漏同步/发布步骤。验证只声称能实际观察到的结果，不保证“不会冲突”或“必然成功”。
+    对未提交、未跟踪、已提交的状态分别检查；不要声称一个命令会保护它并未覆盖的状态。
+    表述“删除历史”时区分分支引用变化与对象物理消失。只有在前提明确且排除其他可行方案时，
+    才把练习写成唯一正确答案；否则要求比较方案并说明取舍。
+17. 标题表达本页要回答的问题或核心判断，避免“机制：”“案例：”后机械复用章节名。
+    各页沿用一致的人物、文件、输入和术语，让练习承接案例；每页必须增加新的解释或决策。
+18. 视觉必须提供可读的证据：图中对象和连线须对应本页机制，讲稿指出学生应看哪条关系、
+    从图中推导什么判断。比较用并列条件与结果，操作示例给真实命令与结果；不强行画流程图。
+19. 提交前自检：学习目标有可观察证据吗？案例推理可复现吗？练习信息充分且答案唯一吗？
+    讲稿解释了为什么吗？是否遗漏前提、重复要点或编造来源？先修正，再调用 write_section。
 """
+
+NO_MATERIAL_SECTION_SYSTEM_PROMPT = SECTION_SYSTEM_PROMPT.replace(
+    "1. 先用 search_materials 查一下教师上传的讲义,基于材料写,不要凭空编。",
+    "1. 教师没有上传材料。根据可靠的软件工程常识起草，不要编造讲义、页码或来源；所有页面使用 origin=\"ai\"、sourceRefs=[]。",
+)
 
 #: 每一节的 agent 轮数上限(§6.2)。
 #:
@@ -183,7 +240,8 @@ class GenerationRequest:
 
 
 def section_user_prompt(
-    index: int, section: "PlannedSection", req: "GenerationRequest"
+    index: int, section: "PlannedSection", req: "GenerationRequest",
+    objectives: list[str] | None = None,
 ) -> str:
     """写给某一节的 user 消息。
 
@@ -198,11 +256,24 @@ def section_user_prompt(
     抽出来是为了能被测试钉住:任何模型看得到的契约都必须有测试守着,
     否则它会在某次重构里被悄悄丢掉,而且不会有任何单元测试变红。
     """
+    objective_texts = objectives if objectives is not None else req.objectives
+    objective_map = {f"LO{i + 1}": text for i, text in enumerate(objective_texts)}
+    assigned = [oid for oid in section.objective_ids if oid in objective_map]
+    targets = assigned or list(objective_map)
+    objective_brief = "；".join(f"{oid}: {objective_map[oid]}" for oid in targets)
     return (
+        f"课程主题:{req.topic}。"
         f"写第 {index + 1} 节:{section.title}。"
         f"建议时长 {section.minutes} 分钟。"
         f"课程受众:{req.audience}。"
         f"**标题、要点、讲稿全部用 {req.language} 书写。**"
+        f"本节学习目标（objectiveIds 只使用这里的 ID）：{objective_brief or '未指定；围绕本节主题设计可检查的学习结果'}。"
+        "先确定学生在本节结束时能解释、比较或完成什么，再安排页面；"
+        "页面中的例子、练习与教案的 checkUnderstanding 必须检验同一学习结果。"
+        f"教学蓝图：情境={section.teaching_arc.situation}；"
+        f"常见误解={section.teaching_arc.misconception}；"
+        f"练习={section.teaching_arc.practice}；"
+        f"迁移提问={section.teaching_arc.transfer_prompt}。"
     )
 
 
@@ -220,6 +291,9 @@ class PipelineDeps:
     section_concurrency: int = 3
     #: 材料摄取的依赖(OCR 等)。没有它就只能用调用方传进来的 search_materials。
     ingest_deps: IngestDeps | None = None
+    #: Live mode only offers source search when ingestion produced real materials.
+    #: Offline scripted demos retain their historical fake-search sequence.
+    only_search_uploaded_materials: bool = False
 
 
 @dataclass
@@ -350,6 +424,7 @@ async def generate_course(
     lo, hi = PHASES[2][1], PHASES[2][2]
     #: 各节目前做到哪一步(0.0–1.0)。**阶段 3 的进度由它求和得出。**
     progress: dict[int, float] = {}
+    offer_material_search = bool(materials) or not deps.only_search_uploaded_materials
 
     def section_percent(index: int, fraction: float) -> int:
         """阶段 3 的进度插值。
@@ -446,9 +521,9 @@ async def generate_course(
                 result = await run_agent(
                     client=deps.client,
                     model=deps.model,
-                    system=SECTION_SYSTEM_PROMPT,
-                    user=section_user_prompt(index, section, req),
-                    tools=build_section_tools(sdeps),
+                    system=SECTION_SYSTEM_PROMPT if offer_material_search else NO_MATERIAL_SECTION_SYSTEM_PROMPT,
+                    user=section_user_prompt(index, section, req, outline.objectives),
+                    tools=build_section_tools(sdeps, include_search=offer_material_search),
                     max_turns=SECTION_MAX_TURNS,   # §6.2 的轮数上限
                     on_step=on_step,
                 )
@@ -473,6 +548,45 @@ async def generate_course(
                      kind="section", status="failed",
                      section_index=index, section_title=section.title)
 
+            quality_issues: list[SectionQualityIssue] = []
+            parsed_section_slides: list[Slide] = []
+            normalized_slides: list[dict[str, Any]] = []
+            for raw in sdeps.written_slides:
+                normalized, animation_warning = normalize_slide_animation(raw)
+                normalized_slides.append(normalized)
+                if animation_warning:
+                    sdeps.animation_warnings.append(animation_warning)
+                    quality_issues.append(
+                        SectionQualityIssue(
+                            animation_warning,
+                            "幻灯片动画计划无效，已保留静态课件供教师审核",
+                        )
+                    )
+                try:
+                    parsed_section_slides.append(Slide.model_validate(normalized))
+                except Exception:  # noqa: BLE001
+                    quality_issues.append(
+                        SectionQualityIssue(
+                            "invalid_slide_payload",
+                            "本节含有无法读取的幻灯片结构",
+                        )
+                    )
+            sdeps.written_slides[:] = normalized_slides
+            if not quality_issues and parsed_section_slides:
+                quality_issues = validate_section_quality(parsed_section_slides)
+
+            quality_failed = bool(quality_issues)
+            if quality_failed:
+                codes = ",".join(issue.code for issue in quality_issues)
+                # This is a *review warning*, not a destructive validation
+                # gate.  A teacher must be able to see and revise an
+                # imperfect draft; clearing every section that does not yet
+                # meet the rubric can leave an otherwise successful chapter
+                # with zero slides.  Keep the IR and audit trail intact, and
+                # surface the exact warning in the completed-section event.
+            else:
+                codes = ""
+
             finished += 1
             # 这一节的进度封顶 —— 进度条按「各节进度之和」推进
             percent = section_percent(index, 1.0)
@@ -480,7 +594,8 @@ async def generate_course(
                 "分节生成",
                 percent,
                 f"{finished}/{total} 节:{section.title}"
-                f"(工具调用 {len(result.calls)} 次,{result.stopped_by})",
+                f"(工具调用 {len(result.calls)} 次,{result.stopped_by})"
+                + (f" · needs review:{codes}" if quality_failed else ""),
                 kind="section",
                 status="written",
                 section_index=index,
@@ -512,10 +627,30 @@ async def generate_course(
     visual_count = sum(
         len(s.get("visuals") or []) for _, sd in pairs for s in sd.written_slides
     )
+    purpose_counts: dict[str, int] = {}
+    for _, sd in pairs:
+        for raw in sd.written_slides:
+            try:
+                purpose = Slide.model_validate(raw).visual_purpose
+            except Exception:  # noqa: BLE001
+                continue
+            purpose_counts[purpose] = purpose_counts.get(purpose, 0) + 1
+    purpose_labels = {
+        "comparison": "对照",
+        "sequence": "步骤",
+        "mechanism": "机制",
+        "scenario": "情境",
+        "evidence": "证据",
+        "none": "无额外视觉",
+    }
+    purpose_detail = "、".join(
+        f"{purpose_labels[purpose]} {count}"
+        for purpose, count in purpose_counts.items()
+    )
     emit(
         "判定视觉需求",
         PHASES[3][2],
-        f"{visual_count} 处视觉需求,全部判定为 diagram(走 Mermaid,不进生图)",
+        f"{visual_count} 处视觉需求（资源）；教学用途：{purpose_detail}。流程图仅用于机制/步骤",
     )
 
     # ══════════════════════════════════════════════════════════
@@ -537,6 +672,11 @@ async def generate_course(
     # 映射按 section 保存,因为相同的局部 ID 在不同节本来就是不同页面。
     slides: list[Slide] = []
     section_slide_id_maps: list[dict[str, str]] = []
+    dropped: list[str] = [
+        f"幻灯片动画已忽略({warning})"
+        for _, sd in pairs
+        for warning in sd.animation_warnings
+    ]
     next_slide_order = 1
     for _, sd in pairs:
         local_ids: dict[str, str] = {}
@@ -549,6 +689,9 @@ async def generate_course(
 
             original_id = candidate.id
             normalized_id = f"s{next_slide_order}"
+            if not materials and candidate.origin == "sourced":
+                # A fake retrieval snippet is not an uploaded source.
+                candidate = candidate.model_copy(update={"origin": "ai", "source_refs": []})
             # 同一节里出现重复 ID 时,教案引用第一个有效页;每个输出页仍唯一。
             local_ids.setdefault(original_id, normalized_id)
             slides.append(candidate.model_copy(update={"id": normalized_id, "order": next_slide_order}))
@@ -619,8 +762,6 @@ async def generate_course(
     # 之前这里是 `[TimelineEntry.model_validate(e) for e in plan_entries]`,
     # 一条不合规就让整次生成白跑(真模型测出来的第一个问题)。
     # 现在:跳过坏的那条,把原因记下来给上层看,其余照常产出。
-    dropped: list[str] = []
-
     timeline: list[TimelineEntry] = []
     for entry in plan_entries:
         if "__invalid__" in entry:

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from typing import Any
 
 from app.llm.client import ChatClient
@@ -29,6 +30,8 @@ from app.services.patches import (
     InMemoryPatchStore,
     Patch,
     PatchStore,
+    artifact_id_for,
+    find_question,
     find_slide,
     make_diff,
 )
@@ -36,16 +39,48 @@ from app.services.tools import build_edit_tools
 
 #: 编辑 Agent 的系统提示。
 #: 三条规定对应三条设计约束:先读再改(不许瞎改)、改动要暂存(不许直接落库)、改动要留理由。
-EDIT_SYSTEM_PROMPT = """你在帮一位教师修改一份已经生成好的课件。
+EDIT_SYSTEM_PROMPT = """你在帮一位教师修改一份已经生成好的教学材料。
 
 必须遵守:
-1. **先读再改。** 改任何一页之前,必须先调用 read_slide 看它现在是什么样。
-   不要凭猜测对没读过的页提改动。
-2. 所有改动通过 patch_slide 或 patch_plan 提出。**改动不会立刻生效** ——
+1. **先读再改。** 修改课件用 read_slide,修改题目用 read_question,修改试卷用 read_paper。
+   不要凭猜测对没读过的内容提改动。
+2. 所有改动通过对应的 patch 工具提出。**改动不会立刻生效** ——
    教师确认之后才会写入,所以你可以放心提议。
 3. 每次改动都要填 reason,说明为什么这么改(会记入版本历史供教师审查)。
 4. 提完改动后,用一到两句话说明你做了什么。不要反复提同一个改动。
+5. 教师要求逐步讲解概念时，可以提出 `animation` patch；它只能编排当前页已有的
+   title、bullet:索引或 visual:视觉 id，不能用它偷偷新增内容。先 read_slide 再确认目标存在。
 """
+
+
+def _bullet_edits(before: list[str], after: list[str]) -> list[dict[str, Any]]:
+    """Turn one list replacement into reviewable edits for individual bullets.
+
+    A slide's bullets share one IR field, but they are not one editorial decision.
+    Storing the old text gives ``apply_patch`` a stable anchor even when the
+    teacher accepts the surrounding edits in a different order.
+    """
+    edits: list[dict[str, Any]] = []
+    for tag, old_start, old_end, new_start, new_end in SequenceMatcher(a=before, b=after).get_opcodes():
+        if tag == "equal":
+            continue
+        old_items = before[old_start:old_end]
+        new_items = after[new_start:new_end]
+        shared = min(len(old_items), len(new_items))
+        for offset in range(shared):
+            edits.append({"before": old_items[offset], "after": new_items[offset]})
+        for item in old_items[shared:]:
+            edits.append({"before": item, "after": None})
+        for offset, item in enumerate(new_items[shared:]):
+            edits.append({"before": None, "after": item, "position": old_start + shared + offset})
+    return edits
+
+
+def _bullet_edit_diff(edit: dict[str, Any]) -> str:
+    before, after = edit.get("before"), edit.get("after")
+    old_values = [] if before is None else [before]
+    new_values = [] if after is None else [after]
+    return make_diff({"bullets": old_values}, {"bullets": new_values})
 
 
 @dataclass
@@ -62,31 +97,64 @@ class EditDeps:
             return self.package.slide_deck.artifact_id
         return self.package.project.id
 
+    def artifact_id_for(self, kind: str) -> str:
+        return artifact_id_for(self.package, kind)  # type: ignore[arg-type]
+
     # ── 工具会调的第一个方法:读 ────────────────────────────
     async def read_slide(self, slide_id: str) -> dict[str, Any]:
         """返回 camelCase —— 和模型看到的工具 schema 保持一致(§5.1)。"""
         return find_slide(self.package, slide_id).model_dump(by_alias=True)
+
+    async def read_question(self, question_id: str) -> dict[str, Any]:
+        return find_question(self.package, question_id).model_dump(by_alias=True)
+
+    async def read_paper(self) -> dict[str, Any]:
+        if self.package.exam_paper is None:
+            raise KeyError("该产物还没有试卷")
+        return self.package.exam_paper.model_dump(by_alias=True)
 
     # ── 工具会调的第二个方法:提议改动(只暂存,不落库)────
     async def propose_patch(self, kind: str, args: dict[str, Any]) -> str:
         """工具 patch_slide / patch_plan 的实现。**只暂存,绝不落库。**"""
 
         payload: dict[str, Any] = args.get("patch") or {}
-        target_id: str = args.get("slide_id") or ""
+        target_id: str = args.get("slide_id") or args.get("question_id") or "paper"
         reason: str = args.get("reason") or "(模型未说明理由)"
 
         # diff 需要「改之前是什么」,所以先去取当前值
         before = self._current_values(kind, target_id, list(payload))
 
-        patch = self.store.propose(
-            artifact_id=self.artifact_id,
-            kind=kind,  # type: ignore[arg-type]
-            target_id=target_id,
-            payload=payload,
-            reason=reason,
-            diff=make_diff(before, payload),
-        )
-        return patch.id
+        # 一页课件的标题、要点、讲稿和视觉是教师分别审的内容；不能把多个
+        # 字段塞进同一条 patch，否则「同意标题、驳回要点」会变成不可能。
+        # 只对 slide 拆分，其他产物仍保持原子性，避免无意义地拆散一条试卷规则。
+        field_payloads: list[dict[str, Any]] = []
+        if kind in ("slide", "regenerate_slide"):
+            for field, value in payload.items():
+                if field == "bullets" and isinstance(value, list):
+                    field_payloads.extend(
+                        {"bulletEdit": edit}
+                        for edit in _bullet_edits(list(before.get("bullets") or []), value)
+                    )
+                else:
+                    field_payloads.append({field: value})
+        else:
+            field_payloads = [payload]
+        patches = [
+            self.store.propose(
+                artifact_id=self.artifact_id_for(kind),
+                kind=kind,  # type: ignore[arg-type]
+                target_id=target_id,
+                payload=field_payload,
+                reason=reason,
+                diff=(
+                    _bullet_edit_diff(field_payload["bulletEdit"])
+                    if "bulletEdit" in field_payload
+                    else make_diff({key: before.get(key) for key in field_payload}, field_payload)
+                ),
+            )
+            for field_payload in field_payloads
+        ]
+        return ", ".join(patch.id for patch in patches)
 
 
     def _current_values(self, kind: str, target_id: str, keys: list[str]) -> dict[str, Any]:
@@ -105,6 +173,13 @@ class EditDeps:
             current = slide.model_dump(by_alias=True)
         elif kind == "plan" and self.package.lesson_plan is not None:
             current = self.package.lesson_plan.model_dump(by_alias=True)
+        elif kind == "question":
+            try:
+                current = find_question(self.package, target_id).model_dump(by_alias=True)
+            except KeyError:
+                return {}
+        elif kind == "paper" and self.package.exam_paper is not None:
+            current = self.package.exam_paper.model_dump(by_alias=True)
         else:
             return {}
         return {k: current[k] for k in keys if k in current}
@@ -157,6 +232,8 @@ async def edit_artifact(
     model: str,
     package: CoursePackage,
     message: str,
+    images: list[str] | None = None,
+    target: str = "slides",
     store: PatchStore | None = None,
     max_turns: int = 8,
     on_step: Callable[[AgentStep], None] | None = None,
@@ -178,11 +255,18 @@ async def edit_artifact(
     if on_step is not None:
         extra["on_step"] = on_step
 
+    user: str | list[dict[str, Any]] = f"[revision target: {target}]\n{message}"
+    if images:
+        user = [
+            {"type": "text", "text": user},
+            *[{"type": "image_url", "image_url": {"url": image}} for image in images],
+        ]
+
     agent_result = await run_agent(
         client=client,
         model=model,
-        system=EDIT_SYSTEM_PROMPT,
-        user=message,
+        system=f"{EDIT_SYSTEM_PROMPT}\n\n本次只能修改: {target}。请只使用匹配该材料的 read / patch 工具。",
+        user=user,
         tools=build_edit_tools(deps),
         max_turns=max_turns,
         **extra,
@@ -190,6 +274,6 @@ async def edit_artifact(
 
     return EditResult(
         reply=agent_result.content,
-        proposed=store.list(deps.artifact_id, status="proposed"),
+        proposed=store.list(deps.artifact_id_for({"slides": "slide", "questions": "question", "paper": "paper"}.get(target, "slide")), status="proposed"),
         agent=agent_result,
     )

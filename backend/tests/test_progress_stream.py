@@ -151,6 +151,16 @@ async def test_the_stream_reports_slide_count_reaching_the_real_deck_size():
     assert any(d["kind"] == "slide" for d in progress), "一条 slide 事件都没有"
 
 
+async def test_generated_demo_deck_contains_a_scenario_and_practice_feedback():
+    """离线演示也必须展示教师能审核的教学链，而非概念 bullet。"""
+    result = await _sync(PAYLOAD)
+    slides = result["package"]["slideDeck"]["slides"]
+
+    assert any(slide["layout"] == "quiz" for slide in slides)
+    assert any("情境" in slide["title"] or "案例" in slide["title"] for slide in slides)
+    assert any("常見錯誤" in slide["speakerNotes"] for slide in slides)
+
+
 async def test_no_reasoning_frames_ever():
     """思考流这条路径整条删掉了 —— 流里不该再有它的位置。
 

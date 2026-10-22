@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 import { Badge, Button, Card, ErrorBar, Field, SectionLabel, inputCls } from "@/components/ui";
 import { TeacherNavigation } from "@/components/TeacherNavigation";
 import { api, type CourseActivity, type CourseAnalytics, type CourseCoverage, type TeacherChapter, type TeacherCourse } from "@/lib/api";
+import { chapterHref } from "@/lib/routes";
 
 type Tab = "curriculum" | "students" | "insights" | "activity" | "settings";
 
@@ -17,10 +18,10 @@ const coverageTone = (status: CourseCoverage["outcomes"][number]["status"]) =>
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
-  const router = useRouter();
   const [course, setCourse] = useState<TeacherCourse | null>(null);
   const [chapters, setChapters] = useState<TeacherChapter[]>([]);
   const [tab, setTab] = useState<Tab>("curriculum");
+  const [showAddChapter, setShowAddChapter] = useState(false);
   const [chapterTitle, setChapterTitle] = useState("");
   const [editingChapter, setEditingChapter] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -67,7 +68,7 @@ export default function CourseDetailPage() {
   const addChapter = () => withBusy(async () => {
     if (!chapterTitle.trim()) return;
     await api.createChapter(courseId, { title: chapterTitle.trim() });
-    setChapterTitle(""); await load(); setNotice("Chapter created. It is a draft until you generate and review it.");
+    setChapterTitle(""); setShowAddChapter(false); await load(); setNotice("Chapter created. It is a draft until you generate and review it.");
   });
   const saveChapterTitle = (chapter: TeacherChapter) => withBusy(async () => {
     if (!draftTitle.trim()) return;
@@ -75,6 +76,7 @@ export default function CourseDetailPage() {
     setEditingChapter(null); await load();
   });
   const removeChapter = (chapter: TeacherChapter) => withBusy(async () => {
+    if (!window.confirm(`Delete "${chapter.title}"? This cannot be undone.`)) return;
     await api.deleteChapter(courseId, chapter.id); await load(); setNotice("Chapter deleted.");
   });
   const moveChapter = (index: number, direction: -1 | 1) => withBusy(async () => {
@@ -85,11 +87,6 @@ export default function CourseDetailPage() {
     await api.reorderChapters(courseId, next.map((chapter) => chapter.id));
     await load();
   });
-  const openStudio = (chapter: TeacherChapter) => {
-    window.localStorage.setItem("pathpilot.activeCourse", courseId);
-    window.localStorage.setItem("pathpilot.activeChapter", chapter.id);
-    router.push("/");
-  };
   const importRoster = () => withBusy(async () => {
     const rows = rosterText.split("\n").map((line, index) => {
       const [name = "", email = ""] = line.split(",");
@@ -118,6 +115,11 @@ export default function CourseDetailPage() {
   });
 
   const ready = chapters.filter((chapter) => chapter.status === "ready").length;
+  const preparationSummary = ready > 0 && ready === chapters.length
+    ? `All ${chapters.length} ${chapters.length === 1 ? "chapter is" : "chapters are"} ready. Review the course before publishing.`
+    : ready > 0
+      ? `${ready} of ${chapters.length} chapters are ready. Build the remaining chapters before publishing.`
+      : "Build and review a chapter first. AI drafts stay private until you publish.";
   const publishDisabled = busy || (course?.status !== "published" && ready === 0);
   const tabs: { value: Tab; label: string }[] = [
     { value: "curriculum", label: "Curriculum" },
@@ -127,58 +129,84 @@ export default function CourseDetailPage() {
     { value: "settings", label: "Settings" },
   ];
 
-  if (!course) return <main className="min-h-screen bg-canvas"><div className="mx-auto max-w-[1180px] px-5 pt-5 sm:px-8"><TeacherNavigation active="courses" />{error ? <ErrorBar message={error} onDismiss={() => setError("")} /> : <p className="py-12 text-sm text-muted">Opening course…</p>}</div></main>;
-  return <main className="min-h-screen bg-canvas">
-    <div className="mx-auto w-full max-w-[1180px] px-5 pb-20 pt-5 sm:px-8">
-      <TeacherNavigation active="courses" />
-      <header className="border-b border-line pb-8">
-        <Link href="/courses" className="text-sm font-semibold text-blue hover:text-blue-deep">← Your courses</Link>
-        <div className="mt-6 flex flex-wrap items-end justify-between gap-5">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue">Course workspace</p>
-            <div className="mt-3 flex flex-wrap items-center gap-3"><h1 className="break-words text-[clamp(2.15rem,5vw,3.5rem)] font-semibold leading-[1.08] tracking-[-0.06em] text-ink">{course.title}</h1><Badge tone={course.status === "published" ? "green" : "amber"}>{course.status === "published" ? "Published" : "Draft"}</Badge></div>
-            <p className="mt-3 text-sm text-body">{course.courseCode || course.subject}<span className="mx-2 text-line">/</span>{course.audience}<span className="mx-2 text-line">/</span>{course.durationMin} min</p>
-          </div>
-          <div className="flex flex-col items-start gap-1 sm:items-end"><Button variant="primary" onClick={togglePublish} disabled={publishDisabled}>{course.status === "published" ? "Unpublish course" : "Publish course"}</Button>{publishDisabled && !busy ? <span className="text-xs text-muted">Prepare at least one chapter first.</span> : null}</div>
+  if (!course) return <main className="min-h-screen bg-canvas"><div className="mx-auto max-w-[1280px] px-5 pt-5 sm:px-8"><TeacherNavigation active={null} />{error ? <ErrorBar message={error} onDismiss={() => setError("")} /> : <p className="py-12 text-sm text-muted">Opening course…</p>}</div></main>;
+  return <main className="course-detail min-h-screen bg-canvas">
+    <div className="mx-auto w-full max-w-[1440px] px-5 pb-20 pt-4 sm:px-8">
+      <TeacherNavigation active={null} />
+      <header className="course-header">
+        <div className="course-header__main">
+          <div className="course-heading"><h1>{course.title}</h1><Badge tone={course.status === "published" ? "green" : "amber"}>{course.status === "published" ? "Published" : "Draft"}</Badge></div>
+          {course.description && course.description.trim().toLowerCase() !== "short course" ? <p className="course-summary">{course.description}</p> : null}
+          <div className="course-meta"><span>{course.courseCode || course.subject}</span><span>{course.audience}</span><span>{course.durationMin} min</span>{course.description?.trim().toLowerCase() === "short course" ? <span>{course.description.trim()}</span> : null}</div>
         </div>
       </header>
       {error ? <div className="mt-5"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
       {notice ? <p role="status" className="mt-5 rounded-sm border border-green/30 bg-green-soft px-4 py-3 text-sm text-green">{notice}</p> : null}
-
-      <div className="grid grid-cols-2 border-b border-line py-6 sm:grid-cols-3">
-        <div className="border-r border-line pr-4"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Chapters</p><p className="mt-1 text-2xl font-semibold text-ink">{chapters.length}</p></div>
-        <div className="pl-5 sm:border-r sm:border-line"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Ready</p><p className="mt-1 text-2xl font-semibold text-ink">{ready}<span className="ml-1 text-sm font-normal text-muted">/ {chapters.length}</span></p></div>
-        <div className="col-span-2 mt-5 border-t border-line pt-5 sm:col-span-1 sm:mt-0 sm:border-0 sm:pl-5 sm:pt-0"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Learners</p><p className="mt-1 text-2xl font-semibold text-ink">{analytics?.enrolledCount ?? "—"}</p></div>
-      </div>
-      <nav className="mt-5 flex flex-wrap gap-x-7 gap-y-1 border-b border-line" aria-label="Course sections">
-        {tabs.map((item) => <button key={item.value} type="button" onClick={() => setTab(item.value)} aria-current={tab === item.value ? "page" : undefined} className={tab === item.value ? "min-h-11 border-b-2 border-blue text-sm font-semibold text-ink" : "min-h-11 border-b-2 border-transparent text-sm font-medium text-body transition-colors hover:text-ink"}>{item.label}</button>)}
-      </nav>
-
-      {tab === "curriculum" ? <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0 space-y-9">
-          <section>
-            <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-blue">Teaching sequence</p><h2 className="mt-2 text-[25px] font-semibold tracking-[-0.045em] text-ink">Chapters</h2></div><span className="text-sm text-muted">{chapters.length} in this course</span></div>
-            <p className="mt-2 text-sm leading-6 text-body">Open a chapter to generate, edit and review its slides, questions and teaching materials.</p>
-            <div className="mt-5 overflow-hidden rounded-md border border-line bg-surface">
-              {chapters.map((chapter, index) => <div key={chapter.id} className="grid gap-4 border-b border-line p-5 last:border-b-0 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-5 sm:p-6">
-                <span className="font-mono text-sm font-semibold text-blue">{String(index + 1).padStart(2, "0")}</span>
-                <div className="min-w-0">
-                  {editingChapter === chapter.id ? <div className="flex flex-wrap gap-2"><input autoFocus aria-label="Chapter name" className={inputCls + " min-w-[180px] flex-1"} value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} /><Button onClick={() => saveChapterTitle(chapter)} disabled={busy || !draftTitle.trim()}>Save</Button><Button variant="quiet" onClick={() => setEditingChapter(null)}>Cancel</Button></div> : <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-words text-lg font-semibold tracking-[-0.025em] text-ink">{chapter.title}</h3><p className="mt-1 line-clamp-2 text-sm text-body">{chapter.summary || "No material generated yet"}</p></div><Badge tone={chapterTone(chapter.status)}>{chapter.status}</Badge></div>}
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"><span className="text-xs text-muted">{chapter.package?.slideDeck?.slides?.length ?? 0} slides</span><div className="flex flex-wrap items-center gap-1"><Button variant="quiet" aria-label={"Move " + chapter.title + " up"} disabled={busy || index === 0} onClick={() => moveChapter(index, -1)}>↑</Button><Button variant="quiet" aria-label={"Move " + chapter.title + " down"} disabled={busy || index === chapters.length - 1} onClick={() => moveChapter(index, 1)}>↓</Button><Button variant="quiet" onClick={() => { setEditingChapter(chapter.id); setDraftTitle(chapter.title); }}>Rename</Button><Button variant="quiet" disabled={busy || chapters.length === 1} onClick={() => removeChapter(chapter)}>Delete</Button><Button onClick={() => openStudio(chapter)}>{chapter.package ? "Open studio →" : "Build chapter →"}</Button></div></div>
+      <div className="course-workspace">
+        <nav className="course-menu" aria-label="Course sections">
+          {tabs.map((item) => <button key={item.value} type="button" onClick={() => setTab(item.value)} aria-current={tab === item.value ? "page" : undefined} className={tab === item.value ? "course-menu__item is-active" : "course-menu__item"}>{item.label}</button>)}
+          <div className="course-menu__progress"><strong>{ready} / {chapters.length}</strong><span>chapters ready</span></div>
+        </nav>
+        <div className="course-content">
+      {tab !== "curriculum" ? <div className="course-section-head course-secondary-head"><div><h2>{tabs.find((item) => item.value === tab)?.label}</h2><p>{tab === "students" ? "Manage enrollment and invite learners to this course." : tab === "insights" ? "See where learners need more support." : tab === "activity" ? "Trace what the model proposed and what you approved." : "Update the course brief and learning outcomes."}</p></div></div> : null}
+      {tab === "curriculum" ? <div className="course-curriculum">
+        <section className="course-outline">
+          <div className="course-section-head"><div><div className="course-outline__heading"><h2>Course outline</h2><span className="course-outline__count">{chapters.length} {chapters.length === 1 ? "chapter" : "chapters"}</span></div><p>Arrange your chapters. Open one to build or refine its materials.</p></div><Button variant="primary" onClick={() => setShowAddChapter((value) => !value)} aria-expanded={showAddChapter}>{showAddChapter ? "Close" : "Add chapter"}</Button></div>
+          {showAddChapter ? <div className="course-add"><Field label="New chapter title"><input autoFocus className={inputCls} value={chapterTitle} onChange={(e) => setChapterTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void addChapter(); }} placeholder="e.g. Reviewing pull requests" /></Field><Button variant="primary" disabled={busy || !chapterTitle.trim()} onClick={addChapter}>Create chapter</Button></div> : null}
+          <ol className="chapter-sequence">
+            {chapters.map((chapter, index) => {
+              const slides = chapter.package?.slideDeck?.slides ?? [];
+              const summary = chapter.summary || slides[0]?.title || (chapter.package
+                ? "Teaching materials available to review and edit."
+                : "Add a teaching brief to build this chapter.");
+              const status = chapter.status === "empty" ? "Not started"
+                : chapter.status.charAt(0).toUpperCase() + chapter.status.slice(1);
+              return <li key={chapter.id} className="chapter-entry">
+                <span className="chapter-entry__index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <div className="chapter-entry__body">
+                  <div className="chapter-entry__top">
+                    <div className="min-w-0">
+                      {editingChapter === chapter.id ? <div className="chapter-entry__rename">
+                        <input autoFocus aria-label="Chapter name" className={inputCls} value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveChapterTitle(chapter); }} />
+                        <Button onClick={() => saveChapterTitle(chapter)} disabled={busy || !draftTitle.trim()}>Save</Button>
+                        <Button variant="quiet" onClick={() => setEditingChapter(null)}>Cancel</Button>
+                      </div> : <><h3>{chapter.title}</h3><p>{summary}</p></>}
+                    </div>
+                  </div>
+                  <div className="chapter-entry__foot">
+                    <div className="chapter-entry__facts"><Badge tone={chapterTone(chapter.status)}>{status}</Badge><span>{slides.length ? `${slides.length} ${slides.length === 1 ? "slide" : "slides"}` : chapter.package ? "Materials available" : "No materials yet"}</span></div>
+                    <div className="chapter-entry__actions">
+                      <details className="chapter-actions">
+                        <summary aria-label={`Manage ${chapter.title}`}>Manage</summary>
+                        <div className="chapter-actions__menu">
+                          <button type="button" onClick={() => { setEditingChapter(chapter.id); setDraftTitle(chapter.title); }}>Rename</button>
+                          <button type="button" disabled={busy || index === 0} onClick={() => moveChapter(index, -1)}>Move up</button>
+                          <button type="button" disabled={busy || index === chapters.length - 1} onClick={() => moveChapter(index, 1)}>Move down</button>
+                          <button type="button" disabled={busy || chapters.length === 1} onClick={() => removeChapter(chapter)}>Delete</button>
+                        </div>
+                      </details>
+                      <Link href={chapterHref(courseId, chapter.id)} className="chapter-entry__open" aria-label={`${chapter.package ? "Open" : "Build"} ${chapter.title}`}>{chapter.package ? "Open chapter" : "Build chapter"}</Link>
+                    </div>
+                  </div>
                 </div>
-              </div>)}
-            </div>
-          </section>
-          <section className="border-t border-line pt-8">
-            <h2 className="text-xl font-semibold tracking-[-0.035em] text-ink">Learning outcomes</h2>
-            <p className="mt-2 text-sm leading-6 text-body">{course.description || "Add a course purpose in Settings to explain what this course promises learners."}</p>
-            {coverage?.outcomes.length ? <div className="mt-5 overflow-hidden rounded-md border border-line bg-surface">{coverage.outcomes.map((outcome) => <div key={outcome.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-b-0"><div className="flex min-w-0 gap-3"><span className="font-mono text-xs font-semibold text-blue">{outcome.id}</span><p className="text-sm font-medium text-ink">{outcome.text}</p></div><div className="flex items-center gap-2"><span className="text-xs text-muted">{outcome.slideCount} slides · {outcome.questionCount} questions</span><Badge tone={coverageTone(outcome.status)}>{outcome.status.replace("-", " ")}</Badge></div></div>)}</div> : <p className="mt-5 rounded-sm bg-soft px-5 py-4 text-sm text-body">No outcomes yet. Add them in Settings to check coverage across slides and questions.</p>}
-          </section>
-        </div>
-        <aside className="space-y-7 lg:sticky lg:top-7">
-          <section className="rounded-md border border-line bg-surface p-5"><p className="text-xs font-bold uppercase tracking-[0.15em] text-blue">Next chapter</p><h2 className="mt-2 text-lg font-semibold text-ink">Add to this course</h2><p className="mt-2 text-sm leading-6 text-body">Create a chapter now. You can rename and reorder it later.</p><div className="mt-5"><Field label="Chapter title"><input className={inputCls} value={chapterTitle} onChange={(e) => setChapterTitle(e.target.value)} placeholder="e.g. Pull request review" /></Field></div><Button variant="primary" className="mt-4 w-full" onClick={addChapter} disabled={busy || !chapterTitle.trim()}>Add chapter</Button></section>
-          <section className="border-l-2 border-blue pl-5"><p className="text-xs font-bold uppercase tracking-[0.15em] text-blue">Publication check</p><p className="mt-3 text-sm leading-6 text-body">{ready ? ready + " chapter" + (ready === 1 ? " is" : "s are") + " ready. Review generated material before publishing." : "Build and review at least one chapter before publishing."}</p></section>
-          {course.syllabusFilename ? <section className="border-t border-line pt-5"><p className="text-xs font-bold uppercase tracking-[0.15em] text-muted">Course reference</p><p className="mt-2 break-words text-sm font-semibold text-ink">{course.syllabusFilename}</p><p className="mt-1 text-xs leading-5 text-muted">{course.syllabusChars ?? 0} characters extracted for chapter generation.</p></section> : null}
+              </li>;
+            })}
+          </ol>
+          {!chapters.length ? <div className="course-outline__empty"><h3>Start with your first chapter</h3><p>Add a chapter, then create its teaching materials in the editor.</p></div> : null}
+        </section>
+        <aside className="course-context" aria-label="Course information">
+          <details className="course-info">
+            <summary><span>Publication</span><Badge tone={course.status === "published" ? "green" : "amber"}>{course.status === "published" ? "Published" : "Draft"}</Badge></summary>
+            <div className="course-info__body"><p>{preparationSummary}</p><button type="button" onClick={() => setTab("settings")}>Publication settings</button></div>
+          </details>
+          <details className="course-info">
+            <summary><span>Learning outcomes</span><span className="course-info__value">{coverage?.outcomes.length || "Not set"}</span></summary>
+            <div className="course-info__body">{coverage?.outcomes.length ? <ul>{coverage.outcomes.map((outcome) => <li key={outcome.id}><span>{outcome.text}</span><Badge tone={coverageTone(outcome.status)}>{outcome.status.replace("-", " ")}</Badge></li>)}</ul> : <><p>Add outcomes to check slide and question coverage.</p><button type="button" onClick={() => setTab("settings")}>Add learning outcomes</button></>}</div>
+          </details>
+          {course.syllabusFilename ? <details className="course-info">
+            <summary><span>Syllabus</span><span className="course-info__value" title={course.syllabusFilename}>{course.syllabusFilename}</span></summary>
+            <div className="course-info__body"><p className="break-words">{course.syllabusFilename}</p><p>Available as source material when generating chapters.</p></div>
+          </details> : null}
         </aside>
       </div> : null}
 
@@ -189,6 +217,8 @@ export default function CourseDetailPage() {
       {tab === "activity" ? <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]"><Card className="p-6"><SectionLabel>Review trail</SectionLabel><p className="mt-2 text-sm leading-6 text-muted">A compact evidence trail of AI generation, instructor changes and publication decisions. It supports review; it does not silently publish AI output.</p><ol className="mt-5 space-y-3">{activity.map((item) => <li key={item.id} className="rounded-sm border border-line p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold text-ink">{item.reason}</p><Badge tone={item.kind === "publish" ? "green" : item.kind === "generation" ? "blue" : "neutral"}>{item.kind.replace("-", " ")}</Badge></div><p className="mt-2 text-sm text-muted">Changed: {item.changedFields.map((field) => field.replaceAll("_", " ")).join(", ") || "recorded event"}{item.chapterId ? " · chapter-owned" : " · course-level"}</p></li>)}{!activity.length ? <li className="rounded-sm bg-soft p-5 text-sm leading-6 text-muted">No review events yet. Generate a chapter, save the blueprint or publish a reviewed course to begin this record.</li> : null}</ol></Card><Card className="p-5"><SectionLabel>Demo evidence</SectionLabel><p className="mt-3 text-sm leading-6 text-muted">Use this screen during usability sessions to distinguish what the model drafted from what the teacher reviewed and published. Record real sessions separately; this prototype must not invent user evidence.</p></Card></div> : null}
 
       {tab === "settings" ? <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px]"><Card className="p-6"><SectionLabel>Course details</SectionLabel><div className="mt-5 grid gap-4"><Field label="Course title"><input className={inputCls} value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} /></Field><div className="grid gap-4 sm:grid-cols-[150px_1fr]"><Field label="Course code"><input className={inputCls} value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="e.g. SE-101" /></Field><Field label="Subject"><select className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)}><option>Software Engineering</option><option>Computing Foundations</option><option>AI &amp; Data</option><option>Professional Development</option></select></Field></div><Field label="Course description"><textarea className={`${inputCls} min-h-[110px]`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What will learners be able to do?" /></Field><Field label="Learning outcomes" hint="One outcome per line"><textarea className={`${inputCls} min-h-[130px]`} value={objectivesText} onChange={(e) => setObjectivesText(e.target.value)} placeholder={"Explain branch isolation\nReview a pull request before merging"} /></Field></div><Button variant="primary" className="mt-5" disabled={busy || !courseTitle.trim()} onClick={saveCourse}>Save blueprint</Button></Card><Card className="p-5"><SectionLabel>Publication check</SectionLabel><p className="mt-3 text-sm leading-6 text-muted">A course can publish only after at least one chapter is ready. Generated material remains a draft until you explicitly publish it.</p><p className="mt-4 text-sm font-semibold text-ink">{ready} of {chapters.length} chapters ready</p><Button variant={course?.status === "published" ? "ghost" : "primary"} className="mt-4 w-full" disabled={publishDisabled} onClick={togglePublish}>{course?.status === "published" ? "Unpublish course" : "Publish reviewed course"}</Button></Card></div> : null}
+        </div>
+      </div>
     </div>
   </main>;
 }

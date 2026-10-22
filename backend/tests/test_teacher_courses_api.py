@@ -23,6 +23,11 @@ async def create_course(title: str = "Git basics") -> dict:
     return response.json()
 
 
+def test_demo_workspace_is_isolated_from_the_development_server(tmp_path):
+    """A test run must never write to the local teacher demo database."""
+    assert demo.TEACHER_WORKSPACE_DB.parent == tmp_path
+
+
 async def test_course_api_creates_draft_with_first_chapter_and_lists_it():
     course = await create_course()
 
@@ -171,6 +176,24 @@ async def test_generating_a_chapter_does_not_replace_another_chapter_package(mon
     assert first.json()["package"] == {"marker": "keep"}
 
 
+async def test_chapter_generation_uses_course_learning_objectives_by_default(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    created = await request(
+        "POST", "/api/demo/courses",
+        {"title": "Git collaboration", "learningObjectives": ["Explain branch isolation", "Review a pull request"]},
+    )
+    course = created.json()
+    chapter_id = course["chapterIds"][0]
+
+    generated = await request(
+        "POST", f"/api/demo/courses/{course['id']}/chapters/{chapter_id}/generate",
+        {"topic": "Git collaboration", "use_real_model": False},
+    )
+
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["package"]["project"]["learningObjectives"] == course["learningObjectives"]
+
+
 async def test_activating_a_chapter_makes_its_ir_available_to_teacher_tools(monkeypatch):
     monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
     course = await create_course()
@@ -188,6 +211,207 @@ async def test_activating_a_chapter_makes_its_ir_available_to_teacher_tools(monk
     assert activated.status_code == 200
     assert questions.status_code == 200
     assert questions.json()["package"]["questionSet"]["questions"]
+
+
+async def test_reactivated_json_chapter_can_be_edited_and_the_change_persists(monkeypatch):
+    """Browser refresh stores JSON; activation must restore a validated IR object."""
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    chapter_id = course["chapterIds"][0]
+    path = f"/api/demo/courses/{course['id']}/chapters/{chapter_id}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    assert generated.status_code == 200, generated.text
+    package = generated.json()["package"]
+    slide_id = package["slideDeck"]["slides"][0]["id"]
+    saved = await request("PATCH", path, {"package": package, "status": "ready"})
+    assert saved.status_code == 200, saved.text
+
+    activated = await request("POST", f"{path}/activate")
+    # The browser used to send a second JSON save after activation, severing
+    # the repository object's reference to STATE.package.
+    await request("PATCH", path, {"package": package, "status": "ready"})
+    changed = await request(
+        "POST", "/api/demo/manual-edit",
+        {"kind": "slide", "target_id": slide_id, "payload": {"title": "Teacher-reviewed title"}},
+    )
+    reloaded = await request("GET", path)
+
+    assert activated.status_code == 200, activated.text
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["package"]["slideDeck"]["slides"][0]["title"] == "Teacher-reviewed title"
+    assert reloaded.json()["package"]["slideDeck"]["slides"][0]["title"] == "Teacher-reviewed title"
+
+
+async def test_ai_change_after_chapter_refresh_waits_for_teacher_approval(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    package = generated.json()["package"]
+    original_title = package["slideDeck"]["slides"][1]["title"]
+    await request("PATCH", path, {"package": package, "status": "ready"})
+    await request("POST", f"{path}/activate")
+    await request("PATCH", path, {"package": package, "status": "ready"})
+
+    proposed = await request("POST", "/api/demo/edit", {"message": "Make slide 2 easier", "use_real_model": False})
+    before_approval = await request("GET", path)
+    assert proposed.status_code == 200, proposed.text
+    assert proposed.json()["call_names"][:2] == ["read_slide", "patch_slide"]
+    assert before_approval.json()["package"]["slideDeck"]["slides"][1]["title"] == original_title
+
+    patch_id = proposed.json()["patches"][0]["id"]
+    applied = await request("POST", "/api/demo/apply", {"patch_id": patch_id})
+    after_approval = await request("GET", path)
+    assert applied.status_code == 200, applied.text
+    assert after_approval.json()["package"]["slideDeck"]["slides"][1]["title"] == "分支是什么(入门版)"
+
+
+async def test_reactivating_a_chapter_keeps_pending_field_reviews(monkeypatch):
+    """The workspace activates on page load; doing so must not erase a review."""
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    assert generated.status_code == 200, generated.text
+
+    proposed = await request(
+        "POST",
+        f"{path}/edit",
+        {"message": "Make slide 2 easier", "use_real_model": False, "target": "slides"},
+    )
+    assert proposed.status_code == 200, proposed.text
+    proposal_ids = {patch["id"] for patch in proposed.json()["patches"]}
+
+    activated = await request("POST", f"{path}/activate")
+    state = await request("GET", "/api/demo/state")
+
+    assert activated.status_code == 200, activated.text
+    assert proposal_ids <= {patch["id"] for patch in activated.json()["patches"] if patch["status"] == "proposed"}
+    assert proposal_ids <= {patch["id"] for patch in state.json()["patches"] if patch["status"] == "proposed"}
+
+
+async def test_course_scoped_edit_stream_loads_the_chapter_without_legacy_activation(monkeypatch):
+    """A deep-linked chapter editor must not depend on the old singleton being primed."""
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    assert generated.status_code == 200, generated.text
+
+    demo.STATE.package = None
+    demo.STATE.store = None
+    demo.STATE.active_course_id = None
+    demo.STATE.active_chapter_id = None
+
+    changed = await request(
+        "POST", f"{path}/edit/stream",
+        {"message": "Make slide 2 easier", "use_real_model": False},
+    )
+
+    assert changed.status_code == 200, changed.text
+    assert "event: result" in changed.text
+    assert '"read_slide"' in changed.text
+    assert '"patch_slide"' in changed.text
+
+
+async def test_course_scoped_edit_stream_accepts_a_multi_action_plan_prompt(monkeypatch):
+    """Several approved plan actions are combined before the Agent executes them."""
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request(
+        "POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False},
+    )
+    assert generated.status_code == 200, generated.text
+
+    multi_action_prompt = "Teacher request: improve this lesson.\n\nRun only these approved actions:\n" + "\n\n".join(
+        f"{index}. Inspect the selected material, add a concrete teaching cue, and keep the proposed patch reviewable."
+        for index in range(1, 8)
+    )
+    assert len(multi_action_prompt) > 500
+
+    changed = await request(
+        "POST", f"{path}/edit/stream",
+        {"message": multi_action_prompt, "use_real_model": False, "target": "slides", "images": []},
+    )
+
+    assert changed.status_code == 200, changed.text
+    assert "event: result" in changed.text
+
+
+async def test_course_scoped_questions_load_and_save_the_named_chapter(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    assert generated.status_code == 200, generated.text
+
+    demo.STATE.package = None
+    demo.STATE.store = None
+    demo.STATE.active_course_id = None
+    demo.STATE.active_chapter_id = None
+    questions = await request("POST", f"{path}/questions", {"use_real_model": False})
+    reloaded = await request("GET", path)
+
+    assert questions.status_code == 200, questions.text
+    assert questions.json()["package"]["questionSet"]["questions"]
+    assert reloaded.json()["package"]["questionSet"]["questions"]
+
+
+async def test_ai_revision_can_propose_question_and_paper_patches(monkeypatch):
+    """Every teacher artifact can be revised without bypassing approval."""
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    assert generated.status_code == 200, generated.text
+    questions = await request("POST", f"{path}/questions", {"use_real_model": False})
+    assert questions.status_code == 200, questions.text
+    paper = await request("POST", f"{path}/paper", {"total_points": 10, "duration_min": 15})
+    assert paper.status_code == 200, paper.text
+
+    question_before = questions.json()["package"]["questionSet"]["questions"][0]["stem"]
+    question_edit = await request(
+        "POST", f"{path}/edit",
+        {"message": "Make the first question clearer", "target": "questions", "use_real_model": False},
+    )
+    assert question_edit.status_code == 200, question_edit.text
+    assert question_edit.json()["call_names"][:2] == ["read_question", "patch_question"]
+    assert question_edit.json()["package"]["questionSet"]["questions"][0]["stem"] == question_before
+
+    question_patch = question_edit.json()["patches"][0]["id"]
+    question_applied = await request("POST", f"{path}/apply", {"patch_id": question_patch})
+    assert question_applied.status_code == 200, question_applied.text
+    assert question_applied.json()["package"]["questionSet"]["questions"][0]["stem"] != question_before
+
+    paper_before = paper.json()["package"]["examPaper"]["answerKey"]
+    paper_edit = await request(
+        "POST", f"{path}/edit",
+        {"message": "Prepare a student copy", "target": "paper", "use_real_model": False},
+    )
+    assert paper_edit.status_code == 200, paper_edit.text
+    assert paper_edit.json()["call_names"][:2] == ["read_paper", "patch_paper"]
+    assert paper_edit.json()["package"]["examPaper"]["answerKey"] == paper_before
+
+    paper_patch = paper_edit.json()["patches"][0]["id"]
+    paper_applied = await request("POST", f"{path}/apply", {"patch_id": paper_patch})
+    assert paper_applied.status_code == 200, paper_applied.text
+    assert paper_applied.json()["package"]["examPaper"]["answerKey"] is False
+
+
+async def test_generated_questions_are_saved_under_the_active_chapter(monkeypatch):
+    monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0.0)
+    course = await create_course()
+    path = f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}"
+    generated = await request("POST", f"{path}/generate", {"topic": "Git branches", "use_real_model": False})
+    await request("PATCH", path, {"package": generated.json()["package"], "status": "ready"})
+    await request("POST", f"{path}/activate")
+
+    questions = await request("POST", "/api/demo/questions", {"use_real_model": False})
+    chapter = await request("GET", path)
+
+    assert questions.status_code == 200, questions.text
+    assert chapter.json()["package"]["questionSet"]["questions"]
 
 
 async def test_teacher_can_import_students_create_an_invite_and_view_actionable_analytics():

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.api.routes import demo
 from app.demo_pipeline import (
     FakeSectionModel,
     fake_illustration,
@@ -11,6 +12,15 @@ from app.demo_pipeline import (
     fake_search,
 )
 from app.services.pipeline import GenerationRequest, PipelineDeps, generate_course
+
+
+@pytest.fixture(autouse=True)
+def isolate_demo_workspace(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Never let tests read, reset, or write a developer's local SQLite data."""
+    monkeypatch.setattr(demo, "TEACHER_WORKSPACE_DB", tmp_path / "teacher-workspace.db")
+    monkeypatch.setattr(demo, "DEMO_WORKSPACE_PATH", tmp_path / "legacy-workspace.json")
+    demo.reset_course_workspace()
+    yield
 
 
 @pytest.fixture

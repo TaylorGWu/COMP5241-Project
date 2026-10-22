@@ -20,13 +20,18 @@ AI 提出改动时**不直接改产物**,而是先变成一个 `proposed` 状态
 from __future__ import annotations
 
 import difflib
+import json
+import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, Protocol
+from collections.abc import Iterator
 
-from app.schemas.ir import CoursePackage, Slide
+from app.schemas.ir import CoursePackage, ExamPaper, Question, Slide
 
 PatchStatus = Literal["proposed", "applied", "rejected"]
-PatchKind = Literal["slide", "plan", "regenerate_slide", "timeline"]
+PatchKind = Literal["slide", "plan", "regenerate_slide", "timeline", "question", "paper"]
 #: 谁提的这个改动。**审计和「这页是人改的还是 AI 改的」都靠它。**
 PatchAuthor = Literal["ai", "teacher"]
 
@@ -70,6 +75,10 @@ class PatchStore(Protocol):
         ...
     def mark(self, patch_id: str, status: PatchStatus) -> None:
         """改状态(proposed → applied / rejected)。这是唯一改状态的地方。"""
+        ...
+
+    def replace(self, patch_id: str, *, payload: dict[str, Any], diff: str) -> Patch:
+        """用尚未决定的字段更新一条 proposed patch。"""
         ...
 
 
@@ -121,6 +130,176 @@ class InMemoryPatchStore:
         """改状态(proposed → applied / rejected)。这是唯一改状态的地方。"""
 
         self.get(patch_id).status = status
+
+    def replace(self, patch_id: str, *, payload: dict[str, Any], diff: str) -> Patch:
+        patch = self.get(patch_id)
+        if not patch.is_pending:
+            raise PatchAlreadyDecided(f"patch {patch_id} 已经是 {patch.status} 状态")
+        patch.payload = payload
+        patch.diff = diff
+        return patch
+
+
+class SQLitePatchStore:
+    """SQLite-backed review queue scoped to one teacher-course chapter.
+
+    A package's artifact ids are produced by the IR generator and can repeat
+    across separately generated chapters. ``scope_id`` keeps those review
+    histories isolated without changing the public patch payload or API.
+    """
+
+    def __init__(self, path: Path, *, scope_id: str) -> None:
+        self.path = path
+        self.scope_id = scope_id
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connection() as connection:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS patches (
+                    id TEXT PRIMARY KEY,
+                    scope_id TEXT NOT NULL,
+                    artifact_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    diff TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    author TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS patches_by_scope_artifact
+                    ON patches(scope_id, artifact_id, id);
+                """
+            )
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.path)
+        connection.row_factory = sqlite3.Row
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _patch(row: sqlite3.Row) -> Patch:
+        return Patch(
+            id=row["id"],
+            artifact_id=row["artifact_id"],
+            kind=row["kind"],
+            target_id=row["target_id"],
+            payload=json.loads(row["payload_json"]),
+            reason=row["reason"],
+            diff=row["diff"],
+            status=row["status"],
+            author=row["author"],
+        )
+
+    @staticmethod
+    def _next_id(connection: sqlite3.Connection) -> str:
+        rows = connection.execute("SELECT id FROM patches WHERE id LIKE 'pt-%'").fetchall()
+        next_number = max(
+            (
+                int(row["id"].removeprefix("pt-"))
+                for row in rows
+                if row["id"].removeprefix("pt-").isdigit()
+            ),
+            default=0,
+        ) + 1
+        return f"pt-{next_number}"
+
+    def propose(
+        self,
+        *,
+        artifact_id: str,
+        kind: PatchKind,
+        target_id: str,
+        payload: dict[str, Any],
+        reason: str,
+        diff: str,
+        author: PatchAuthor = "ai",
+    ) -> Patch:
+        with self._connection() as connection:
+            # Allocate readable ids atomically across all chapter scopes.
+            connection.execute("BEGIN IMMEDIATE")
+            patch = Patch(
+                id=self._next_id(connection),
+                artifact_id=artifact_id,
+                kind=kind,
+                target_id=target_id,
+                payload=payload,
+                reason=reason,
+                diff=diff,
+                author=author,
+            )
+            connection.execute(
+                """
+                INSERT INTO patches(
+                    id, scope_id, artifact_id, kind, target_id, payload_json,
+                    reason, diff, status, author
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    patch.id,
+                    self.scope_id,
+                    patch.artifact_id,
+                    patch.kind,
+                    patch.target_id,
+                    json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                    patch.reason,
+                    patch.diff,
+                    patch.status,
+                    patch.author,
+                ),
+            )
+            return patch
+
+    def get(self, patch_id: str) -> Patch:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM patches WHERE id = ? AND scope_id = ?",
+                (patch_id, self.scope_id),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"找不到 patch {patch_id}")
+        return self._patch(row)
+
+    def list(self, artifact_id: str, status: PatchStatus | None = None) -> list[Patch]:
+        query = "SELECT * FROM patches WHERE scope_id = ? AND artifact_id = ?"
+        values: list[str] = [self.scope_id, artifact_id]
+        if status is not None:
+            query += " AND status = ?"
+            values.append(status)
+        query += " ORDER BY CAST(SUBSTR(id, 4) AS INTEGER), id"
+        with self._connection() as connection:
+            rows = connection.execute(query, values).fetchall()
+        return [self._patch(row) for row in rows]
+
+    def mark(self, patch_id: str, status: PatchStatus) -> None:
+        self.get(patch_id)
+        with self._connection() as connection:
+            connection.execute(
+                "UPDATE patches SET status = ? WHERE id = ? AND scope_id = ?",
+                (status, patch_id, self.scope_id),
+            )
+
+    def replace(self, patch_id: str, *, payload: dict[str, Any], diff: str) -> Patch:
+        patch = self.get(patch_id)
+        if not patch.is_pending:
+            raise PatchAlreadyDecided(f"patch {patch_id} 已经是 {patch.status} 状态")
+        with self._connection() as connection:
+            connection.execute(
+                """
+                UPDATE patches SET payload_json = ?, diff = ?
+                WHERE id = ? AND scope_id = ?
+                """,
+                (json.dumps(payload, ensure_ascii=False, separators=(",", ":")), diff, patch_id, self.scope_id),
+            )
+        return self.get(patch_id)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -182,6 +361,16 @@ def find_timeline_entry(package: CoursePackage, entry_id: str):
     raise KeyError(f"找不到教案环节 {entry_id}")
 
 
+def find_question(package: CoursePackage, question_id: str) -> Question:
+    """按 id 找题目。题目修改也必须精确到单题，避免误伤题库。"""
+    if package.question_set is None:
+        raise KeyError("该产物还没有题目")
+    for question in package.question_set.questions:
+        if question.id == question_id:
+            return question
+    raise KeyError(f"找不到题目 {question_id}")
+
+
 def artifact_id_of(package: CoursePackage) -> str:
     """取产物 id。课件和教案属于同一个产物。"""
 
@@ -190,6 +379,14 @@ def artifact_id_of(package: CoursePackage) -> str:
     if package.lesson_plan is not None:
         return package.lesson_plan.artifact_id
     return package.project.id
+
+
+def artifact_id_for(package: CoursePackage, kind: PatchKind) -> str:
+    if kind == "question" and package.question_set is not None:
+        return package.question_set.artifact_id
+    if kind == "paper" and package.exam_paper is not None:
+        return package.exam_paper.artifact_id
+    return artifact_id_of(package)
 
 
 def current_values(package: CoursePackage, kind: PatchKind, target_id: str) -> dict[str, Any]:
@@ -203,6 +400,12 @@ def current_values(package: CoursePackage, kind: PatchKind, target_id: str) -> d
         return find_slide(package, target_id).model_dump(by_alias=True)
     if kind == "timeline":
         return find_timeline_entry(package, target_id).model_dump(by_alias=True)
+    if kind == "question":
+        return find_question(package, target_id).model_dump(by_alias=True)
+    if kind == "paper":
+        if package.exam_paper is None:
+            raise KeyError("该产物还没有试卷")
+        return package.exam_paper.model_dump(by_alias=True)
     raise ValueError(f"不支持查看 {kind} 的当前值")
 
 
@@ -244,7 +447,7 @@ def manual_edit(
         raise ValueError("没有任何字段发生变化")
 
     patch = store.propose(
-        artifact_id=artifact_id_of(package),
+        artifact_id=artifact_id_for(package, kind),
         kind=kind,
         target_id=target_id,
         payload=changed,
@@ -290,7 +493,32 @@ def apply_patch(package: CoursePackage, store: PatchStore, patch_id: str) -> Cou
         if index is None:
             raise KeyError(f"找不到幻灯片 {patch.target_id}")
 
-        merged = {**deck.slides[index].model_dump(), **patch.payload}
+        # ``bulletEdit`` is intentionally not a Slide field. It is a small,
+        # anchored editorial operation so teachers can accept or reject one
+        # bullet without replacing all neighbouring bullets at once.
+        bullet_edit = patch.payload.get("bulletEdit")
+        payload = {key: value for key, value in patch.payload.items() if key != "bulletEdit"}
+        # Agent payloads use camelCase (the public IR contract).  Merging
+        # against snake_case here would silently discard fields such as
+        # speakerNotes or animation during re-validation.
+        merged = {**deck.slides[index].model_dump(by_alias=True), **payload}
+        if bullet_edit is not None:
+            bullets = list(deck.slides[index].bullets)
+            before = bullet_edit.get("before")
+            after = bullet_edit.get("after")
+            if before is None:
+                position = min(max(int(bullet_edit.get("position", len(bullets))), 0), len(bullets))
+                bullets.insert(position, after)
+            else:
+                try:
+                    bullet_index = bullets.index(before)
+                except ValueError as exc:
+                    raise ValueError("要点已被其他确认改动更新，请刷新后重试") from exc
+                if after is None:
+                    bullets.pop(bullet_index)
+                else:
+                    bullets[bullet_index] = after
+            merged["bullets"] = bullets
         deck.slides[index] = Slide.model_validate(merged)   # ← 重新校验
 
     elif patch.kind == "timeline":
@@ -314,8 +542,59 @@ def apply_patch(package: CoursePackage, store: PatchStore, patch_id: str) -> Cou
         merged = {**plan.model_dump(), **patch.payload}
         package.lesson_plan = type(plan).model_validate(merged)
 
+    elif patch.kind == "question":
+        question_set = package.question_set
+        if question_set is None:
+            raise KeyError("该产物还没有题目")
+        index = next((i for i, q in enumerate(question_set.questions) if q.id == patch.target_id), None)
+        if index is None:
+            raise KeyError(f"找不到题目 {patch.target_id}")
+        merged = {**question_set.questions[index].model_dump(by_alias=True), **patch.payload}
+        question_set.questions[index] = Question.model_validate(merged)
+
+    elif patch.kind == "paper":
+        paper = package.exam_paper
+        if paper is None:
+            raise KeyError("该产物还没有试卷")
+        merged = {**paper.model_dump(by_alias=True), **patch.payload}
+        package.exam_paper = ExamPaper.model_validate(merged)
+
     store.mark(patch_id, "applied")
     return package
+
+
+def apply_patch_field(
+    package: CoursePackage, store: PatchStore, patch_id: str, field: str,
+) -> tuple[CoursePackage, Patch, Patch | None]:
+    """确认 patch 中的一个字段，保留同页其余字段待教师决定。"""
+    source = store.get(patch_id)
+    if not source.is_pending:
+        raise PatchAlreadyDecided(f"patch {patch_id} 已经是 {source.status} 状态")
+    if field not in source.payload:
+        raise KeyError(f"patch {patch_id} 不包含字段 {field}")
+    if len(source.payload) == 1:
+        apply_patch(package, store, patch_id)
+        return package, source, None
+
+    selected_payload = {field: source.payload[field]}
+    remaining_payload = {key: value for key, value in source.payload.items() if key != field}
+    before = current_values(package, source.kind, source.target_id)
+    selected = store.propose(
+        artifact_id=source.artifact_id,
+        kind=source.kind,
+        target_id=source.target_id,
+        payload=selected_payload,
+        reason=source.reason,
+        diff=make_diff({field: before.get(field)}, selected_payload),
+        author=source.author,
+    )
+    remaining = store.replace(
+        patch_id,
+        payload=remaining_payload,
+        diff=make_diff({key: before.get(key) for key in remaining_payload}, remaining_payload),
+    )
+    apply_patch(package, store, selected.id)
+    return package, selected, remaining
 
 
 def reject_patch(store: PatchStore, patch_id: str) -> None:
@@ -324,3 +603,30 @@ def reject_patch(store: PatchStore, patch_id: str) -> None:
     if not patch.is_pending:
         raise PatchAlreadyDecided(f"patch {patch_id} 已经是 {patch.status} 状态")
     store.mark(patch_id, "rejected")
+
+
+def reject_patch_field(store: PatchStore, patch_id: str, field: str) -> tuple[Patch, Patch | None]:
+    """驳回一个字段，保留原 patch 的其它字段继续等待教师确认。"""
+    source = store.get(patch_id)
+    if not source.is_pending:
+        raise PatchAlreadyDecided(f"patch {patch_id} 已经是 {source.status} 状态")
+    if field not in source.payload:
+        raise KeyError(f"patch {patch_id} 不包含字段 {field}")
+    if len(source.payload) == 1:
+        reject_patch(store, patch_id)
+        return source, None
+
+    selected_payload = {field: source.payload[field]}
+    remaining_payload = {key: value for key, value in source.payload.items() if key != field}
+    rejected = store.propose(
+        artifact_id=source.artifact_id,
+        kind=source.kind,
+        target_id=source.target_id,
+        payload=selected_payload,
+        reason=source.reason,
+        diff=make_diff({}, selected_payload),
+        author=source.author,
+    )
+    reject_patch(store, rejected.id)
+    remaining = store.replace(patch_id, payload=remaining_payload, diff=make_diff({}, remaining_payload))
+    return rejected, remaining

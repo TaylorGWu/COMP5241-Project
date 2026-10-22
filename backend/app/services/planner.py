@@ -50,6 +50,20 @@ class PlannedSection(BaseModel):
     title: str
     minutes: int = Field(gt=0)
     objective_ids: list[str] = Field(default_factory=list)
+    teaching_arc: "TeachingArc" = Field(default_factory=lambda: TeachingArc())
+
+
+class TeachingArc(BaseModel):
+    """A compact brief that keeps a section focused on a learnable sequence."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, extra="ignore"
+    )
+
+    situation: str = ""
+    misconception: str = ""
+    practice: str = ""
+    transfer_prompt: str = ""
 
 
 class Outline(BaseModel):
@@ -82,9 +96,13 @@ PLANNER_PROMPT = """你是课程设计助手。为下面的迷你课程设计章
 
 {
   "objectives": ["学习目标1", "学习目标2"],
-  "sections": [
-    {"title": "章节标题", "minutes": 15, "objectiveIds": ["LO1"]},
-    {"title": "章节标题", "minutes": 15, "objectiveIds": ["LO2"]}
+    "sections": [
+    {"title": "章节标题", "minutes": 15, "objectiveIds": ["LO1"],
+     "teachingArc": {"situation": "具体工程情境", "misconception": "常见误解",
+                     "practice": "可检查练习", "transferPrompt": "迁移提问"}},
+    {"title": "章节标题", "minutes": 15, "objectiveIds": ["LO2"],
+     "teachingArc": {"situation": "具体工程情境", "misconception": "常见误解",
+                     "practice": "可检查练习", "transferPrompt": "迁移提问"}}
   ],
   "rationale": "一句话说明为什么这样安排章节顺序"
 }
@@ -95,6 +113,14 @@ PLANNER_PROMPT = """你是课程设计助手。为下面的迷你课程设计章
 3. 章节数量 2–6 节,每节 3–60 分钟。
 4. 面向非专业学习者时,先讲「为什么」再讲「怎么做」。
 5. 章节标题要具体,不要「第一章」这种。
+6. 整门课要形成「真实工程情境 → 概念与证据 → 决策或操作 → 练习与反馈」的学习弧线。
+   不要把章节只排成概念名词列表;至少安排一个真实工程情境和一个可检验的练习环节。
+7. 自动拟定的目标须可观察：说明学生在什么条件下能解释、比较、诊断或完成什么，
+   避免只用“了解”“掌握”加主题名。教师给定的目标保留原意，不擅自扩展教学范围。
+8. 每节 teachingArc 必须针对具体主题：situation 写明任务和初始状态，misconception
+   写出具体错误判断及其原因，practice 写出学生要交出的答案/操作结果和判断依据，
+   transferPrompt 改变原情境的一个条件。案例及练习只能使用本节或前节已教的知识。
+   各节应逐步增加深度，不能把相同的团队失败案例仅替换章节名反复使用。
 """
 
 
@@ -172,7 +198,17 @@ def _fallback(req: PlannerRequest, reason: str) -> Outline:
     return Outline(
         objectives=objectives,
         sections=[
-            PlannedSection(title=t, minutes=per, objective_ids=[])
+            PlannedSection(
+                title=t,
+                minutes=per,
+                objective_ids=[],
+                teaching_arc=TeachingArc(
+                    situation=f"团队在「{t}」时遇到可追溯性问题",
+                    misconception="只要保留最终文件就等于保留过程",
+                    practice=f"判断在「{t}」情境下的安全下一步",
+                    transfer_prompt="下次团队协作时，如何提前避免相同风险？",
+                ),
+            )
             for t in DEFAULT_SECTIONS
         ],
         rationale=f"退回默认骨架:{reason}",

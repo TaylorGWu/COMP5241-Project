@@ -16,12 +16,14 @@ from app.demo_pipeline import (
     fake_make_diagram,
     fake_search,
 )
+from app.demo_edit import FakeEditModel
 from app.llm.client import ChatMessage, ScriptedChatClient, ToolCall
 from app.services.edit import EditDeps, edit_artifact
 from app.services.patches import (
     InMemoryPatchStore,
     PatchAlreadyDecided,
     apply_patch,
+    apply_patch_field,
     make_diff,
     reject_patch,
 )
@@ -110,6 +112,146 @@ async def test_apply_is_the_only_way_to_change_the_package():
     edited = next(s for s in package.slide_deck.slides if s.id == "s3")
     assert edited.title == "入门版标题"
     assert store.get(result.proposed[0].id).status == "applied"
+
+
+async def test_animation_patch_is_proposed_before_teacher_applies_it():
+    """Playback metadata follows the same review contract as teaching content."""
+    package = await _package()
+    before = package.model_dump_json()
+    store = InMemoryPatchStore()
+    script = [
+        ChatMessage(tool_calls=[ToolCall(id="animation-read", name="read_slide", arguments={"slide_id": "s3"})]),
+        ChatMessage(tool_calls=[ToolCall(id="animation-patch", name="patch_slide", arguments={
+            "slide_id": "s3",
+            "patch": {
+                "animation": {
+                    "steps": [
+                        {"kind": "reveal", "target": "title", "atMs": 0},
+                        {"kind": "emphasis", "target": "bullet:0", "atMs": 750},
+                    ]
+                }
+            },
+            "reason": "把概念说明改成逐步呈现，方便教师讲解",
+        })]),
+        ChatMessage(content="动画方案已暂存，等待教师确认。"),
+    ]
+
+    result = await edit_artifact(
+        client=ScriptedChatClient(script), model="fake", package=package,
+        message="让第 3 页的概念逐步出现", store=store,
+    )
+
+    assert result.call_names.index("read_slide") < result.call_names.index("patch_slide")
+    assert package.model_dump_json() == before
+    assert result.proposed[0].payload["animation"]["steps"][1]["target"] == "bullet:0"
+
+    apply_patch(package, store, result.proposed[0].id)
+
+    edited = next(slide for slide in package.slide_deck.slides if slide.id == "s3")
+    assert edited.animation is not None
+    assert edited.animation.steps[1].kind == "emphasis"
+
+
+async def test_offline_animation_request_proposes_only_animation_metadata():
+    """The local demo must not turn the animation shortcut into a text rewrite."""
+    package = await _package()
+    before = package.model_dump_json()
+    store = InMemoryPatchStore()
+
+    result = await edit_artifact(
+        client=FakeEditModel(), model="fake", package=package,
+        message=(
+            "For slide 3 (s3) only, plan a short concept animation. "
+            "Only propose an animation patch that reveals existing content."
+        ),
+        store=store,
+    )
+
+    assert result.call_names == ["read_slide", "patch_slide"]
+    assert package.model_dump_json() == before
+    assert len(result.proposed) == 1
+    assert set(result.proposed[0].payload) == {"animation"}
+
+
+async def test_slide_fields_can_be_confirmed_independently():
+    """标题通过不应顺带写入要点；局部审阅必须有局部落库语义。"""
+    package = await _package()
+    original = next(s for s in package.slide_deck.slides if s.id == "s3")
+    original_bullets = list(original.bullets)
+    store = InMemoryPatchStore()
+    script = [
+        ChatMessage(tool_calls=[ToolCall(id="split-1", name="patch_slide", arguments={
+            "slide_id": "s3",
+            "patch": {"title": "更易懂的标题", "bullets": ["只在确认后显示的新要点"]},
+            "reason": "降低这页的信息密度",
+        })]),
+        ChatMessage(content="已拆成待确认的局部改动。"),
+    ]
+
+    result = await edit_artifact(
+        client=ScriptedChatClient(script), model="fake", package=package,
+        message="让第 3 页更适合初学者", store=store,
+    )
+
+    assert set(result.proposed[0].payload) == {"title"}
+    assert all(set(patch.payload) == {"bulletEdit"} for patch in result.proposed[1:])
+    apply_patch(package, store, result.proposed[0].id)
+    edited = next(s for s in package.slide_deck.slides if s.id == "s3")
+    assert edited.title == "更易懂的标题"
+    assert edited.bullets == original_bullets, "确认标题不能偷偷应用未确认的要点"
+
+
+async def test_slide_bullets_are_proposed_and_applied_one_at_a_time():
+    """要点不是一整块：教师确认一条时，别的要点必须仍保持原样。"""
+    package = await _package()
+    slide = next(s for s in package.slide_deck.slides if s.id == "s3")
+    original_bullets = list(slide.bullets)
+    replacement = [f"精简：{original_bullets[0]}", f"精简：{original_bullets[1]}"]
+    store = InMemoryPatchStore()
+    script = [
+        ChatMessage(tool_calls=[ToolCall(id="bullets-1", name="patch_slide", arguments={
+            "slide_id": "s3",
+            "patch": {"bullets": replacement},
+            "reason": "每条要点需要独立审阅",
+        })]),
+        ChatMessage(content="已拆成逐项确认的要点改动。"),
+    ]
+
+    result = await edit_artifact(
+        client=ScriptedChatClient(script), model="fake", package=package,
+        message="把第 3 页每个要点分别精简", store=store,
+    )
+
+    assert len(result.proposed) >= 2
+    assert all(set(patch.payload) == {"bulletEdit"} for patch in result.proposed)
+    apply_patch(package, store, result.proposed[0].id)
+    edited = next(s for s in package.slide_deck.slides if s.id == "s3")
+    assert edited.bullets[0] == replacement[0]
+    assert edited.bullets[1:] == original_bullets[1:], "确认一条不能套用其他要点"
+
+
+async def test_legacy_multi_field_patch_applies_only_the_clicked_field():
+    """已生成的旧 patch 也必须支持局部确认，不能一次把所有字段写进去。"""
+    package = await _package()
+    slide = next(s for s in package.slide_deck.slides if s.id == "s3")
+    original_bullets = list(slide.bullets)
+    store = InMemoryPatchStore()
+    legacy = store.propose(
+        artifact_id=package.slide_deck.artifact_id,
+        kind="slide",
+        target_id="s3",
+        payload={"title": "局部确认后的标题", "bullets": ["仍应等待确认的要点"]},
+        reason="降低信息密度",
+        diff="",
+    )
+
+    _, applied, remaining = apply_patch_field(package, store, legacy.id, "title")
+    edited = next(s for s in package.slide_deck.slides if s.id == "s3")
+    assert applied.status == "applied"
+    assert edited.title == "局部确认后的标题"
+    assert edited.bullets == original_bullets
+    assert remaining is not None and remaining.payload == {"bullets": ["仍应等待确认的要点"]}
+    assert remaining.status == "proposed"
 
 
 async def test_reject_leaves_the_package_untouched():

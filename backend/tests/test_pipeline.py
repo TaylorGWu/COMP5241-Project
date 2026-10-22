@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import pytest
+
+from app.api.routes import demo
 from app.demo_pipeline import (
     FakeSectionModel,
     fake_illustration,
     fake_make_diagram,
     fake_search,
 )
+from app.llm.client import ChatMessage
 from app.services.pipeline import PHASES, GenerationRequest, PipelineDeps, generate_course
 
 
@@ -72,17 +76,168 @@ async def test_sections_are_ordered_by_the_order_field():
     """并发跑完之后必须按 order 排好,否则课件页码是乱的。"""
     result = await generate_course(_req(), _deps())
     slides = result.package.slide_deck.slides
-    # 演示生成器每节至少给 3 页;更重要的是,每张页必须有全课唯一 ID。
+    # 演示生成器每节给 4 页教学链;更重要的是,每张页必须有全课唯一 ID。
     # 真模型常以每节为作用域重复使用 s1/s2/s3,不能让它污染页面导航
     # 或教师按页提出的 patch。
-    assert [s.order for s in slides] == list(range(1, 10))
-    assert len(slides) == 9
+    assert [s.order for s in slides] == list(range(1, 13))
+    assert len(slides) == 12
     assert len({s.id for s in slides}) == len(slides)
+
+
+async def test_generated_section_has_a_teachable_four_slide_learning_loop():
+    """Demo output is the minimum quality bar, not a sparse placeholder deck."""
+    result = await generate_course(_req(), _deps())
+    slides = result.package.slide_deck.slides
+
+    for offset in range(0, len(slides), 4):
+        section = slides[offset:offset + 4]
+        assert [slide.teaching_role for slide in section] == [
+            "explain", "worked_example", "check_understanding", "transfer",
+        ]
+        assert all(len(slide.bullets) >= 3 for slide in section)
+        assert all(len(slide.speaker_notes.strip()) >= 45 for slide in section)
+
+
+async def test_demo_diagrams_describe_a_teaching_relationship_not_placeholder_steps():
+    """The offline demo must not teach with a dressed-up ``Step 1 -> Step 2`` flow."""
+    result = await generate_course(_req(), _deps())
+    diagram_codes = [
+        asset.spec["code"]
+        for asset in result.package.assets
+        if asset.kind == "diagram"
+    ]
+
+    assert diagram_codes
+    assert all("Step 1" not in code and "Step 2" not in code for code in diagram_codes)
+    assert all("[应用]" not in code and "[應用]" not in code for code in diagram_codes)
+    assert all("本地工作區" in code and "共享紀錄" in code and "接手成員" in code for code in diagram_codes)
 
 
 async def test_generated_package_passes_integrity_check():
     result = await generate_course(_req(), _deps())
     assert result.integrity_issues == []
+
+
+async def test_planned_objectives_reach_the_actual_section_agent():
+    class CapturingModel(FakeSectionModel):
+        section_prompts: list[str]
+
+        def __init__(self):
+            self.section_prompts = []
+
+        async def complete(self, *, model, messages, tools=None, temperature=0.0):
+            if tools:
+                self.section_prompts.append(messages[1]["content"])
+            return await super().complete(
+                model=model, messages=messages, tools=tools, temperature=temperature,
+            )
+
+    model = CapturingModel()
+    result = await generate_course(_req(), _deps(client=model))
+
+    assert model.section_prompts
+    for prompt in model.section_prompts:
+        assert "Git 分支" in prompt
+        assert any(
+            f"{objective.id}: {objective.text}" in prompt
+            for objective in result.package.project.learning_objectives
+        )
+
+
+class _OneBadSectionModel(FakeSectionModel):
+    """The first section lacks a practice/check role; other sections stay valid."""
+
+    async def complete(self, *, model, messages, tools=None, temperature=0.0):
+        reply = await super().complete(
+            model=model, messages=messages, tools=tools, temperature=temperature
+        )
+        for call in reply.tool_calls:
+            if call.name == "write_section":
+                slides = call.arguments["slides"]
+                if slides[0]["title"].startswith("機制：概念导入"):
+                    slides[2]["teachingRole"] = "explain"
+        return reply
+
+
+async def test_invalid_section_is_retained_for_teacher_review_without_aborting_other_sections():
+    result = await generate_course(_req(), _deps(client=_OneBadSectionModel()))
+
+    assert result.package.slide_deck is not None
+    assert len(result.agents) == 3
+    assert any(
+        event.status == "written" and "needs review:missing_practice" in event.detail
+        for event in result.events
+    )
+    # A quality warning must never erase a teacher-reviewable draft.  The
+    # original section stays in the package so the teacher can inspect it,
+    # edit it, or ask the AI for a targeted revision.
+    assert len(result.package.slide_deck.slides) == 12
+
+
+class _AnimationSectionModel(FakeSectionModel):
+    """One valid plan survives; one invalid target is downgraded to a warning."""
+
+    async def complete(self, *, model, messages, tools=None, temperature=0.0):
+        reply = await super().complete(
+            model=model, messages=messages, tools=tools, temperature=temperature
+        )
+        for call in reply.tool_calls:
+            if call.name == "write_section":
+                slides = call.arguments["slides"]
+                slides[0]["animation"] = {
+                    "steps": [
+                        {"kind": "reveal", "target": "title", "atMs": 0},
+                        {"kind": "reveal", "target": "bullet:0", "atMs": 700},
+                    ]
+                }
+                slides[1]["animation"] = {
+                    "steps": [{"kind": "reveal", "target": "bullet:99", "atMs": 0}]
+                }
+                return reply
+        return reply
+
+
+async def test_generation_keeps_valid_animation_and_drops_only_invalid_animation_metadata():
+    result = await generate_course(_req(), _deps(client=_AnimationSectionModel()))
+
+    first_section = result.package.slide_deck.slides[:4]
+    assert first_section[0].animation is not None
+    assert first_section[0].animation.steps[1].target == "bullet:0"
+    assert first_section[1].animation is None
+    assert "幻灯片动画已忽略(animation_unknown_target)" in result.assembly_errors
+
+
+async def test_no_uploaded_material_means_no_slide_claims_a_source():
+    """Fake retrieval snippets are not evidence of an uploaded course material."""
+    result = await generate_course(_req(), _deps())
+    assert result.materials == []
+    assert all(slide.origin == "ai" and slide.source_refs == [] for slide in result.package.slide_deck.slides)
+
+
+class _RecordNoMaterialTools(FakeSectionModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.section_requests: list[tuple[list[dict], list[dict]]] = []
+
+    async def complete(self, *, model, messages, tools=None, temperature=0.0):
+        if tools:
+            self.section_requests.append((messages, tools))
+            return ChatMessage(content="No tool call needed for this contract test")
+        return await super().complete(
+            model=model, messages=messages, tools=tools, temperature=temperature,
+        )
+
+
+async def test_live_generation_without_material_does_not_offer_search(monkeypatch: pytest.MonkeyPatch):
+    """No uploaded material means no search tool or instruction to cite invented snippets."""
+    client = _RecordNoMaterialTools()
+    monkeypatch.setattr(demo, "_build_model", lambda _use_real: (client, "fake-model", demo._fake_ocr, "live-test"))
+    result, _mode = await demo._run_generation(demo.GenerateBody(topic="Git branches", use_real_model=True))
+    assert result.materials == []
+    assert client.section_requests
+    for messages, tools in client.section_requests:
+        assert "search_materials" not in {tool["function"]["name"] for tool in tools}
+        assert "没有上传材料" in messages[0]["content"]
 
 
 async def test_both_artifacts_are_produced():
@@ -94,7 +249,7 @@ async def test_both_artifacts_are_produced():
     result = await generate_course(_req(), _deps())
     pkg = result.package
 
-    assert pkg.slide_deck is not None and len(pkg.slide_deck.slides) == 9
+    assert pkg.slide_deck is not None and len(pkg.slide_deck.slides) == 12
     assert pkg.lesson_plan is not None
     assert len(pkg.lesson_plan.timeline) == 3
 
@@ -120,12 +275,12 @@ async def test_concurrency_limit_does_not_change_the_result():
 async def test_visual_needs_and_assets_are_counted():
     """回归测试:曾经这里对 dict 用了 getattr,导致恒报「0 处」。
 
-    三页幻灯片各配一张示意图 → 阶段 4 必须报 3 处,资产池必须有 3 个资产。
+    每节的情境页配一张示意图 → 阶段 4 必须报 3 处,资产池必须有 3 个资产。
     """
     result = await generate_course(_req(), _deps())
 
     visual_events = [e for e in result.events if e.phase == "判定视觉需求"]
-    assert "9 处视觉需求" in visual_events[-1].detail
+    assert "3 处视觉需求" in visual_events[-1].detail
 
     asset_events = [e for e in result.events if e.phase == "生成资产"]
     # 每节三页共享同一张 Mermaid 图;资产池按内容哈希去重。

@@ -36,7 +36,10 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import hashlib
 import json
+import logging
+import os
 import tempfile
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
@@ -58,13 +61,17 @@ from app.llm.client import ChatClient, build_deepseek_client
 from app.llm.ocr import make_ocr
 from app.services.agent import AgentStep
 from app.services.edit import EditResult, edit_artifact
+from app.services.edit_planning import plan_edit
 from app.services.ingest import IngestDeps, SUPPORTED_SUFFIXES, ingest_file
 from app.services.patches import (
-    InMemoryPatchStore,
+    PatchStore,
+    SQLitePatchStore,
     apply_patch,
+    apply_patch_field,
     artifact_id_of,
     manual_edit,
     reject_patch,
+    reject_patch_field,
 )
 from app.services.pipeline import (
     GenerationRequest,
@@ -74,8 +81,10 @@ from app.services.pipeline import (
     generate_course,
 )
 from app.services.planner import PlannerRequest, plan_outline
-from app.services.course_repository import InMemoryCourseRepository
 from app.services.teacher_courses import TeacherCourseService
+from app.services.sqlite_workspace import SQLiteCourseRepository, SQLiteTeacherStateRepository
+from app.services.mermaid_assets import MermaidRenderError, render_mermaid_png
+from app.services.svg_diagrams import render_course_svg
 from app.services.paper import PaperRequest, compose_paper
 from app.services.glossary import (
     GlossaryRequest,
@@ -85,6 +94,7 @@ from app.services.glossary import (
 )
 from app.services.questions import QuestionRequest, generate_questions
 from app.exporters import exam_paper_to_docx, lesson_plan_to_docx, slide_deck_to_pptx
+from app.schemas.ir import CoursePackage
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 
@@ -103,19 +113,83 @@ FAKE_MODEL_DELAY = 0.6
 
 class _State:
     package: Any = None
-    store: InMemoryPatchStore | None = None
+    store: PatchStore | None = None
     result: Any = None
     model_mode: str = ""
+    active_course_id: str | None = None
+    active_chapter_id: str | None = None
 
 
 STATE = _State()
-COURSE_WORKSPACE = TeacherCourseService(InMemoryCourseRepository())
+# Older local developer sessions used this JSON file.  It is read once only
+# when a new local database is empty, then all future writes go to SQLite.
+DEMO_WORKSPACE_PATH = Path(tempfile.gettempdir()) / "comp5241-teacher-workspace.json"
+
+
+def resolve_teacher_workspace_path() -> Path:
+    """Return an ignored local database path, optionally overridden for tests."""
+    configured = os.environ.get("TEACHER_WORKSPACE_DB")
+    if configured:
+        return Path(configured).expanduser()
+    return Path(__file__).resolve().parents[3] / ".local" / "teacher-workspace.db"
+
+
+TEACHER_WORKSPACE_DB = resolve_teacher_workspace_path()
+
+
+def _load_course_workspace(*, import_legacy_snapshot: bool = True) -> TeacherCourseService:
+    """Open the local teacher workspace without requiring a database service."""
+    repository = SQLiteCourseRepository(TEACHER_WORKSPACE_DB)
+    if import_legacy_snapshot and repository.is_empty():
+        try:
+            payload = json.loads(DEMO_WORKSPACE_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = None
+        if isinstance(payload, dict):
+            repository.import_legacy_snapshot(payload)
+    return TeacherCourseService(
+        repository,
+        state_store=SQLiteTeacherStateRepository(TEACHER_WORKSPACE_DB),
+    )
+
+
+COURSE_WORKSPACE = _load_course_workspace()
 
 
 def reset_course_workspace() -> None:
-    """Test hook: reset only the course-first demo state."""
+    """Test hook: reset only the selected local SQLite workspace."""
     global COURSE_WORKSPACE
-    COURSE_WORKSPACE = TeacherCourseService(InMemoryCourseRepository())
+    for path in (
+        TEACHER_WORKSPACE_DB,
+        TEACHER_WORKSPACE_DB.with_name(f"{TEACHER_WORKSPACE_DB.name}-wal"),
+        TEACHER_WORKSPACE_DB.with_name(f"{TEACHER_WORKSPACE_DB.name}-shm"),
+    ):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+    COURSE_WORKSPACE = _load_course_workspace(import_legacy_snapshot=False)
+    STATE.package = None
+    STATE.store = None
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
+
+
+def reload_course_workspace() -> None:
+    """Reopen SQLite without clearing it; used to prove restart persistence."""
+    global COURSE_WORKSPACE
+    COURSE_WORKSPACE = _load_course_workspace()
+    # A real backend restart rebuilds module globals.  Mirror that boundary so
+    # persistence tests cannot accidentally pass by reusing the old store.
+    STATE.package = None
+    STATE.store = None
+    STATE.result = None
+    STATE.model_mode = ""
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
+
+
+COURSE_WORKSPACE = _load_course_workspace()
 
 
 async def _fake_ocr(image_bytes: bytes) -> str:
@@ -185,12 +259,24 @@ class GenerateBody(BaseModel):
 
 
 class EditBody(BaseModel):
-    message: str = Field(min_length=1, max_length=500)
+    # The composer itself is short, but an approved agent plan combines several
+    # bounded action prompts into one execution request.
+    message: str = Field(min_length=1, max_length=6_000)
     use_real_model: bool = False
+    target: Literal["slides", "questions", "paper"] = "slides"
+    images: list["EditImage"] = Field(default_factory=list, max_length=4)
+
+
+class EditImage(BaseModel):
+    """A small, inline reference image for an edit request; never an artifact write."""
+
+    name: str = Field(min_length=1, max_length=120)
+    data_url: str = Field(pattern=r"^data:image/(png|jpeg|webp);base64,", max_length=4_200_000)
 
 
 class PatchBody(BaseModel):
     patch_id: str
+    field: str | None = None
 
 
 class QuestionsBody(BaseModel):
@@ -308,6 +394,55 @@ def _chapter_or_404(course_id: str, chapter_id: str) -> Any:
         return COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
     except KeyError as error:
         raise HTTPException(status_code=404, detail="章节不存在或不属于该课程") from error
+
+
+def _save_active_chapter_package() -> None:
+    """Persist legacy teacher-tool mutations to the chapter that owns the IR."""
+    if STATE.active_course_id and STATE.active_chapter_id and STATE.package is not None:
+        COURSE_WORKSPACE.repository.update_chapter(
+            STATE.active_course_id,
+            STATE.active_chapter_id,
+            package=STATE.package,
+        )
+
+
+def _ensure_active_chapter(
+    course_id: str,
+    chapter_id: str,
+    *,
+    reset_patch_store: bool = False,
+) -> Any:
+    """Bind legacy IR tools to the chapter named by the request path.
+
+    The course editor is deep-linkable. A request must therefore carry its
+    ownership in the URL instead of relying on whichever package happened to
+    be generated most recently. Existing proposed patches remain available
+    while the same chapter stays active, including after a browser refresh.
+    """
+    chapter = _chapter_or_404(course_id, chapter_id)
+    same_chapter = (
+        STATE.active_course_id == course_id
+        and STATE.active_chapter_id == chapter_id
+        and STATE.package is not None
+        and STATE.store is not None
+    )
+    if same_chapter and not reset_patch_store:
+        return chapter
+    if chapter.package is None:
+        raise HTTPException(status_code=409, detail="请先为这个章节生成课件")
+    try:
+        package = CoursePackage.model_validate(chapter.package)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail="这个章节的课件结构不完整，请重新生成") from error
+    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, package=package)
+    STATE.package = package
+    STATE.store = SQLitePatchStore(
+        TEACHER_WORKSPACE_DB,
+        scope_id=f"{course_id}:{chapter_id}",
+    )
+    STATE.active_course_id = course_id
+    STATE.active_chapter_id = chapter_id
+    return chapter
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -567,12 +702,13 @@ async def activate_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
     during this in-memory migration. Activating first prevents a teacher from
     accidentally applying them to whichever chapter was generated most recently.
     """
-    chapter = _chapter_or_404(course_id, chapter_id)
-    if chapter.package is None:
-        raise HTTPException(status_code=409, detail="先为这个章节生成课件")
-    STATE.package = chapter.package
-    STATE.store = InMemoryPatchStore()
-    return _chapter_json(chapter)
+    chapter = _ensure_active_chapter(course_id, chapter_id)
+    payload = _chapter_json(chapter)
+    payload["patches"] = [
+        _patch_json(patch)
+        for patch in STATE.store.list(artifact_id_of(STATE.package))  # type: ignore[union-attr]
+    ]
+    return payload
 
 
 @router.patch("/courses/{course_id}/chapters/{chapter_id}")
@@ -608,8 +744,11 @@ async def _run_chapter_generation(
         material_text = "\n\n".join(
             part for part in (course.syllabus_text, body.material_text) if part.strip()
         )
+        objectives = body.objectives or [
+            objective["text"] for objective in course.learning_objectives if objective.get("text")
+        ]
         result, mode = await _run_generation(
-            body.model_copy(update={"material_text": material_text}),
+            body.model_copy(update={"material_text": material_text, "objectives": objectives}),
             on_event=on_event,
         )
     except Exception:
@@ -621,6 +760,12 @@ async def _run_chapter_generation(
         package=result.package,
         materials=result.materials,
         status="ready",
+    )
+    STATE.active_course_id = course_id
+    STATE.active_chapter_id = chapter_id
+    STATE.store = SQLitePatchStore(
+        TEACHER_WORKSPACE_DB,
+        scope_id=f"{course_id}:{chapter_id}",
     )
     COURSE_WORKSPACE.record_version(
         course_id,
@@ -645,6 +790,56 @@ async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) 
         "chapter": _chapter_json(chapter),
         **_generation_payload(result, mode, events),
     }
+
+
+def _chapter_package(course_id: str, chapter_id: str) -> CoursePackage:
+    chapter = _chapter_or_404(course_id, chapter_id)
+    if chapter.package is None:
+        raise HTTPException(status_code=409, detail="请先生成该章节的课件")
+    try:
+        package = CoursePackage.model_validate(chapter.package)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail="该章节尚无可导出的课件") from error
+    if package.slide_deck is None:
+        raise HTTPException(status_code=409, detail="该章节尚无可导出的课件")
+    return package
+
+
+def _diagram_code(package: CoursePackage, asset_id: str) -> str:
+    used_ids = {
+        visual.asset_id
+        for slide in package.slide_deck.slides
+        for visual in slide.visuals
+    }
+    for asset in package.assets:
+        if asset.id == asset_id and asset.id in used_ids and asset.kind == "diagram":
+            code = asset.spec.get("code")
+            if isinstance(code, str) and code.strip():
+                return code
+    raise HTTPException(status_code=404, detail="本章节没有这张示意图")
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.png")
+async def get_chapter_diagram(course_id: str, chapter_id: str, asset_id: str) -> Response:
+    package = _chapter_package(course_id, chapter_id)
+    try:
+        data = await asyncio.to_thread(render_mermaid_png, _diagram_code(package, asset_id))
+    except MermaidRenderError as error:
+        raise HTTPException(status_code=503, detail="这张示意图暂时无法渲染，请检查图示内容后重试") from error
+    # Diagram styling is part of the teaching canvas. Do not leave an old render
+    # visible for an hour after a teacher refreshes the workspace.
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.svg")
+async def get_chapter_diagram_svg(course_id: str, chapter_id: str, asset_id: str) -> Response:
+    """Serve the editor a safe, deterministic SVG; PNG remains for PPT export."""
+    package = _chapter_package(course_id, chapter_id)
+    return Response(
+        content=render_course_svg(_diagram_code(package, asset_id)),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -784,6 +979,10 @@ async def _run_generation(
         path.write_text(body.material_text, encoding="utf-8")
         material_paths.append(path)
 
+    async def no_material_search(_query: str) -> list[dict[str, Any]]:
+        # Live generation must not cite the demo's invented m1/page snippets.
+        return []
+
     result = await generate_course(
         GenerationRequest(
             topic=body.topic,
@@ -796,7 +995,8 @@ async def _run_generation(
         PipelineDeps(
             client=client,
             model=model,
-            search_materials=fake_search,
+            search_materials=no_material_search if body.use_real_model else fake_search,
+            only_search_uploaded_materials=body.use_real_model,
             make_diagram=fake_make_diagram,
             request_illustration=fake_illustration,
             section_concurrency=3,
@@ -806,9 +1006,11 @@ async def _run_generation(
     )
 
     STATE.package = result.package
-    STATE.store = InMemoryPatchStore()
+    STATE.store = SQLitePatchStore(TEACHER_WORKSPACE_DB, scope_id="legacy")
     STATE.result = result
     STATE.model_mode = mode
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
     return result, mode
 
 
@@ -957,6 +1159,8 @@ async def _run_edit(
         model=model,
         package=STATE.package,
         message=body.message,
+        images=[image.data_url for image in body.images],
+        target=body.target,
         store=STATE.store,
         on_step=on_step,
     )
@@ -968,6 +1172,14 @@ async def edit(body: EditBody) -> dict[str, Any]:
     """跑 L2:让 agent 提议改动。**产物不变**,只产生待确认的 patch。"""
     result, mode = await _run_edit(body)
     return _edit_payload(result, mode)
+
+
+@router.post("/edit/plan")
+async def edit_plan(body: EditBody) -> dict[str, Any]:
+    """Read-only diagnostic phase before a teacher authorizes an Agent action."""
+    if STATE.package is None or STATE.store is None:
+        raise HTTPException(status_code=409, detail="先点「生成」")
+    return plan_edit(STATE.package, body.message, body.target).model_dump(by_alias=True)
 
 
 @router.post("/edit/stream")
@@ -1006,10 +1218,22 @@ async def apply(body: PatchBody) -> dict[str, Any]:
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
     try:
-        apply_patch(STATE.package, STATE.store, body.patch_id)
+        if body.field:
+            _, applied_patch, remaining_patch = apply_patch_field(
+                STATE.package, STATE.store, body.patch_id, body.field,
+            )
+        else:
+            apply_patch(STATE.package, STATE.store, body.patch_id)
+            applied_patch = STATE.store.get(body.patch_id)
+            remaining_patch = None
     except (KeyError, Exception) as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"package": _package_json(STATE.package)}
+    _save_active_chapter_package()
+    return {
+        "package": _package_json(STATE.package),
+        "patch": _patch_json(applied_patch),
+        "remaining_patch": _patch_json(remaining_patch) if remaining_patch else None,
+    }
 
 
 @router.post("/reject")
@@ -1017,8 +1241,17 @@ async def reject(body: PatchBody) -> dict[str, Any]:
     """驳回。产物本来就没动过,只需改 patch 状态。"""
     if STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
-    reject_patch(STATE.store, body.patch_id)
-    return {"package": _package_json(STATE.package)}
+    if body.field:
+        rejected_patch, remaining_patch = reject_patch_field(STATE.store, body.patch_id, body.field)
+    else:
+        reject_patch(STATE.store, body.patch_id)
+        rejected_patch = STATE.store.get(body.patch_id)
+        remaining_patch = None
+    return {
+        "package": _package_json(STATE.package),
+        "patch": _patch_json(rejected_patch),
+        "remaining_patch": _patch_json(remaining_patch) if remaining_patch else None,
+    }
 
 
 @router.post("/manual-edit")
@@ -1057,6 +1290,7 @@ async def manual(body: ManualEditBody) -> dict[str, Any]:
             status_code=400, detail=f"改动不合规:{exc}"
         ) from exc
 
+    _save_active_chapter_package()
     return {
         "patch": _patch_json(patch),
         "package": _package_json(STATE.package),
@@ -1120,6 +1354,7 @@ async def make_questions(body: QuestionsBody) -> dict[str, Any]:
     package.question_set = result.question_set
     # 换了题库之后旧卷子必然对不上(§6.4 会报「引用了不存在的题目」)
     package.exam_paper = None
+    _save_active_chapter_package()
 
     return {
         "model_mode": mode,
@@ -1155,6 +1390,7 @@ async def make_paper(body: PaperBody) -> dict[str, Any]:
     )
 
     package.exam_paper = result.paper
+    _save_active_chapter_package()
 
     return {
         "ok": result.ok,
@@ -1198,6 +1434,7 @@ async def make_glossary(body: GlossaryBody) -> dict[str, Any]:
     for asset in package.assets:
         if asset.id in alt_result.alt_texts:
             asset.alt_text = alt_result.alt_texts[asset.id]
+    _save_active_chapter_package()
 
     return {
         "model_mode": mode,
@@ -1207,6 +1444,96 @@ async def make_glossary(body: GlossaryBody) -> dict[str, Any]:
         "reason": ";".join(r for r in (glossary_result.reason, alt_result.reason) if r),
         "package": _package_json(package),
     }
+
+
+# Course-scoped teacher tools -------------------------------------------------
+#
+# The unscoped endpoints above remain as a compatibility adapter for the old
+# one-page demo. The real teacher workspace always uses these routes so a deep
+# link, refresh, or another open chapter cannot silently redirect an edit.
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit")
+async def edit_chapter(course_id: str, chapter_id: str, body: EditBody) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit/plan")
+async def edit_chapter_plan(course_id: str, chapter_id: str, body: EditBody) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit_plan(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit/stream")
+async def edit_chapter_stream(
+    course_id: str,
+    chapter_id: str,
+    body: EditBody,
+    request: Request,
+) -> StreamingResponse:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit_stream(body, request)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/apply")
+async def apply_chapter_patch(
+    course_id: str,
+    chapter_id: str,
+    body: PatchBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await apply(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/reject")
+async def reject_chapter_patch(
+    course_id: str,
+    chapter_id: str,
+    body: PatchBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await reject(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/manual-edit")
+async def manually_edit_chapter(
+    course_id: str,
+    chapter_id: str,
+    body: ManualEditBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await manual(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/questions")
+async def make_chapter_questions(
+    course_id: str,
+    chapter_id: str,
+    body: QuestionsBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_questions(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/paper")
+async def make_chapter_paper(
+    course_id: str,
+    chapter_id: str,
+    body: PaperBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_paper(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/glossary")
+async def make_chapter_glossary(
+    course_id: str,
+    chapter_id: str,
+    body: GlossaryBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_glossary(body)
 
 
 def _attachment(data: bytes, filename: str, media_type: str) -> Response:
@@ -1242,7 +1569,59 @@ async def export_deck() -> Response:
     package = _require_package()
     if package.slide_deck is None:
         raise HTTPException(status_code=409, detail="还没有课件")
-    data = slide_deck_to_pptx(package.project, package.slide_deck)
+    data = await _deck_pptx_with_diagrams(package)
+    return _attachment(data, f"{package.project.meta.title}.pptx", _PPTX_MEDIA)
+
+
+async def _deck_pptx_with_diagrams(package: CoursePackage, *, include_questions: bool = False) -> bytes:
+    """Resolve diagram assets, then let the pure PPTX exporter consume PNG paths."""
+    if package.slide_deck is None:
+        raise HTTPException(status_code=409, detail="还没有课件")
+    used_ids = {
+        visual.asset_id
+        for slide in package.slide_deck.slides
+        for visual in slide.visuals
+    }
+    diagrams = [asset for asset in package.assets if asset.id in used_ids and asset.kind == "diagram"]
+    limit = asyncio.Semaphore(3)
+
+    async def one(asset: Any) -> tuple[str, bytes | None]:
+        code = asset.spec.get("code")
+        if not isinstance(code, str):
+            return asset.id, None
+        try:
+            async with limit:
+                return asset.id, await asyncio.to_thread(render_mermaid_png, code)
+        except Exception as error:
+            # A broken diagram does not discard the other slides. The exporter
+            # keeps its explicit visual placeholder for this one asset.
+            logging.getLogger(__name__).warning("Diagram %s could not render (%s)", asset.id, type(error).__name__)
+            return asset.id, None
+
+    rendered = await asyncio.gather(*(one(asset) for asset in diagrams))
+    with tempfile.TemporaryDirectory(prefix="course-pptx-assets-") as directory:
+        paths: dict[str, Path] = {}
+        for asset_id, image in rendered:
+            if image is not None:
+                # Asset IDs originate in IR; never treat one as a filesystem path.
+                safe_name = hashlib.sha256(asset_id.encode("utf-8")).hexdigest()
+                path = Path(directory) / f"{safe_name}.png"
+                path.write_bytes(image)
+                paths[asset_id] = path
+        return slide_deck_to_pptx(
+            package.project,
+            package.slide_deck,
+            asset_paths=paths,
+            question_set=package.question_set,
+            include_questions=include_questions,
+        )
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/deck.pptx")
+async def export_chapter_deck(course_id: str, chapter_id: str, include_questions: bool = False) -> Response:
+    """Export the source deck; question pages are an explicit, non-persistent option."""
+    package = _chapter_package(course_id, chapter_id)
+    data = await _deck_pptx_with_diagrams(package, include_questions=include_questions)
     return _attachment(data, f"{package.project.meta.title}.pptx", _PPTX_MEDIA)
 
 
@@ -1299,4 +1678,6 @@ async def reset() -> dict[str, str]:
     STATE.package = None
     STATE.store = None
     STATE.result = None
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
     return {"status": "cleared"}

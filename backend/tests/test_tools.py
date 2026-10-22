@@ -27,7 +27,7 @@ from __future__ import annotations
 import pytest
 
 from app.schemas.ir import Slide, TimelineEntry
-from app.services.tools import PLAN_ENTRY_SCHEMA, SLIDE_SCHEMA, build_section_tools
+from app.services.tools import PLAN_ENTRY_SCHEMA, SLIDE_SCHEMA, SectionDeps, build_section_tools
 
 
 def _aliases(model: type) -> set[str]:
@@ -70,6 +70,11 @@ def test_plan_entry_schema_matches_timeline_entry():
 def test_slide_schema_matches_slide():
     """幻灯片 schema 同理。它本来就写得对,加这条是防以后改坏。"""
     _assert_schema_matches_model(SLIDE_SCHEMA, Slide)
+
+
+def test_slide_schema_exposes_instructional_semantics():
+    """生成模型必须看到教学角色与视觉用途，否则只能猜。"""
+    assert {"teachingRole", "visualPurpose"} <= set(SLIDE_SCHEMA["properties"])
 
 
 def test_schema_says_more_than_just_object():
@@ -122,3 +127,24 @@ def test_write_section_is_the_only_terminal_tool():
 
     tools = build_section_tools(_Noop())  # type: ignore[arg-type]
     assert [t.name for t in tools if t.terminal] == ["write_section"]
+
+
+async def test_make_diagram_normalizes_model_escaped_newlines_before_registering_asset():
+    """A model may double-escape JSON newlines; the renderer must receive real lines."""
+    received: list[str] = []
+
+    async def make_diagram(code: str) -> str:
+        received.append(code)
+        return "asset-1"
+
+    async def unused(_value: str):
+        return []
+
+    deps = SectionDeps(search_materials=unused, make_diagram=make_diagram, request_illustration=unused)
+    tool = next(tool for tool in build_section_tools(deps) if tool.name == "make_diagram")
+
+    await tool.fn({"mermaid": 'graph LR\\n  A["main"] --> B["feature branch"]'})
+
+    expected = 'graph LR\n  A["main"] --> B["feature branch"]'
+    assert received == [expected]
+    assert deps.assets[0]["spec"]["code"] == expected

@@ -58,13 +58,10 @@ export function Dot({ tone = "neutral" }: { tone?: Tone }) {
   return <span className={cx("h-[6px] w-[6px] shrink-0 rounded-full", DOT_TONE[tone])} aria-hidden />;
 }
 
-/** 原型里的 `.section-label`:小号粗体 + 前面一个蓝点。 */
+/** Compact section label without decorative markers. */
 export function SectionLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className={cx("flex items-center gap-2 text-[12px] font-bold text-muted", className)}>
-      <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-blue" aria-hidden />
-      {children}
-    </p>
+    <p className={cx("text-[12px] font-bold text-body", className)}>{children}</p>
   );
 }
 
@@ -121,7 +118,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   return (
     <button
       className={cx(
-        "inline-flex min-h-[38px] items-center justify-center gap-2 rounded-sm px-4 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+        "inline-flex min-h-[38px] items-center justify-center gap-2 rounded-sm px-4 text-[15px] font-semibold transition-colors active:translate-y-px disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[#e4e9f1] disabled:text-[#596b82] disabled:shadow-none disabled:active:translate-y-0",
         variants[variant],
         className,
       )}

@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import re
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
@@ -161,6 +162,105 @@ class LessonPlan(_IRBase):
 
 SlideLayout = Literal["title", "bullets", "diagram", "twoCol", "code", "quiz"]
 Origin = Literal["sourced", "ai"]
+TeachingRole = Literal[
+    "explain",
+    "worked_example",
+    "guided_practice",
+    "check_understanding",
+    "transfer",
+    "recap",
+]
+VisualPurpose = Literal[
+    "comparison",
+    "sequence",
+    "mechanism",
+    "scenario",
+    "evidence",
+    "none",
+]
+AnimationKind = Literal["reveal", "emphasis", "sequence"]
+
+
+class AnimationStep(_IRBase):
+    """One deterministic playback instruction for an existing slide region."""
+
+    kind: AnimationKind
+    target: str
+    at_ms: int = Field(ge=0, le=20_000)
+    duration_ms: int = Field(default=700, ge=100, le=3_000)
+
+
+class SlideAnimation(_IRBase):
+    """Optional teacher-preview playback metadata; it never changes slide content."""
+
+    autoplay: bool = True
+    steps: list[AnimationStep] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_steps(cls, value: Any) -> Any:
+        """Accept the short-lived pre-IR animation shape stored in old patches.
+
+        Early animation proposals used ``action`` (including ``emphasize``) and
+        omitted timing.  Keep those teacher-review records usable by converting
+        them at the IR boundary; new output still serializes only the canonical
+        ``kind`` / ``atMs`` fields.
+        """
+        if not isinstance(value, dict) or not isinstance(value.get("steps"), list):
+            return value
+
+        migrated = dict(value)
+        steps: list[Any] = []
+        for index, raw_step in enumerate(value["steps"]):
+            if not isinstance(raw_step, dict):
+                steps.append(raw_step)
+                continue
+
+            step = dict(raw_step)
+            legacy_action = step.pop("action", None)
+            if "kind" not in step and isinstance(legacy_action, str):
+                step["kind"] = "emphasis" if legacy_action == "emphasize" else legacy_action
+            if "atMs" not in step and "at_ms" not in step:
+                step["atMs"] = index * 700
+            steps.append(step)
+
+        migrated["steps"] = steps
+        return migrated
+
+
+_BULLET_TARGET_RE = re.compile(r"^bullet:(\d+)$")
+
+
+def slide_animation_validation_error(slide: "Slide", animation: SlideAnimation) -> str | None:
+    """Return a stable warning code when animation points outside the slide IR."""
+
+    seen_targets: set[str] = set()
+    visual_ids = {visual.id for visual in slide.visuals}
+    for step in animation.steps:
+        if step.target in seen_targets:
+            return "animation_duplicate_target"
+        seen_targets.add(step.target)
+
+        if step.target == "title":
+            if step.kind == "sequence":
+                return "animation_invalid_sequence"
+            continue
+
+        bullet_match = _BULLET_TARGET_RE.match(step.target)
+        if bullet_match:
+            if int(bullet_match.group(1)) >= len(slide.bullets):
+                return "animation_unknown_target"
+            if step.kind == "sequence":
+                return "animation_invalid_sequence"
+            continue
+
+        if step.target.startswith("visual:"):
+            if step.target.removeprefix("visual:") not in visual_ids:
+                return "animation_unknown_target"
+            continue
+
+        return "animation_unknown_target"
+    return None
 
 
 class Slide(_IRBase):
@@ -176,12 +276,22 @@ class Slide(_IRBase):
     objective_ids: list[str] = Field(default_factory=list)
     source_refs: list[SourceRef] = Field(default_factory=list)
     origin: Origin = "ai"
+    #: Why the slide exists in the teaching sequence. Defaults preserve old drafts.
+    teaching_role: TeachingRole = "explain"
+    #: What visual form, if any, makes the teaching action easier to understand.
+    visual_purpose: VisualPurpose = "none"
+    #: Optional deterministic preview metadata. Renderers may ignore it safely.
+    animation: SlideAnimation | None = None
 
     @model_validator(mode="after")
     def _sourced_needs_refs(self) -> "Slide":
         """§6.4:不能声称有来源却拿不出来。"""
         if self.origin == "sourced" and not self.source_refs:
             raise ValueError("origin=sourced 的幻灯片必须有非空 sourceRefs")
+        if self.animation:
+            error = slide_animation_validation_error(self, self.animation)
+            if error:
+                raise ValueError(error)
         return self
 
 

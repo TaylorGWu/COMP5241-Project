@@ -36,20 +36,19 @@ export default function CreateCoursePage() {
     finally { setBusy(false); }
   };
 
-  return <main className="min-h-screen bg-canvas">
-    <div className="mx-auto w-full max-w-[1180px] px-5 pb-20 pt-5 sm:px-8">
+  return <main className="course-create-page min-h-screen bg-canvas">
+    <div className="course-create-shell mx-auto w-full max-w-[1280px] px-5 pb-20 pt-4 sm:px-8">
       <TeacherNavigation active="create" />
-      <header className="border-b border-line pb-8">
-        <Link href="/courses" className="text-sm font-semibold text-blue hover:text-blue-deep">← Your courses</Link>
-        <p className="mt-7 text-xs font-bold uppercase tracking-[0.16em] text-blue">Course setup</p>
-        <h1 className="mt-3 text-[clamp(2.25rem,5vw,3.75rem)] font-semibold leading-[1.05] tracking-[-0.065em] text-ink">Create a course</h1>
-        <p className="mt-3 max-w-[58ch] text-[15px] leading-6 text-body">Start with a teaching brief. Once the course exists, you can add and build chapters inside it.</p>
+      <header className="course-create-header border-b border-line pb-7">
+        <Link href="/courses" className="course-create-back text-sm font-semibold text-blue hover:text-blue-deep">Your courses</Link>
+        <h1 className="mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.1] tracking-[-0.055em] text-ink">Create a course</h1>
+        <p className="mt-2 max-w-[58ch] text-[15px] leading-6 text-body">Define the course now. Add chapters in its workspace afterwards.</p>
       </header>
       {error ? <div className="mt-6"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
-      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="course-create-content mt-7 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="overflow-hidden rounded-md border border-line bg-surface">
           <section className="p-6 sm:p-8">
-            <div className="flex items-baseline gap-3 border-b border-line pb-5"><span className="font-mono text-xs text-blue">01</span><h2 className="text-lg font-semibold tracking-[-0.03em] text-ink">The essentials</h2></div>
+            <div className="border-b border-line pb-5"><h2 className="text-lg font-semibold tracking-[-0.03em] text-ink">Course details</h2></div>
             <div className="mt-6 grid gap-5">
               <Field label="Course title"><input autoFocus className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Git collaboration" /></Field>
               <div className="grid gap-5 sm:grid-cols-[1fr_1.4fr_110px]"><Field label="Course code" hint="Optional"><input className={inputCls} value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="SE-101" /></Field><Field label="Learners"><select className={inputCls} value={audience} onChange={(e) => setAudience(e.target.value)}><option>University beginners</option><option>Computer science undergraduates</option><option>Mixed-level cohort</option><option>Working professionals</option></select></Field><Field label="Minutes"><input className={inputCls} type="number" min={10} max={180} value={duration} onChange={(e) => setDuration(Number(e.target.value))} /></Field></div>
@@ -58,15 +57,18 @@ export default function CreateCoursePage() {
             </div>
           </section>
           <section className="border-t border-line bg-soft/40 p-6 sm:p-8">
-            <div className="flex items-baseline gap-3"><span className="font-mono text-xs text-blue">02</span><h2 className="text-lg font-semibold tracking-[-0.03em] text-ink">Source material</h2><span className="text-xs text-muted">Optional</span></div>
+            <div className="flex items-baseline gap-3"><h2 className="text-lg font-semibold tracking-[-0.03em] text-ink">Syllabus</h2><span className="text-xs text-muted">Optional</span></div>
             <p className="mt-2 text-sm leading-6 text-body">Attach a syllabus to give chapter generation the right context.</p>
             <div className="mt-5"><Field label="Syllabus or course outline" hint="PDF, DOCX, PPTX, Markdown or TXT · up to 10 MB"><input className={inputCls} type="file" accept=".pdf,.docx,.pptx,.md,.markdown,.txt" onChange={(e) => setSyllabus(e.target.files?.[0] ?? null)} />{syllabus ? <p className="mt-2 text-xs text-muted">Attached: {syllabus.name}</p> : null}</Field></div>
           </section>
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-5 sm:px-8"><Link href="/courses" className="text-sm font-semibold text-body hover:text-ink">Cancel</Link><Button variant="primary" disabled={busy || !title.trim()} onClick={create}>{busy ? "Creating…" : "Create course →"}</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-5 sm:px-8"><Link href="/courses" className="text-sm font-semibold text-body hover:text-ink">Cancel</Link><Button variant="primary" disabled={busy || !title.trim()} onClick={create}>{busy ? "Creating…" : "Create course"}</Button></div>
         </div>
-        <aside className="border-l-2 border-blue pl-5 lg:sticky lg:top-7">
-          <p className="text-xs font-bold uppercase tracking-[0.13em] text-blue">What happens next</p>
-          <ol className="mt-5 space-y-5 text-sm leading-6 text-body"><li><span className="mr-2 font-mono text-blue">01.</span> Your course starts as a private draft.</li><li><span className="mr-2 font-mono text-blue">02.</span> Add, rename and reorder chapters in the course workspace.</li><li><span className="mr-2 font-mono text-blue">03.</span> Review the generated material before publishing.</li></ol>
+        <aside className="course-create-preview lg:sticky lg:top-7">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-blue">Draft preview</p>
+          <h2 className="mt-4 break-words text-xl font-semibold tracking-[-0.04em] text-ink">{title.trim() || "Untitled course"}</h2>
+          <p className="mt-2 text-sm leading-6 text-body">{description.trim() || "Add a purpose to tell learners what they will achieve."}</p>
+          <dl className="mt-6 space-y-4 border-t border-line pt-5 text-sm"><div><dt className="text-muted">Audience</dt><dd className="mt-1 font-semibold text-ink">{audience}</dd></div><div><dt className="text-muted">Duration</dt><dd className="mt-1 font-semibold text-ink">{duration} minutes</dd></div><div><dt className="text-muted">Outcomes</dt><dd className="mt-1 font-semibold text-ink">{objectives.split("\n").filter((item) => item.trim()).length} defined</dd></div><div><dt className="text-muted">Syllabus</dt><dd className="mt-1 break-words font-semibold text-ink">{syllabus?.name || "None attached"}</dd></div></dl>
+          <p className="mt-6 border-t border-line pt-5 text-xs leading-5 text-body">This course remains private until you review and publish its chapters.</p>
         </aside>
       </div>
     </div>

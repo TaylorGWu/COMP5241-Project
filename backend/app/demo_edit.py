@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from typing import Any
 
@@ -65,7 +66,52 @@ class FakeEditModel:
         """纯决策:先读、再改、然后收尾。不 await,行为确定。"""
 
         done = sum(1 for m in messages if m.get("role") == "tool")
+        target = _parse_revision_target(messages)
         slide_id = _parse_slide_id(messages)
+
+        if target == "slides" and _is_animation_request(messages):
+            if done == 0:
+                return ChatMessage(
+                    tool_calls=[ToolCall(id="animation-read", name="read_slide", arguments={"slide_id": slide_id})],
+                )
+            if done == 1:
+                return ChatMessage(
+                    tool_calls=[ToolCall(
+                        id="animation-patch",
+                        name="patch_slide",
+                        arguments={
+                            "slide_id": slide_id,
+                            "patch": {"animation": {"autoplay": True, "steps": _animation_steps(messages)}},
+                            "reason": "依照教師要求，把既有內容排成短暫的逐步講解；沒有改動任何教學文字或視覺。",
+                        },
+                    )],
+                )
+            return ChatMessage(content="已準備這一頁的動畫建議，等待教師確認。")
+
+        if target == "questions":
+            question_id = _parse_question_id(messages)
+            if done == 0:
+                return ChatMessage(tool_calls=[ToolCall(id="q1", name="read_question", arguments={"question_id": question_id})])
+            if done == 1:
+                return ChatMessage(tool_calls=[ToolCall(id="q2", name="patch_question", arguments={
+                    "question_id": question_id,
+                    "patch": {
+                        "stem": "用自己的话说明：为什么功能分支不会直接影响主干？",
+                        "explanation": "题干先给出具体情境，帮助初学者把分支理解成安全的独立工作线。",
+                    },
+                    "reason": "教师希望题目更清晰，因此将抽象措辞改为具体的协作场景。",
+                })])
+            return ChatMessage(content="我已将这道题改成更具体的协作情境，改动待你确认。")
+
+        if target == "paper":
+            if done == 0:
+                return ChatMessage(tool_calls=[ToolCall(id="p1", name="read_paper", arguments={})])
+            if done == 1:
+                return ChatMessage(tool_calls=[ToolCall(id="p2", name="patch_paper", arguments={
+                    "patch": {"answerKey": False},
+                    "reason": "教师要求准备学生版试卷，因此隐藏答案键。",
+                })])
+            return ChatMessage(content="我已准备学生版试卷，答案键的改动待你确认。")
 
         # 第 1 步:先读 —— 不许对没读过的页瞎改
         if done == 0:
@@ -114,6 +160,55 @@ def _parse_slide_id(messages: list[dict[str, Any]]) -> str:
             if hit:
                 return f"s{next(group for group in hit.groups() if group is not None)}"
     return "s1"
+
+
+def _is_animation_request(messages: list[dict[str, Any]]) -> bool:
+    return any(
+        message.get("role") == "user" and "animation" in str(message.get("content", "")).lower()
+        for message in messages
+    )
+
+
+def _animation_steps(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build a valid deterministic sequence from the page returned by read_slide."""
+    slide: dict[str, Any] = {}
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        try:
+            candidate = json.loads(str(message.get("content", "{}")))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict) and "title" in candidate:
+            slide = candidate
+            break
+
+    steps: list[dict[str, Any]] = [{"kind": "reveal", "target": "title", "atMs": 0}]
+    bullets = slide.get("bullets")
+    if isinstance(bullets, list) and bullets:
+        steps.append({"kind": "reveal", "target": "bullet:0", "atMs": 700})
+    visuals = slide.get("visuals")
+    if isinstance(visuals, list) and visuals and isinstance(visuals[0], dict) and isinstance(visuals[0].get("id"), str):
+        steps.append({"kind": "sequence", "target": f"visual:{visuals[0]['id']}", "atMs": 1_400})
+    return steps
+
+
+def _parse_question_id(messages: list[dict[str, Any]]) -> str:
+    for m in messages:
+        if m.get("role") == "tool" and m.get("name") == "read_question":
+            # The fake model only needs a stable, valid demo target.
+            break
+    return "q1"
+
+
+def _parse_revision_target(messages: list[dict[str, Any]]) -> str:
+    for message in messages:
+        if message.get("role") == "user":
+            content = str(message.get("content", ""))
+            hit = re.search(r"revision target:\s*(slides|questions|paper)", content, flags=re.I)
+            if hit:
+                return hit.group(1).lower()
+    return "slides"
 
 
 async def main() -> None:

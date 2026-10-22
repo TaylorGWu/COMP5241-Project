@@ -95,7 +95,7 @@ class FakeSectionModel:
                     ToolCall(
                         id="c2",
                         name="make_diagram",
-                        arguments={"mermaid": f"graph LR; A[{title}]-->B[应用]"},
+                        arguments={"mermaid": _teaching_diagram_code(title)},
                     )
                 ]
             )
@@ -117,7 +117,7 @@ class FakeSectionModel:
                                 "objectiveIds": ["LO1"] if index == 1 else ["LO2"],
                                 # ID 在 section 内可以从 s1 开始;组装层会把它
                                 # 转成全课唯一 ID。这正好覆盖真模型常见的局部编号。
-                                "slideIds": ["s1", "s2", "s3"],
+                                "slideIds": ["s1", "s2", "s3", "s4"],
                                 "checkUnderstanding": f"能否用自己的话解释{title}",
                             }
                         },
@@ -167,6 +167,12 @@ def _fake_outline(messages: list[dict[str, Any]]) -> dict[str, Any]:
                 "title": t,
                 "minutes": per,
                 "objectiveIds": [f"LO{min(i + 1, len(objectives))}"],
+                "teachingArc": {
+                    "situation": f"团队在{t}时发生协作混乱",
+                    "misconception": "保留最终文件就够了",
+                    "practice": "选择安全的下一步",
+                    "transferPrompt": "下一次如何提前避免风险？",
+                },
             }
             for i, t in enumerate(titles)
         ],
@@ -206,34 +212,110 @@ def _last_asset_id(messages: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def _teaching_diagram_code(_title: str) -> str:
+    """Return a compact, inspectable handoff relationship for the offline demo.
+
+    The outline title stays in the slide heading. The diagram earns its space by
+    showing the operational relationship a learner must reason about: a local
+    change becomes shared evidence that lets another person take over.
+    """
+    context = re.sub(r"[\[\]{}|;\\n]", " ", _title).strip() or "本節"
+    return (
+        "graph LR; "
+        f"local[組員本地工作區] -->|提交{context}紀錄| shared[團隊共享紀錄]; "
+        "shared -->|查看狀態後接手| handoff[接手成員]"
+    )
+
+
 def _fake_slides(index: int, title: str, asset_id: str) -> list[dict[str, Any]]:
-    """每节三页的离线课件。
+    """每节四页的离线课件。
 
     页 ID 故意使用 section-local 的 s1/s2/s3,用来回归测试流水线会把
     模型的局部编号正规化为全课唯一 ID;真实模型也经常这么编号。
+
+    即使没有模型 key,教师也应该看得到一条完整的教学链:
+    情境提出问题 → 证据解释机制 → 选择一个做法 → 小练习加反馈。
+    否则离线演示会把平台最重要的差异化退化为「三页泛泛 bullet」。
     """
-    labels = ("为什么要学", "关键做法", "检查理解")
+    objective_ids = ["LO1"] if index == 1 else ["LO2"]
+    visual = {
+        "id": f"v{index}-1",
+        "kind": "diagram",
+        "spec": {
+            "engine": "mermaid",
+            # The visual is a relationship, not a dressed-up numbered flow.
+            # It stays aligned with the asset created by make_diagram so preview
+            # and PPTX export describe the same teaching idea.
+            "code": _teaching_diagram_code(title),
+        },
+        "assetId": asset_id,
+    }
+    common = {
+        "objectiveIds": objective_ids,
+        "sourceRefs": [{"materialId": "m1", "page": 10 + index}],
+        "origin": "sourced",
+    }
     return [
         {
-            "id": f"s{page}",
-            "order": page,
-            "layout": "diagram" if page == 1 else "bullets",
-            "title": f"{title}：{label}",
-            "bullets": [f"{title}：要点 {page}.1", f"{title}：要点 {page}.2"],
-            "speakerNotes": f"先问学生：{title} 的「{label}」是什么？",
-            "visuals": [
-                {
-                    "id": f"v{index}-{page}",
-                    "kind": "diagram",
-                    "spec": {"engine": "mermaid", "code": f"graph LR; A[{title}]-->B[应用]"},
-                    "assetId": asset_id,
-                }
+            "id": "s1", "order": 1, "layout": "diagram",
+            "title": f"機制：{title} 如何讓團隊看見狀態",
+            "bullets": [
+                "把工作狀態變成可檢查的訊號。",
+                "讓下一位成員能追溯原因與影響。",
+                "用明確關卡決定是否能繼續。",
             ],
-            "objectiveIds": ["LO1"] if index == 1 else ["LO2"],
-            "sourceRefs": [{"materialId": "m1", "page": 10 + index}],
-            "origin": "sourced",
-        }
-        for page, label in enumerate(labels, start=1)
+            "speakerNotes": f"先提問：看不到狀態時，團隊如何判斷？請學生先說出一個可觀察的訊號。再用圖解釋 {title} 如何把猜測變成可檢查的證據，最後回扣為什麼下一位成員需要它。",
+            "visuals": [visual], **common,
+            "teachingRole": "explain", "visualPurpose": "mechanism",
+            # The offline sample must make the teacher-facing preview
+            # discoverable without changing the lesson content or exports.
+            "animation": {
+                "autoplay": True,
+                "steps": [
+                    {"kind": "reveal", "target": "title", "atMs": 0},
+                    {"kind": "sequence", "target": f"visual:{visual['id']}", "atMs": 700},
+                    {"kind": "reveal", "target": "bullet:0", "atMs": 1400},
+                    {"kind": "emphasis", "target": "bullet:1", "atMs": 2250, "durationMs": 900},
+                ],
+            },
+        },
+        {
+            "id": "s2", "order": 2, "layout": "twoCol",
+            "title": f"案例：團隊在 {title} 的半成品交接",
+            "bullets": [
+                "角色：小明提交改動，小華接手整合。",
+                "約束：同一條主線要在當日交付。",
+                "證據：測試失敗，但沒有人能指出是哪次改動造成。",
+                "後果：小華覆蓋了小明的內容，交付延遲。",
+            ],
+            "speakerNotes": "先讓學生指出案例中的角色、限制與交付壓力，再要求他們圈出最可靠的證據。接著追問：如果沒有這項證據，下一位成員為什麼無法安全決定下一步。",
+            "visuals": [], **common,
+            "teachingRole": "worked_example", "visualPurpose": "scenario",
+        },
+        {
+            "id": "s3", "order": 3, "layout": "quiz",
+            "title": f"練習：現在可以直接繼續 {title} 嗎？",
+            "bullets": [
+                "A. 直接把未確認結果交給下一位成員。",
+                "B. 先確認狀態、影響與負責人，再繼續。",
+                "C. 略過紀錄，等出問題才回頭找原因。",
+            ],
+            "speakerNotes": "正確答案：B，因為先確認狀態、影響與負責人才能判斷是否可繼續。常見錯誤：把趕快交付當成效率。反饋：先建立可檢查狀態，才有資格加速；請學生說出自己會先檢查什麼。",
+            "visuals": [], **common,
+            "teachingRole": "check_understanding", "visualPurpose": "none",
+        },
+        {
+            "id": "s4", "order": 4, "layout": "twoCol",
+            "title": f"遷移：下次如何用 {title} 預防同類風險？",
+            "bullets": [
+                "重演風險：等最後一刻才交接半成品。",
+                "預防做法：及早記錄狀態、影響與責任邊界。",
+                "遷移提問：下一次任務開始前，要先約定哪三項可見狀態？",
+            ],
+            "speakerNotes": "請學生把做法帶回自己的小組，先說出下一次最可能重演的風險。再追問：任務開始前，要先約定哪些狀態必須可見，誰負責更新。",
+            "visuals": [], **common,
+            "teachingRole": "transfer", "visualPurpose": "comparison",
+        },
     ]
 
 

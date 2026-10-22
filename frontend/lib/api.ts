@@ -5,8 +5,27 @@
  * 正式的 `/api/artifacts/*` 需要认证和数据库,还没做(见设计规格 §13)。
  */
 
+import { chapterDeckPath, chapterDiagramPath, chapterToolPath } from "./routes.ts";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+
+function apiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback;
+  const detail = (payload as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((entry) => (
+        entry && typeof entry === "object" && typeof (entry as { msg?: unknown }).msg === "string"
+          ? (entry as { msg: string }).msg
+          : null
+      ))
+      .filter((message): message is string => Boolean(message));
+    if (messages.length) return messages.join(" ");
+  }
+  return fallback;
+}
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -17,7 +36,7 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
-    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
   }
   return (await res.json()) as T;
 }
@@ -30,7 +49,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
-    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
   }
   return (await res.json()) as T;
 }
@@ -39,7 +58,7 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { signal });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
-    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
   }
   return (await res.json()) as T;
 }
@@ -78,11 +97,15 @@ async function readSse(
       // 以 `:` 开头的是注释(心跳),忽略
     }
     if (!dataLines.length) return;
+    let data: unknown;
     try {
-      onFrame({ event, data: JSON.parse(dataLines.join("\n")) });
+      data = JSON.parse(dataLines.join("\n"));
     } catch {
-      // 单帧 JSON 坏了不该让整次生成失败 —— 进度是辅助信息
+      // A malformed progress frame is ignorable; an error raised by the
+      // consumer is not. Keep it outside this catch so the real failure shows.
+      return;
     }
+    onFrame({ event, data });
   };
 
   for (;;) {
@@ -120,7 +143,7 @@ async function streamRequest(
 
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
-    throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+    throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
   }
 
   let gotResult = false;
@@ -188,6 +211,8 @@ export type EditProgressEvent = {
   turn: number;
 };
 
+export type EditAttachment = { id: string; name: string; dataUrl: string };
+
 export type MaterialReport = {
   filename: string;
   detected_form: string;
@@ -212,8 +237,7 @@ export type Slide = {
   title: string;
   bullets: string[];
   speakerNotes: string;
-  // spec 里放的是「这张图该怎么画」(目前是 mermaid 源码)。
-  // 资产还没渲染成图之前,画布上就把这段源码显示出来,而不是留一个空框。
+  // spec 保留图的可编辑来源；预览使用后端按同一 IR 渲染的图片。
   visuals: {
     id: string;
     kind: string;
@@ -223,6 +247,19 @@ export type Slide = {
   objectiveIds: string[];
   sourceRefs: { materialId: string; page?: number }[];
   origin: "sourced" | "ai";
+  teachingRole?: "explain" | "worked_example" | "guided_practice" | "check_understanding" | "transfer" | "recap";
+  visualPurpose?: "comparison" | "sequence" | "mechanism" | "scenario" | "evidence" | "none";
+  animation?: SlideAnimation | null;
+};
+
+export type SlideAnimation = {
+  autoplay: boolean;
+  steps: {
+    kind: "reveal" | "emphasis" | "sequence";
+    target: string;
+    atMs: number;
+    durationMs: number;
+  }[];
 };
 
 export type TimelineEntry = {
@@ -410,6 +447,20 @@ export type Patch = {
   author: "ai" | "teacher";
 };
 
+/**
+ * Patch actions return the concrete decision record so the UI can replace a
+ * split, field-level proposal without inventing state locally. `patch` is
+ * optional only while a local developer server is being upgraded from the
+ * older endpoint contract; callers must refuse to update state without it.
+ */
+export type PatchDecisionResponse = {
+  package: CoursePackage;
+  patch?: Patch;
+  remaining_patch?: Patch | null;
+};
+
+export type ChapterActivationResponse = TeacherChapter & { patches?: Patch[] };
+
 export type GenerateResponse = {
   model_mode: string;
   events: ProgressEvent[];
@@ -426,6 +477,13 @@ export type EditResponse = {
   call_names: string[];
   patches: Patch[];
   package: CoursePackage;
+};
+
+export type EditPlan = {
+  request: string;
+  summary: string;
+  findings: { id: string; title: string; detail: string; tone: string }[];
+  actions: { id: string; title: string; detail: string; prompt: string; target_id: string | null; selected: boolean }[];
 };
 
 export type GenerateInput = {
@@ -449,11 +507,17 @@ export type GenerateInput = {
  * 就会直接下载,不用把二进制读进内存再造 Blob。
  */
 export const exportUrls = {
-  deck: () => `${API_BASE}/api/demo/export/deck.pptx`,
+  deck: (courseId: string, chapterId: string, includeQuestions = false) =>
+    `${API_BASE}${chapterDeckPath(courseId, chapterId)}${includeQuestions ? "?include_questions=true" : ""}`,
   lessonPlan: () => `${API_BASE}/api/demo/export/lesson-plan.docx`,
   /** `answers=false` 是学生版(不含答案与解析)。 */
   examPaper: (answers: boolean) =>
     `${API_BASE}/api/demo/export/exam-paper.docx?answers=${answers}`,
+};
+
+export const assetUrls = {
+  diagram: (courseId: string, chapterId: string, assetId: string) =>
+    `${API_BASE}${chapterDiagramPath(courseId, chapterId, assetId)}`,
 };
 
 export const api = {
@@ -507,6 +571,39 @@ export const api = {
       },
     ),
 
+  editChapterStream: (
+    courseId: string,
+    chapterId: string,
+    message: string,
+    target: "slides" | "questions" | "paper",
+    useReal: boolean,
+    images: EditAttachment[],
+    handlers: {
+      onProgress?: (e: EditProgressEvent) => void;
+      onResult: (r: EditResponse) => void;
+      signal?: AbortSignal;
+    },
+  ) =>
+    streamRequest(
+      chapterToolPath(courseId, chapterId, "edit/stream"),
+      { message, target, use_real_model: useReal, images: images.map(({ name, dataUrl }) => ({ name, data_url: dataUrl })) },
+      {
+        onProgress: (d) => handlers.onProgress?.(d as unknown as EditProgressEvent),
+        onResult: (d) => handlers.onResult(d as unknown as EditResponse),
+        signal: handlers.signal,
+      },
+    ),
+
+  editChapterPlan: (
+    courseId: string,
+    chapterId: string,
+    message: string,
+    target: "slides" | "questions" | "paper",
+    useReal: boolean,
+  ) => post<EditPlan>(chapterToolPath(courseId, chapterId, "edit/plan"), {
+    message, target, use_real_model: useReal,
+  }),
+
   /**
    * 取当前状态。
    *
@@ -538,7 +635,7 @@ export const api = {
     });
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+      throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
     }
     return (await res.json()) as TeacherCourse;
   },
@@ -565,7 +662,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/demo/courses/${courseId}/chapters/${chapterId}`, { method: "DELETE" });
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      throw new Error(payload?.detail ?? `HTTP ${res.status}`);
+      throw new Error(apiErrorMessage(payload, `HTTP ${res.status}`));
     }
   },
 
@@ -583,7 +680,7 @@ export const api = {
   activity: (courseId: string) => get<{ activity: CourseActivity[] }>(`/api/demo/courses/${courseId}/activity`),
 
   activateChapter: (courseId: string, chapterId: string) =>
-    post<TeacherChapter>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),
+    post<ChapterActivationResponse>(`/api/demo/courses/${courseId}/chapters/${chapterId}/activate`, {}),
 
   updateChapter: (
     courseId: string,
@@ -621,9 +718,19 @@ export const api = {
       language,
     }),
 
+  chapterQuestions: (courseId: string, chapterId: string, countPerObjective: number, useReal: boolean, language: string) =>
+    post<QuestionsResponse>(chapterToolPath(courseId, chapterId, "questions"), {
+      count_per_objective: countPerObjective,
+      use_real_model: useReal,
+      language,
+    }),
+
   /** 组卷。**纯算法,不调用模型** —— 所以它不慢,也不需要「用真模型」开关。 */
   paper: (constraints: PaperConstraints) =>
     post<PaperResponse>("/api/demo/paper", constraints),
+
+  chapterPaper: (courseId: string, chapterId: string, constraints: PaperConstraints) =>
+    post<PaperResponse>(chapterToolPath(courseId, chapterId, "paper"), constraints),
 
   /** 术语白话化 + 图片替代文本。 */
   glossary: (useReal: boolean, language: string) =>
@@ -632,10 +739,20 @@ export const api = {
       language,
     }),
 
-  apply: (patchId: string) =>
-    post<{ package: CoursePackage }>("/api/demo/apply", { patch_id: patchId }),
-  reject: (patchId: string) =>
-    post<{ package: CoursePackage }>("/api/demo/reject", { patch_id: patchId }),
+  chapterGlossary: (courseId: string, chapterId: string, useReal: boolean, language: string) =>
+    post<GlossaryResponse>(chapterToolPath(courseId, chapterId, "glossary"), {
+      use_real_model: useReal,
+      language,
+    }),
+
+  apply: (patchId: string, field?: string) =>
+    post<PatchDecisionResponse>("/api/demo/apply", { patch_id: patchId, field }),
+  applyChapterPatch: (courseId: string, chapterId: string, patchId: string, field?: string) =>
+    post<PatchDecisionResponse>(chapterToolPath(courseId, chapterId, "apply"), { patch_id: patchId, field }),
+  reject: (patchId: string, field?: string) =>
+    post<PatchDecisionResponse>("/api/demo/reject", { patch_id: patchId, field }),
+  rejectChapterPatch: (courseId: string, chapterId: string, patchId: string, field?: string) =>
+    post<PatchDecisionResponse>(chapterToolPath(courseId, chapterId, "reject"), { patch_id: patchId, field }),
   reset: () => post<{ status: string }>("/api/demo/reset", {}),
 
   /**
@@ -651,6 +768,20 @@ export const api = {
     note = "教师手动修改",
   ) =>
     post<{ patch: Patch; package: CoursePackage }>("/api/demo/manual-edit", {
+      kind,
+      target_id: targetId,
+      payload,
+      note,
+    }),
+  manualEditChapter: (
+    courseId: string,
+    chapterId: string,
+    kind: "slide" | "timeline",
+    targetId: string,
+    payload: Record<string, unknown>,
+    note = "教师手动修改",
+  ) =>
+    post<{ patch: Patch; package: CoursePackage }>(chapterToolPath(courseId, chapterId, "manual-edit"), {
       kind,
       target_id: targetId,
       payload,

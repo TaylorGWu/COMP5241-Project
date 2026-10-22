@@ -7,6 +7,8 @@ __pycache__/
 .env.local
 # 本地配置(含密钥),绝不提交
 env.yaml
+# Per-developer teacher workspace; created automatically by the demo API.
+backend/.local/
 
 # Node
 node_modules/

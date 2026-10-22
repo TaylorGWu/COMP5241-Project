@@ -6,6 +6,9 @@ import { cookies } from "next/headers";
 //    服务端 import 它拿到的是客户端引用,调用会 500。
 import { I18nProvider } from "@/lib/i18n";
 import { LOCALE_COOKIE, normalizeLocale } from "@/lib/i18n-config";
+import { PRODUCT_NAME } from "@/lib/brand";
+import { ThemeProvider } from "@/lib/theme";
+import { SystemSettings } from "@/components/SystemSettings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,7 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PathPilot · Course studio",
+  title: `${PRODUCT_NAME} · Teacher workspace`,
   description: "Draft course material with AI, then review it before it reaches students.",
 };
 
@@ -36,7 +39,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <I18nProvider initialLocale={locale}>{children}</I18nProvider>
+        <ThemeProvider>
+          <I18nProvider initialLocale={locale}>
+            {children}
+            <SystemSettings />
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

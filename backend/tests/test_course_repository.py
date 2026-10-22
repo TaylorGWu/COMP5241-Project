@@ -61,3 +61,21 @@ def test_chapter_cannot_be_read_through_another_course():
 
     with pytest.raises(KeyError):
         repo.get_chapter(second.id, first.chapter_ids[0])
+
+
+def test_snapshot_round_trip_keeps_generated_chapter_content():
+    repo = InMemoryCourseRepository()
+    course = _course(repo)
+    chapter = repo.get_chapter(course.id, course.chapter_ids[0])
+    repo.update_chapter(
+        course.id,
+        chapter.id,
+        status="ready",
+        package={"slideDeck": {"slides": [{"id": "s1", "title": "Safe merge"}]}},
+    )
+
+    restored = InMemoryCourseRepository.from_snapshot(repo.snapshot())
+    restored_chapter = restored.get_chapter(course.id, chapter.id)
+
+    assert restored_chapter.status == "ready"
+    assert restored_chapter.package["slideDeck"]["slides"][0]["title"] == "Safe merge"

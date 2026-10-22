@@ -11,7 +11,27 @@ cp env.yaml.example env.yaml   # 填入密钥(env.yaml 已被 git 忽略)
 ../.venv/bin/uvicorn app.main:app --reload
 ```
 
+章节课件中的带文字示意图由 Mermaid CLI 渲染为 PNG，同一张图用于网页预览和 PPTX 导出。
+此功能需要 Node.js 和 Chrome/Chromium。首次运行在 `backend/` 执行
+`PUPPETEER_SKIP_DOWNLOAD=1 npm ci`；如果浏览器不在常见安装位置，设置
+`PUPPETEER_EXECUTABLE_PATH`。渲染失败时单张图会显示明确占位，其余页面仍可导出。
+
 健康检查:`GET http://127.0.0.1:8000/api/health`
+
+### 教师端本机工作区
+
+教师端的课程、章节 IR、审核 patch、版本记录、学生名单和作答分析默认保存在
+`backend/.local/teacher-workspace.db`。这是自动创建、已被 Git 忽略的 SQLite
+文件，因此每位成员直接启动后端即可拥有独立工作区，不需要安装或配置数据库服务。
+
+如需为测试或另一份本机演示使用不同资料库，可在启动前指定路径：
+
+```bash
+TEACHER_WORKSPACE_DB=/tmp/coursework-teacher.db ../.venv/bin/uvicorn app.main:app --reload
+```
+
+旧版临时 JSON 工作区只会在 SQLite 为空时被一次性迁入。删除该 SQLite 文件会重置
+本机教师端资料；它不包含 API key、模型客户端或生成的媒体文件。
 
 ## 跑起来看看(不需要 API key)
 

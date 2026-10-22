@@ -46,6 +46,8 @@ class SectionDeps:
     #: 本节产生的资产。上层会把它们汇总进**项目级资产池**(§5.2),
     #: 这样课件、考题、视频可以复用同一张图,零重复成本。
     assets: list[dict[str, Any]] = field(default_factory=list)
+    #: Invalid optional playback metadata is stripped without dropping courseware.
+    animation_warnings: list[str] = field(default_factory=list)
 
 
 #: `write_section` 的参数结构。
@@ -113,9 +115,9 @@ SLIDE_SCHEMA: dict[str, Any] = {
         "bullets": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "要点列表,一条一句话,一页 3–5 条为宜",
+            "description": "每页 3–5 个完整信息单元，一条一至两句，包含结论及依据、条件或具体例子。中文通常 25–60 字、英文 12–28 词，仅作可读性参考。案例应展示输入、推理、操作和结果；不可只列名词或同义句。",
         },
-        "speakerNotes": {"type": "string", "description": "讲稿,同时用作视频旁白"},
+        "speakerNotes": {"type": "string", "description": "可实际授课的讲稿：引入问题、解释机制/推理、预期回答、纠错及过渡，不能复述要点。通常中文 120–220 字、英文 80–140 词。练习必须含正确答案、错误选项的误解及反馈；操作须说明前提、结果和验证方式。"},
         "visuals": {
             "type": "array",
             "description": (
@@ -185,8 +187,71 @@ SLIDE_SCHEMA: dict[str, Any] = {
                 "自己补充的内容填 ai。不要声称有来源却给不出。"
             ),
         },
+        "teachingRole": {
+            "type": "string",
+            "enum": [
+                "explain",
+                "worked_example",
+                "guided_practice",
+                "check_understanding",
+                "transfer",
+                "recap",
+            ],
+            "description": (
+                "本页唯一教学动作：讲解、具体案例、引导练习、理解检查、迁移或小结。"
+                "不要为凑页数重复同一种动作。"
+            ),
+        },
+        "visualPurpose": {
+            "type": "string",
+            "enum": [
+                "comparison",
+                "sequence",
+                "mechanism",
+                "scenario",
+                "evidence",
+                "none",
+            ],
+            "description": (
+                "视觉服务的理解目的。sequence/mechanism 才适合 Mermaid；"
+                "comparison/scenario/evidence/none 不要硬画流程图，none 是合法选择。"
+            ),
+        },
+        "animation": {
+            "type": "object",
+            "description": (
+                "可选的教师预览动画，仅编排既有内容，不得新增教学内容。"
+                "target 只能是 title、bullet:0 等已有 bullet，或 visual:已有视觉 id；"
+                "sequence 只能用于 visual。"
+            ),
+            "properties": {
+                "autoplay": {"type": "boolean", "description": "默认 true"},
+                "steps": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["reveal", "emphasis", "sequence"]},
+                            "target": {"type": "string"},
+                            "atMs": {"type": "integer", "minimum": 0, "maximum": 20000},
+                            "durationMs": {"type": "integer", "minimum": 100, "maximum": 3000},
+                        },
+                        "required": ["kind", "target", "atMs"],
+                    },
+                },
+            },
+            "required": ["steps"],
+        },
     },
-    "required": ["id", "order", "layout", "title"],
+    "required": [
+        "id",
+        "order",
+        "layout",
+        "title",
+        "teachingRole",
+        "visualPurpose",
+    ],
 }
 
 
@@ -246,10 +311,23 @@ def _summarize_read_slide(args: dict[str, Any]) -> str:
     return f"读取 {_text(args, 'slide_id')}"
 
 
+def _summarize_read_question(args: dict[str, Any]) -> str:
+    return f"读取题目 {_text(args, 'question_id')}"
+
+
 def _summarize_patch_slide(args: dict[str, Any]) -> str:
     """**故意不回显 patch 内容** —— 那可能是整段讲稿。"""
     slide_id = _text(args, "slide_id")
     return f"提议修改 {slide_id}" if slide_id else "提议修改某页"
+
+
+def _summarize_patch_question(args: dict[str, Any]) -> str:
+    question_id = _text(args, "question_id")
+    return f"提议修改题目 {question_id}" if question_id else "提议修改题目"
+
+
+def _summarize_patch_paper(_args: dict[str, Any]) -> str:
+    return "提议修改试卷"
 
 
 def _summarize_patch_plan(args: dict[str, Any]) -> str:
@@ -269,8 +347,8 @@ def _summarize_coverage(_args: dict[str, Any]) -> str:
     return "检查学习目标覆盖"
 
 
-def build_section_tools(deps: SectionDeps) -> list[Tool]:
-    """组装 SectionAgent 的 5 个工具。"""
+def build_section_tools(deps: SectionDeps, *, include_search: bool = True) -> list[Tool]:
+    """组装 SectionAgent 工具；没有真实讲义时不向模型暴露检索。"""
 
 
     async def search_materials(args: dict[str, Any]) -> Any:
@@ -282,16 +360,17 @@ def build_section_tools(deps: SectionDeps) -> list[Tool]:
 
 
     async def make_diagram(args: dict[str, Any]) -> Any:
-        """渲染 Mermaid 并登记资产。带文字的图一律走这里,不用生图。"""
+        """登记 Mermaid 源码；预览与导出时由 CLI 渲染同一份 IR。"""
 
-        asset_id = await deps.make_diagram(args["mermaid"])
+        code = args["mermaid"].replace("\\n", "\n")
+        asset_id = await deps.make_diagram(code)
         deps.assets.append(
             {
                 "id": asset_id,
                 "kind": "diagram",
                 "status": "ready",
-                "provider": "kroki",
-                "spec": {"engine": "mermaid", "code": args["mermaid"]},
+                "provider": "mermaid-cli",
+                "spec": {"engine": "mermaid", "code": code},
             }
         )
         return {"asset_id": asset_id}
@@ -328,7 +407,7 @@ def build_section_tools(deps: SectionDeps) -> list[Tool]:
         deps.written_slides.extend(args["slides"])
         return {"ok": True, "slides": len(args["slides"])}
 
-    return [
+    tools = [
         Tool(
             name="search_materials",
             description=(
@@ -352,13 +431,18 @@ def build_section_tools(deps: SectionDeps) -> list[Tool]:
                 "把 Mermaid 代码渲染成示意图,返回 assetId。"
                 "凡是有文字标注的图(流程图、结构图、关系图)都必须走这个工具,"
                 "不要用生图模型 —— 扩散模型画中文会乱码。"
+                "每张图只表达一个教学关系:最多 6 个节点,每个节点不超过 12 个汉字或 6 个英文词;"
+                "流程用 graph LR/TD,对比用左右两组节点,层级用 graph TD。"
+                "节点必须写当前页的真实角色、对象或动作，边必须写关系；禁止 Step 1/2、"
+                "概念图、应用、开始/结束等占位标签。"
+                "不要把讲稿、完整句子、项目符号或多段解释塞进节点。"
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "mermaid": {
                         "type": "string",
-                        "description": "Mermaid 源码,例如 graph LR; A-->B",
+                        "description": "紧凑 Mermaid 源码; 3–6 个短标签节点,例如 graph LR; A[创建分支] --> B[独立修改] --> C[合并审阅]",
                     }
                 },
                 "required": ["mermaid"],
@@ -421,6 +505,7 @@ def build_section_tools(deps: SectionDeps) -> list[Tool]:
             terminal=True,  # ← 关键:调它即结束循环
         ),
     ]
+    return tools if include_search else [tool for tool in tools if tool.name != "search_materials"]
 
 
 class EditDepsProtocol(Protocol):
@@ -437,6 +522,12 @@ class EditDepsProtocol(Protocol):
 
     async def read_slide(self, slide_id: str) -> dict[str, Any]:
         """读某一页的当前内容。模型改页面之前必须先调它。"""
+        ...
+    async def read_question(self, question_id: str) -> dict[str, Any]:
+        """读一道题目的当前内容。"""
+        ...
+    async def read_paper(self) -> dict[str, Any]:
+        """读当前试卷的结构与约束。"""
         ...
     async def propose_patch(self, kind: str, args: dict[str, Any]) -> str:
         """暂存一个改动(幻灯片或教案),返回 patch id。产物不会因此改变。"""
@@ -470,7 +561,8 @@ _PATCH_PARAMS: dict[str, Any] = {
             "type": "object",
             "description": (
                 "要修改的字段及其新值。字段名用 camelCase,"
-                "例如 title / bullets / speakerNotes / layout。"
+                "例如 title / bullets / speakerNotes / layout / animation。"
+                "animation 只能编排已存在的 title、bullet:索引或 visual:视觉 id。"
             ),
         },
         "reason": {
@@ -505,6 +597,20 @@ def build_edit_tools(deps: EditDepsProtocol) -> list[Tool]:
             "status": "proposed",
             "note": "改动已暂存,**尚未生效**;教师确认后才会写入",
         }
+
+    async def read_question(args: dict[str, Any]) -> Any:
+        return await deps.read_question(args["question_id"])
+
+    async def patch_question(args: dict[str, Any]) -> Any:
+        patch_id = await deps.propose_patch("question", args)
+        return {"patch_id": patch_id, "status": "proposed", "note": "改动已暂存,尚未生效"}
+
+    async def read_paper(_: dict[str, Any]) -> Any:
+        return await deps.read_paper()
+
+    async def patch_paper(args: dict[str, Any]) -> Any:
+        patch_id = await deps.propose_patch("paper", args)
+        return {"patch_id": patch_id, "status": "proposed", "note": "改动已暂存,尚未生效"}
 
 
     async def patch_plan(args: dict[str, Any]) -> Any:
@@ -553,6 +659,34 @@ def build_edit_tools(deps: EditDepsProtocol) -> list[Tool]:
             },
             fn=patch_slide,
             summarize=_summarize_patch_slide,
+        ),
+        Tool(
+            name="read_question",
+            description="读取一道题目的当前内容。改题之前必须先读。",
+            parameters={"type": "object", "properties": {"question_id": {"type": "string"}}, "required": ["question_id"]},
+            fn=read_question,
+            summarize=_summarize_read_question,
+        ),
+        Tool(
+            name="patch_question",
+            description="提出对一道题目的修改，等待教师确认后才生效。",
+            parameters={"type": "object", "properties": {"question_id": {"type": "string"}, **_PATCH_PARAMS["properties"]}, "required": ["question_id", "patch", "reason"]},
+            fn=patch_question,
+            summarize=_summarize_patch_question,
+        ),
+        Tool(
+            name="read_paper",
+            description="读取当前试卷的结构与约束。改试卷之前必须先读。",
+            parameters={"type": "object", "properties": {}},
+            fn=read_paper,
+            summarize=lambda _args: "读取试卷",
+        ),
+        Tool(
+            name="patch_paper",
+            description="提出对整份试卷的修改，等待教师确认后才生效。",
+            parameters=_PATCH_PARAMS,
+            fn=patch_paper,
+            summarize=_summarize_patch_paper,
         ),
         Tool(
             name="patch_plan",
