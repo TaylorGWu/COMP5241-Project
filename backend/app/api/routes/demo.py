@@ -7,8 +7,8 @@
 
     正式 API(§13)             这个 demo 路由
     ─────────────────────     ─────────────────────
-    JWT + RBAC 鉴权            无认证
-    PostgreSQL 持久化          进程内存,重启即丢
+    正式账户服务               本地 cookie 会话 + 教师审批/课程归属
+    PostgreSQL 持久化          SQLite IR/patch 持久化
     异步作业 + SSE 进度         请求内直接跑(但**有** SSE 了,见 §13.4)
     /api/artifacts/...         /api/demo/...
     需要 patches 表            内存 PatchStore
@@ -42,11 +42,15 @@ import logging
 import os
 import tempfile
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import suppress
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
+from anyio import CancelScope
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 
@@ -95,8 +99,110 @@ from app.services.glossary import (
 from app.services.questions import QuestionRequest, generate_questions
 from app.exporters import exam_paper_to_docx, lesson_plan_to_docx, slide_deck_to_pptx
 from app.schemas.ir import CoursePackage
+from app.services.auth import SESSION_COOKIE, _store_at, approved_instructor, digest
 
-router = APIRouter(prefix="/demo", tags=["demo"])
+
+class TeacherRoute(APIRoute):
+    """One authorization/context boundary for JSON, uploads, exports and SSE.
+
+    Locks are process-local: this prototype must run with one application worker
+    until generation moves into the planned persistent job queue.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        handler = super().get_route_handler()
+
+        async def authorized(request: Request) -> Response:
+            user = await approved_instructor(request)
+            user_token = _USER_CONTEXT.set(user)
+            state_token = None
+            locks: list[asyncio.Lock] = []
+            lock_candidates: list[asyncio.Lock] = []
+            handed_to_stream = False
+            try:
+                course_id = request.path_params.get("course_id")
+                chapter_id = request.path_params.get("chapter_id")
+                if course_id:
+                    _course_or_404(course_id)
+                if chapter_id:
+                    _chapter_or_404(course_id, chapter_id)
+                session_id = digest(request.cookies[SESSION_COOKIE])
+                legacy = _SESSION_STATES.setdefault(session_id, _State())
+                # Only an explicit activation changes this session's deprecated
+                # unscoped adapter. Scoped operations never redirect another tab.
+                activation = request.url.path.endswith("/activate")
+                fresh_legacy_state = self.endpoint.__name__ in ("generate", "generate_stream", "reset")
+                if not course_id or activation:
+                    lock_candidates.append(_editing_lock("session", session_id))
+                if not course_id and legacy.active_course_id and not fresh_legacy_state:
+                    course_id, chapter_id = legacy.active_course_id, legacy.active_chapter_id
+                    _chapter_or_404(course_id, chapter_id)
+                if chapter_id:
+                    lock_candidates.append(_editing_lock("chapter", course_id, chapter_id))
+                elif course_id:
+                    lock_candidates.append(_editing_lock("course", course_id))
+                for lock in lock_candidates:
+                    if lock.locked():
+                        raise HTTPException(409, "This chapter is busy. Retry after the current operation finishes.")
+                    await lock.acquire()
+                    locks.append(lock)
+                current = _State() if chapter_id else legacy
+                current.session_id = session_id
+                state_token = _STATE_CONTEXT.set(current)
+                if not request.path_params.get("course_id") and chapter_id and not request.url.path.endswith("/reset"):
+                    _ensure_active_chapter(course_id, chapter_id)
+                response = await handler(request)
+                response.headers["Cache-Control"] = "no-store"
+                if activation:
+                    legacy.active_course_id = course_id
+                    legacy.active_chapter_id = chapter_id
+                elif request.url.path.endswith("/reset"):
+                    legacy.package = legacy.store = legacy.result = None
+                    legacy.active_course_id = legacy.active_chapter_id = None
+                if isinstance(response, StreamingResponse):
+                    response = _TeacherStream(response, current, user, locks)
+                    handed_to_stream = True
+                return response
+            finally:
+                if state_token is not None:
+                    _STATE_CONTEXT.reset(state_token)
+                _USER_CONTEXT.reset(user_token)
+                if not handed_to_stream:
+                    for lock in reversed(locks):
+                        lock.release()
+
+        return authorized
+
+
+class _TeacherStream(StreamingResponse):
+    """Retain captured state and locks for the entire ASGI response lifetime."""
+
+    def __init__(self, response: StreamingResponse, state: _State, user: dict, locks: list[asyncio.Lock]):
+        super().__init__(
+            response.body_iterator,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            background=response.background,
+        )
+        self.editing_state, self.user, self.editing_locks = state, user, locks
+
+    async def __call__(self, scope, receive, send):
+        state_token = _STATE_CONTEXT.set(self.editing_state)
+        user_token = _USER_CONTEXT.set(self.user)
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                with CancelScope(shield=True):
+                    await self.body_iterator.aclose()
+            finally:
+                for lock in reversed(self.editing_locks):
+                    lock.release()
+                _STATE_CONTEXT.reset(state_token)
+                _USER_CONTEXT.reset(user_token)
+
+
+router = APIRouter(prefix="/demo", tags=["demo"], route_class=TeacherRoute)
 
 #: 假模型每一步的人为延迟(秒)。**只在这个演示路由里用。**
 #:
@@ -107,10 +213,11 @@ FAKE_MODEL_DELAY = 0.6
 
 
 # ═══════════════════════════════════════════════════════════════
-# 进程内存状态。单用户、单次会话 —— 够用来测流程。
+# 请求上下文。旧接口只保留会话内的活动章节选择；章节 IR 每次从 SQLite 读取。
 # ═══════════════════════════════════════════════════════════════
 
 
+@dataclasses.dataclass
 class _State:
     package: Any = None
     store: PatchStore | None = None
@@ -118,9 +225,36 @@ class _State:
     model_mode: str = ""
     active_course_id: str | None = None
     active_chapter_id: str | None = None
+    session_id: str = ""
 
 
-STATE = _State()
+_STATE_CONTEXT: ContextVar[_State | None] = ContextVar("teacher_editing_state", default=None)
+_USER_CONTEXT: ContextVar[dict | None] = ContextVar("teacher_user", default=None)
+_SESSION_STATES: dict[str, _State] = {}
+_EDITING_LOCKS: dict[tuple[str, ...], asyncio.Lock] = {}
+
+
+def _editing_lock(*key: str) -> asyncio.Lock:
+    return _EDITING_LOCKS.setdefault((str(TEACHER_WORKSPACE_DB), *key), asyncio.Lock())
+
+
+class _StateProxy:
+    """Legacy helpers access only an explicitly bound context, never a fallback."""
+
+    def __getattr__(self, name):
+        state = _STATE_CONTEXT.get()
+        if state is None:
+            raise RuntimeError("Teacher editing state requires an authenticated request context")
+        return getattr(state, name)
+
+    def __setattr__(self, name, value):
+        state = _STATE_CONTEXT.get()
+        if state is None:
+            raise RuntimeError("Teacher editing state requires an authenticated request context")
+        setattr(state, name, value)
+
+
+STATE = _StateProxy()
 # Older local developer sessions used this JSON file.  It is read once only
 # when a new local database is empty, then all future writes go to SQLite.
 DEMO_WORKSPACE_PATH = Path(tempfile.gettempdir()) / "comp5241-teacher-workspace.json"
@@ -169,10 +303,11 @@ def reset_course_workspace() -> None:
         except FileNotFoundError:
             continue
     COURSE_WORKSPACE = _load_course_workspace(import_legacy_snapshot=False)
-    STATE.package = None
-    STATE.store = None
-    STATE.active_course_id = None
-    STATE.active_chapter_id = None
+    _store_at.cache_clear()
+    _SESSION_STATES.clear()
+    _EDITING_LOCKS.clear()
+    if _STATE_CONTEXT.get() is not None:
+        _STATE_CONTEXT.set(_State())
 
 
 def reload_course_workspace() -> None:
@@ -181,12 +316,10 @@ def reload_course_workspace() -> None:
     COURSE_WORKSPACE = _load_course_workspace()
     # A real backend restart rebuilds module globals.  Mirror that boundary so
     # persistence tests cannot accidentally pass by reusing the old store.
-    STATE.package = None
-    STATE.store = None
-    STATE.result = None
-    STATE.model_mode = ""
-    STATE.active_course_id = None
-    STATE.active_chapter_id = None
+    _SESSION_STATES.clear()
+    _EDITING_LOCKS.clear()
+    if _STATE_CONTEXT.get() is not None:
+        _STATE_CONTEXT.set(_State())
 
 
 COURSE_WORKSPACE = _load_course_workspace()
@@ -383,6 +516,9 @@ def _chapter_json(chapter: Any) -> dict[str, Any]:
 
 
 def _course_or_404(course_id: str) -> Any:
+    user = _USER_CONTEXT.get()
+    if user is not None and not COURSE_WORKSPACE.repository.is_owner(course_id, user["id"]):
+        raise HTTPException(status_code=404, detail="课程不存在")
     try:
         return COURSE_WORKSPACE.repository.get_course(course_id)
     except KeyError as error:
@@ -390,6 +526,7 @@ def _course_or_404(course_id: str) -> Any:
 
 
 def _chapter_or_404(course_id: str, chapter_id: str) -> Any:
+    _course_or_404(course_id)
     try:
         return COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
     except KeyError as error:
@@ -434,7 +571,6 @@ def _ensure_active_chapter(
         package = CoursePackage.model_validate(chapter.package)
     except ValueError as error:
         raise HTTPException(status_code=409, detail="这个章节的课件结构不完整，请重新生成") from error
-    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, package=package)
     STATE.package = package
     STATE.store = SQLitePatchStore(
         TEACHER_WORKSPACE_DB,
@@ -474,7 +610,8 @@ def _outline_json(outline: Any) -> dict[str, Any] | None:
 
 @router.get("/courses")
 async def list_courses() -> dict[str, Any]:
-    return {"courses": [_course_json(course) for course in COURSE_WORKSPACE.repository.list_courses()]}
+    courses = COURSE_WORKSPACE.repository.list_courses(instructor_id=_USER_CONTEXT.get()["id"])
+    return {"courses": [_course_json(course) for course in courses]}
 
 
 @router.post("/courses", status_code=201)
@@ -484,7 +621,8 @@ async def create_course(body: CourseCreateBody) -> dict[str, Any]:
         for index, objective in enumerate(body.learning_objectives, start=1)
         if objective.strip()
     ]
-    course = COURSE_WORKSPACE.create_course(
+    course = COURSE_WORKSPACE.repository.create_course(
+        instructor_id=_USER_CONTEXT.get()["id"],
         title=body.title,
         description=body.description,
         audience=body.audience,
@@ -751,7 +889,7 @@ async def _run_chapter_generation(
             body.model_copy(update={"material_text": material_text, "objectives": objectives}),
             on_event=on_event,
         )
-    except Exception:
+    except (Exception, asyncio.CancelledError):
         COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
         raise
     chapter = COURSE_WORKSPACE.repository.update_chapter(
@@ -888,6 +1026,7 @@ async def _sse_stream(
             queue.put_nowait(None)
 
     task = asyncio.create_task(runner())
+    getter = None
 
     try:
         while True:
@@ -933,8 +1072,15 @@ async def _sse_stream(
         yield _sse("result", task.result())
         yield _sse("done", {"ok": True})
     finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
         if not task.done():
             task.cancel()
+        # Do not release the chapter lock while a cancelled model task can still
+        # run its finalizers or persist a last write.
+        with CancelScope(shield=True):
+            with suppress(asyncio.CancelledError, Exception):
+                await task
 
 
 def _sse_response(stream: AsyncIterator[str]) -> StreamingResponse:
@@ -1006,7 +1152,7 @@ async def _run_generation(
     )
 
     STATE.package = result.package
-    STATE.store = SQLitePatchStore(TEACHER_WORKSPACE_DB, scope_id="legacy")
+    STATE.store = SQLitePatchStore(TEACHER_WORKSPACE_DB, scope_id=f"legacy:{STATE.session_id}")
     STATE.result = result
     STATE.model_mode = mode
     STATE.active_course_id = None
@@ -1226,7 +1372,9 @@ async def apply(body: PatchBody) -> dict[str, Any]:
             apply_patch(STATE.package, STATE.store, body.patch_id)
             applied_patch = STATE.store.get(body.patch_id)
             remaining_patch = None
-    except (KeyError, Exception) as exc:  # noqa: BLE001
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Patch not found in this chapter") from exc
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _save_active_chapter_package()
     return {
@@ -1241,6 +1389,10 @@ async def reject(body: PatchBody) -> dict[str, Any]:
     """驳回。产物本来就没动过,只需改 patch 状态。"""
     if STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
+    try:
+        STATE.store.get(body.patch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Patch not found in this chapter") from exc
     if body.field:
         rejected_patch, remaining_patch = reject_patch_field(STATE.store, body.patch_id, body.field)
     else:
@@ -1633,6 +1785,18 @@ async def export_lesson_plan() -> Response:
         raise HTTPException(status_code=409, detail="还没有教案")
     data = lesson_plan_to_docx(package.project, package.lesson_plan)
     return _attachment(data, f"{package.project.meta.title}-教案.docx", _DOCX_MEDIA)
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/lesson-plan.docx")
+async def export_chapter_lesson_plan(course_id: str, chapter_id: str) -> Response:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await export_lesson_plan()
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/exam-paper.docx")
+async def export_chapter_exam_paper(course_id: str, chapter_id: str, answers: bool = True) -> Response:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await export_exam_paper(answers)
 
 
 @router.get("/export/exam-paper.docx")

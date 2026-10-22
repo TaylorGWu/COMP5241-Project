@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from dataclasses import fields, is_dataclass
 from pathlib import Path
@@ -143,12 +144,14 @@ class SQLiteCourseRepository:
         subject: str = "Software Engineering",
         level: str = "Undergraduate",
         learning_objectives: list[dict[str, str]] | None = None,
+        instructor_id: str | None = None,
     ) -> Course:
         if not title.strip():
             raise ValueError("title is required")
         if duration_min <= 0:
             raise ValueError("duration_min must be positive")
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             course_id = self._next_id(connection, "courses", "course-")
             chapter_id = self._next_id(connection, "chapters", "chapter-")
             course = Course(
@@ -173,11 +176,35 @@ class SQLiteCourseRepository:
                 "INSERT INTO chapters(id, course_id, position, payload_json) VALUES (?, ?, ?, ?)",
                 (chapter.id, course.id, chapter.order, self._encode(chapter)),
             )
+            if instructor_id is not None:
+                user = connection.execute(
+                    "SELECT 1 FROM users WHERE id=? AND role='instructor' AND active=1 AND status='approved'",
+                    (instructor_id,),
+                ).fetchone()
+                if user is None:
+                    raise ValueError("An approved instructor account is required")
+                connection.execute(
+                    "INSERT INTO course_owners(course_id,instructor_id,assigned_at) VALUES(?,?,?)",
+                    (course.id, instructor_id, time.time()),
+                )
             return course
 
-    def list_courses(self) -> list[Course]:
+    def is_owner(self, course_id: str, instructor_id: str) -> bool:
         with self._connection() as connection:
-            rows = connection.execute("SELECT payload_json FROM courses ORDER BY id").fetchall()
+            return connection.execute(
+                "SELECT 1 FROM course_owners WHERE course_id=? AND instructor_id=?",
+                (course_id, instructor_id),
+            ).fetchone() is not None
+
+    def list_courses(self, *, instructor_id: str | None = None) -> list[Course]:
+        with self._connection() as connection:
+            if instructor_id is None:
+                rows = connection.execute("SELECT payload_json FROM courses ORDER BY id").fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT c.payload_json FROM courses c JOIN course_owners o ON o.course_id=c.id WHERE o.instructor_id=? ORDER BY c.id",
+                    (instructor_id,),
+                ).fetchall()
             return [self._decode_course(row["payload_json"]) for row in rows]
 
     def is_empty(self) -> bool:

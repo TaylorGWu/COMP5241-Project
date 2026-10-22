@@ -5,7 +5,8 @@ NFR-02:授权由后端强制,前端隐藏不作为安全边界。
 
 from enum import StrEnum
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
+from app.services.auth import current_user
 
 
 class Role(StrEnum):
@@ -16,16 +17,12 @@ class Role(StrEnum):
     admin = "admin"
 
 
-async def current_role() -> Role:
-    """占位实现:接入 JWT 后从 token 解析角色与身份。
-
-    在鉴权真正接好之前一律返回 401 ——
-    宁可让接口不可用,也不能让未授权请求被当作通过。
-    """
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="认证尚未接入(见 docs/design/course-generation-design.md §5.5)",
-    )
+async def current_role(request: Request) -> Role:
+    """Resolve server-owned identity and current instructor approval each time."""
+    user = await current_user(request)
+    if user["role"] == "instructor" and user["status"] != "approved":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "An approved instructor account is required")
+    return Role(user["role"])
 
 
 def require_role(*allowed: Role):

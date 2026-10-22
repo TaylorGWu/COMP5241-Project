@@ -5,7 +5,8 @@ import pytest
 
 from app.api.routes import demo
 from app.main import app
-from app.services.patches import artifact_id_of
+from app.services.patches import artifact_id_of, SQLitePatchStore
+from app.schemas.ir import CoursePackage
 
 
 async def _request(method: str, path: str, body: dict | None = None) -> httpx.Response:
@@ -65,12 +66,12 @@ async def test_pending_chapter_patch_is_visible_after_workspace_reopen(tmp_path,
         {"topic": "Git branching", "audience": "Beginners", "duration_min": 30},
     )
     assert generated.status_code == 200, generated.text
-    assert demo.STATE.package is not None
-    assert demo.STATE.store is not None
-    proposed = demo.STATE.store.propose(
-        artifact_id=artifact_id_of(demo.STATE.package),
+    package = CoursePackage.model_validate(generated.json()["package"])
+    store = SQLitePatchStore(demo.TEACHER_WORKSPACE_DB, scope_id=f"{course['id']}:{chapter_id}")
+    proposed = store.propose(
+        artifact_id=artifact_id_of(package),
         kind="slide",
-        target_id=demo.STATE.package.slide_deck.slides[0].id,
+        target_id=package.slide_deck.slides[0].id,
         payload={"title": "Review this wording"},
         reason="More direct for beginners",
         diff="- old\n+ new",

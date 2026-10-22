@@ -15,7 +15,7 @@ import re
 import secrets
 import sqlite3
 import time
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
@@ -63,6 +63,16 @@ def safe_next(value: str | None, user: dict) -> str:
         return destination
     parsed = urlsplit(value)
     if parsed.scheme or parsed.netloc or value.startswith("//"):
+        return destination
+    decoded = parsed.path
+    # Browsers normalize dot segments and encoded separators before navigation.
+    # Reject ambiguous paths rather than checking the unnormalized prefix.
+    for _ in range(8):
+        following = unquote(decoded)
+        if following == decoded:
+            break
+        decoded = following
+    if "%" in decoded or "\\" in decoded or any(part in (".", "..") for part in decoded.split("/")):
         return destination
     # A role destination or its descendants is the only accepted continuation.
     if parsed.path == destination or parsed.path.startswith(destination + "/"):
