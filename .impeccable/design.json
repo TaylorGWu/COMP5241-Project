@@ -1,0 +1,530 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T13:35:10.433Z",
+  "title": "Design System: Coursework",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Navy ink",
+        "tonalRamp": [
+          "oklch(15% 0.0388 264.35)",
+          "oklch(27% 0.0388 264.35)",
+          "oklch(38% 0.0388 264.35)",
+          "oklch(50% 0.0388 264.35)",
+          "oklch(61% 0.0388 264.35)",
+          "oklch(73% 0.0388 264.35)",
+          "oklch(84% 0.0388 264.35)",
+          "oklch(95% 0.0388 264.35)"
+        ]
+      },
+      "body": {
+        "role": "neutral",
+        "displayName": "Slate body",
+        "tonalRamp": [
+          "oklch(15% 0.0380 258.36)",
+          "oklch(27% 0.0380 258.36)",
+          "oklch(38% 0.0380 258.36)",
+          "oklch(50% 0.0380 258.36)",
+          "oklch(61% 0.0380 258.36)",
+          "oklch(73% 0.0380 258.36)",
+          "oklch(84% 0.0380 258.36)",
+          "oklch(95% 0.0380 258.36)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted slate",
+        "tonalRamp": [
+          "oklch(15% 0.0299 255.16)",
+          "oklch(27% 0.0299 255.16)",
+          "oklch(38% 0.0299 255.16)",
+          "oklch(50% 0.0299 255.16)",
+          "oklch(61% 0.0299 255.16)",
+          "oklch(73% 0.0299 255.16)",
+          "oklch(84% 0.0299 255.16)",
+          "oklch(95% 0.0299 255.16)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Blue-grey canvas",
+        "tonalRamp": [
+          "oklch(15% 0.0045 258.32)",
+          "oklch(27% 0.0045 258.32)",
+          "oklch(38% 0.0045 258.32)",
+          "oklch(50% 0.0045 258.32)",
+          "oklch(61% 0.0045 258.32)",
+          "oklch(73% 0.0045 258.32)",
+          "oklch(84% 0.0045 258.32)",
+          "oklch(95% 0.0045 258.32)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White surface",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(27% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(50% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(73% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "soft": {
+        "role": "neutral",
+        "displayName": "Soft grey",
+        "tonalRamp": [
+          "oklch(15% 0.0045 258.32)",
+          "oklch(27% 0.0045 258.32)",
+          "oklch(38% 0.0045 258.32)",
+          "oklch(50% 0.0045 258.32)",
+          "oklch(61% 0.0045 258.32)",
+          "oklch(73% 0.0045 258.32)",
+          "oklch(84% 0.0045 258.32)",
+          "oklch(95% 0.0045 258.32)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Fine line",
+        "tonalRamp": [
+          "oklch(15% 0.0115 252.09)",
+          "oklch(27% 0.0115 252.09)",
+          "oklch(38% 0.0115 252.09)",
+          "oklch(50% 0.0115 252.09)",
+          "oklch(61% 0.0115 252.09)",
+          "oklch(73% 0.0115 252.09)",
+          "oklch(84% 0.0115 252.09)",
+          "oklch(95% 0.0115 252.09)"
+        ]
+      },
+      "blue": {
+        "role": "primary",
+        "displayName": "Restrained royal blue",
+        "tonalRamp": [
+          "oklch(15% 0.1688 263.48)",
+          "oklch(27% 0.1688 263.48)",
+          "oklch(38% 0.1688 263.48)",
+          "oklch(50% 0.1688 263.48)",
+          "oklch(61% 0.1688 263.48)",
+          "oklch(73% 0.1688 263.48)",
+          "oklch(84% 0.1688 263.48)",
+          "oklch(95% 0.1688 263.48)"
+        ]
+      },
+      "blue-deep": {
+        "role": "primary",
+        "displayName": "Deep royal blue",
+        "tonalRamp": [
+          "oklch(15% 0.1548 263.65)",
+          "oklch(27% 0.1548 263.65)",
+          "oklch(38% 0.1548 263.65)",
+          "oklch(50% 0.1548 263.65)",
+          "oklch(61% 0.1548 263.65)",
+          "oklch(73% 0.1548 263.65)",
+          "oklch(84% 0.1548 263.65)",
+          "oklch(95% 0.1548 263.65)"
+        ]
+      },
+      "blue-soft": {
+        "role": "primary",
+        "displayName": "Pale blue",
+        "tonalRamp": [
+          "oklch(15% 0.0182 269.09)",
+          "oklch(27% 0.0182 269.09)",
+          "oklch(38% 0.0182 269.09)",
+          "oklch(50% 0.0182 269.09)",
+          "oklch(61% 0.0182 269.09)",
+          "oklch(73% 0.0182 269.09)",
+          "oklch(84% 0.0182 269.09)",
+          "oklch(95% 0.0182 269.09)"
+        ]
+      },
+      "green": {
+        "role": "secondary",
+        "displayName": "Acceptance green",
+        "tonalRamp": [
+          "oklch(15% 0.0934 161.07)",
+          "oklch(27% 0.0934 161.07)",
+          "oklch(38% 0.0934 161.07)",
+          "oklch(50% 0.0934 161.07)",
+          "oklch(61% 0.0934 161.07)",
+          "oklch(73% 0.0934 161.07)",
+          "oklch(84% 0.0934 161.07)",
+          "oklch(95% 0.0934 161.07)"
+        ]
+      },
+      "green-soft": {
+        "role": "secondary",
+        "displayName": "Pale acceptance green",
+        "tonalRamp": [
+          "oklch(15% 0.0107 158.85)",
+          "oklch(27% 0.0107 158.85)",
+          "oklch(38% 0.0107 158.85)",
+          "oklch(50% 0.0107 158.85)",
+          "oklch(61% 0.0107 158.85)",
+          "oklch(73% 0.0107 158.85)",
+          "oklch(84% 0.0107 158.85)",
+          "oklch(95% 0.0107 158.85)"
+        ]
+      },
+      "violet": {
+        "role": "secondary",
+        "displayName": "Muted violet",
+        "tonalRamp": [
+          "oklch(15% 0.1253 290.25)",
+          "oklch(27% 0.1253 290.25)",
+          "oklch(38% 0.1253 290.25)",
+          "oklch(50% 0.1253 290.25)",
+          "oklch(61% 0.1253 290.25)",
+          "oklch(73% 0.1253 290.25)",
+          "oklch(84% 0.1253 290.25)",
+          "oklch(95% 0.1253 290.25)"
+        ]
+      },
+      "violet-soft": {
+        "role": "secondary",
+        "displayName": "Pale violet",
+        "tonalRamp": [
+          "oklch(15% 0.0161 293.75)",
+          "oklch(27% 0.0161 293.75)",
+          "oklch(38% 0.0161 293.75)",
+          "oklch(50% 0.0161 293.75)",
+          "oklch(61% 0.0161 293.75)",
+          "oklch(73% 0.0161 293.75)",
+          "oklch(84% 0.0161 293.75)",
+          "oklch(95% 0.0161 293.75)"
+        ]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Review amber",
+        "tonalRamp": [
+          "oklch(15% 0.1070 67.68)",
+          "oklch(27% 0.1070 67.68)",
+          "oklch(38% 0.1070 67.68)",
+          "oklch(50% 0.1070 67.68)",
+          "oklch(61% 0.1070 67.68)",
+          "oklch(73% 0.1070 67.68)",
+          "oklch(84% 0.1070 67.68)",
+          "oklch(95% 0.1070 67.68)"
+        ]
+      },
+      "amber-soft": {
+        "role": "secondary",
+        "displayName": "Pale review amber",
+        "tonalRamp": [
+          "oklch(15% 0.0180 78.24)",
+          "oklch(27% 0.0180 78.24)",
+          "oklch(38% 0.0180 78.24)",
+          "oklch(50% 0.0180 78.24)",
+          "oklch(61% 0.0180 78.24)",
+          "oklch(73% 0.0180 78.24)",
+          "oklch(84% 0.0180 78.24)",
+          "oklch(95% 0.0180 78.24)"
+        ]
+      },
+      "teaching-navy": {
+        "role": "neutral",
+        "displayName": "Teaching navy",
+        "tonalRamp": [
+          "oklch(15% 0.0643 259.40)",
+          "oklch(27% 0.0643 259.40)",
+          "oklch(38% 0.0643 259.40)",
+          "oklch(50% 0.0643 259.40)",
+          "oklch(61% 0.0643 259.40)",
+          "oklch(73% 0.0643 259.40)",
+          "oklch(84% 0.0643 259.40)",
+          "oklch(95% 0.0643 259.40)"
+        ]
+      },
+      "teaching-paper": {
+        "role": "neutral",
+        "displayName": "Teaching paper",
+        "tonalRamp": [
+          "oklch(15% 0.0095 273.36)",
+          "oklch(27% 0.0095 273.36)",
+          "oklch(38% 0.0095 273.36)",
+          "oklch(50% 0.0095 273.36)",
+          "oklch(61% 0.0095 273.36)",
+          "oklch(73% 0.0095 273.36)",
+          "oklch(84% 0.0095 273.36)",
+          "oklch(95% 0.0095 273.36)"
+        ]
+      },
+      "teaching-body": {
+        "role": "neutral",
+        "displayName": "Teaching body",
+        "tonalRamp": [
+          "oklch(15% 0.0300 262.53)",
+          "oklch(27% 0.0300 262.53)",
+          "oklch(38% 0.0300 262.53)",
+          "oklch(50% 0.0300 262.53)",
+          "oklch(61% 0.0300 262.53)",
+          "oklch(73% 0.0300 262.53)",
+          "oklch(84% 0.0300 262.53)",
+          "oklch(95% 0.0300 262.53)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Public display",
+        "purpose": "Manrope public hero, 44–64px, weight 560; not an editor heading."
+      },
+      "headline": {
+        "displayName": "Public section heading",
+        "purpose": "Manrope public section headings, 28–38px, weight 550."
+      },
+      "title": {
+        "displayName": "Auth title",
+        "purpose": "Revised authentication task heading: 32px, weight 620, line-height 1.24; 30px below 820px."
+      },
+      "body": {
+        "displayName": "Auth body",
+        "purpose": "Supporting authentication copy at 14px with 1.7 line-height."
+      },
+      "label": {
+        "displayName": "Form label",
+        "purpose": "Persistent field labels."
+      },
+      "code": {
+        "displayName": "Code and metadata",
+        "purpose": "Actual code and selected numeric information."
+      },
+      "public-body": {
+        "displayName": "Public body",
+        "purpose": "Source Sans 3 at 16px; Noto Sans SC/TC for Chinese locales."
+      },
+      "profile-title": {
+        "displayName": "Profile title",
+        "purpose": "Manrope at 30px, weight 550; compact task heading."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 2px rgba(23, 32, 51, 0.04), 0 8px 24px rgba(23, 32, 51, 0.035)",
+        "purpose": "Shared workspace cards."
+      },
+      {
+        "name": "raise",
+        "value": "0 1px 2px rgba(23, 32, 51, 0.05), 0 14px 36px rgba(23, 32, 51, 0.08)",
+        "purpose": "Elevated workspace menus and selected hover treatments."
+      }
+    ],
+    "motion": [
+      {
+        "name": "public-control",
+        "value": "background .15s ease, color .15s ease",
+        "purpose": "Public button state transition."
+      },
+      {
+        "name": "example-emphasis",
+        "value": "background .3s ease",
+        "purpose": "Brief and review region emphasis."
+      },
+      {
+        "name": "git-example-reveal",
+        "value": "opacity .6s ease, filter .6s ease",
+        "purpose": "Teaching example step emphasis; removed for reduced motion."
+      },
+      {
+        "name": "example-step-interval",
+        "value": "5000ms",
+        "purpose": "Bounded automatic step progression; direct selection stops playback."
+      },
+      {
+        "name": "auth-field-border",
+        "value": "border-color 150ms ease",
+        "purpose": "Revised auth fields strengthen the border on hover and show blue keyboard focus."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "public-intermediate",
+        "value": "1050px"
+      },
+      {
+        "name": "auth-form-only",
+        "value": "820px"
+      },
+      {
+        "name": "public-mobile",
+        "value": "720px"
+      }
+    ],
+    "themeOverrides": {
+      "selector": "[data-theme=\"dark\"]",
+      "source": "frontend/app/globals.css",
+      "colors": {
+        "ink": "#eef3fa",
+        "body": "#b8c3d1",
+        "muted": "#8996a7",
+        "canvas": "#111722",
+        "surface": "#182131",
+        "soft": "#222d3e",
+        "line": "#334155",
+        "blue": "#8aaeff",
+        "blue-deep": "#b6ccff",
+        "blue-soft": "#1c3158",
+        "green": "#73ca9d",
+        "green-soft": "#193b30",
+        "violet": "#b0a0ed",
+        "violet-soft": "#31294c",
+        "amber": "#e5b46d",
+        "amber-soft": "#43311d"
+      }
+    },
+    "focus": {
+      "value": "3px solid #abc4ff",
+      "offset": "2px",
+      "source": "frontend/app/globals.css :focus-visible",
+      "authField": {
+        "value": "2px solid var(--color-blue)",
+        "offset": "2px",
+        "source": "frontend/components/AuthScreen.module.css"
+      }
+    },
+    "rampProvenance": "Tonal ramps are synthesized OKLCH preview metadata from each extracted hex hue/chroma. They are not additional shipping CSS tokens or a palette change.",
+    "sources": [
+      "frontend/app/globals.css",
+      "frontend/app/public.css",
+      "frontend/components/ui.tsx",
+      "frontend/components/PublicHeader.tsx",
+      "frontend/components/PublicHome.tsx",
+      "frontend/components/AuthScreen.tsx",
+      "frontend/components/AccountPages.tsx",
+      "frontend/components/AuthScreen.module.css"
+    ],
+    "authLayout": {
+      "source": "frontend/components/AuthScreen.module.css",
+      "shellMaxWidth": "1200px",
+      "formMaxWidth": "400px",
+      "desktopGutter": "40px",
+      "order": "form left, decorative learning-studio image right",
+      "formOnlyAt": "820px",
+      "mobileGutter": "24px",
+      "imageRadius": "12px",
+      "imageFit": "cover",
+      "imagePosition": "50% 55%",
+      "darkImageFilter": "brightness(.75) saturate(.8)"
+    },
+    "imagery": {
+      "asset": "frontend/public/images/learning-studio.png",
+      "provenance": "frontend/public/images/learning-studio.provenance.md",
+      "purpose": "Decorative generated photographic learning-studio scene, outside the form; no lettering or simulated course UI.",
+      "accessibility": "Empty alt text inside aria-hidden region; hidden below 820px.",
+      "evidenceBoundary": "Illustrative scene, not a named campus or institutional endorsement."
+    }
+  },
+  "components": [
+    {
+      "name": "Workspace primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact teacher-workspace action.",
+      "html": "<button class=\"ds-primary\">Apply change</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border-radius:var(--radius-sm,8px);font-family:var(--font-geist-sans,Arial),sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:color .15s ease,background-color .15s ease;background:var(--color-blue,#315fc6);color:#fff;border:0}.ds-primary:hover{background:var(--color-blue-deep,#264eaa)}.ds-primary:active{transform:translateY(1px)}.ds-primary:disabled{background:#e4e9f1;color:#596b82;cursor:not-allowed;transform:none}.ds-primary:focus-visible,.ds-ghost:focus-visible,.ds-quiet:focus-visible,.ds-public:focus-visible {outline:3px solid #abc4ff;outline-offset:2px}"
+    },
+    {
+      "name": "Workspace ghost button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary workspace action with a fine border.",
+      "html": "<button class=\"ds-ghost\">Preview</button>",
+      "css": ".ds-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border-radius:var(--radius-sm,8px);font-family:var(--font-geist-sans,Arial),sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:color .15s ease,background-color .15s ease;background:var(--color-surface,#fff);color:var(--color-ink,#172033);border:1px solid var(--color-line,#dde3ea)}.ds-ghost:hover{background:var(--color-soft,#f1f3f6)}.ds-ghost:active{transform:translateY(1px)}.ds-primary:focus-visible,.ds-ghost:focus-visible,.ds-quiet:focus-visible,.ds-public:focus-visible {outline:3px solid #abc4ff;outline-offset:2px}"
+    },
+    {
+      "name": "Workspace quiet button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Low-emphasis workspace action.",
+      "html": "<button class=\"ds-quiet\">Cancel</button>",
+      "css": ".ds-quiet{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border-radius:var(--radius-sm,8px);font-family:var(--font-geist-sans,Arial),sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:color .15s ease,background-color .15s ease;background:transparent;color:var(--color-body,#536176);border:0}.ds-quiet:hover{color:var(--color-ink,#172033)}.ds-quiet:active{transform:translateY(1px)}.ds-primary:focus-visible,.ds-ghost:focus-visible,.ds-quiet:focus-visible,.ds-public:focus-visible {outline:3px solid #abc4ff;outline-offset:2px}"
+    },
+    {
+      "name": "Public primary button",
+      "kind": "button",
+      "refersTo": "button-public",
+      "description": "Roomier public/form submission action.",
+      "html": "<button class=\"ds-public\">Submit application <svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-public{display:inline-flex;align-items:center;justify-content:center;gap:20px;min-height:50px;padding:13px 23px;border:1px solid transparent;border-radius:8px;background:#315fc6;color:#fff;font-family:var(--font-geist-sans,Arial),sans-serif;font-size:14px;font-weight:600;line-height:1.4;cursor:pointer;transition:background .15s ease,color .15s ease}.ds-public svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-public:hover{background:#264eaa}.ds-public:disabled{opacity:.65;cursor:wait}.ds-primary:focus-visible,.ds-ghost:focus-visible,.ds-quiet:focus-visible,.ds-public:focus-visible {outline:3px solid #abc4ff;outline-offset:2px}"
+    },
+    {
+      "name": "Auth field",
+      "kind": "input",
+      "refersTo": "input-auth",
+      "description": "Revised authentication field: visible label, 50px minimum height, explicit hover/focus and native autocomplete.",
+      "html": "<label class=\"ds-field\">Email address<input type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\"/></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:8px;font-family:var(--font-geist-sans,Arial),sans-serif;font-size:13px;font-weight:550;color:var(--color-ink,#172033)}.ds-field input{min-height:50px;border:1px solid var(--color-line,#dde3ea);border-radius:7px;padding:11px 13px;background:var(--color-surface,#fff);color:var(--color-ink,#172033);font-size:15px;font-weight:400;transition:border-color 150ms ease}.ds-field input:hover{border-color:var(--color-body,#536176)}.ds-field input:focus-visible{border-color:var(--color-blue,#315fc6);outline:2px solid var(--color-blue,#315fc6);outline-offset:2px}@media(max-width:820px){.ds-field input{font-size:16px}}@media(prefers-reduced-motion:reduce){.ds-field input{transition:none}}"
+    },
+    {
+      "name": "Public navigation",
+      "kind": "nav",
+      "description": "Existing CW mark and compact public navigation.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Example navigation\"><a class=\"ds-brand\" href=\"#home\"><span>CW</span>Coursework<span class=\"ds-period\">.</span></a><a class=\"ds-nav-link\" href=\"#login\">Log in</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px;color:var(--color-ink,#172033);font-family:var(--font-geist-sans,Arial),sans-serif}.ds-brand{display:inline-flex;align-items:center;gap:12px;font-size:21px;font-weight:730;letter-spacing:-.035em;color:inherit;text-decoration:none}.ds-brand>span:first-child{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--color-ink,#172033);color:var(--color-canvas,#f4f6f9);font-size:12px;letter-spacing:-.04em}.ds-brand .ds-period{color:var(--color-blue,#315fc6);margin-left:-12px}.ds-nav-link{display:inline-flex;align-items:center;min-height:44px;color:var(--color-body,#536176);font-size:14px;font-weight:600;text-decoration:none}.ds-nav-link:hover{color:var(--color-blue-deep,#264eaa)}.ds-nav a:focus-visible{outline:3px solid #abc4ff;outline-offset:2px}"
+    },
+    {
+      "name": "Review status",
+      "kind": "chip",
+      "refersTo": "status-pending",
+      "description": "Amber pending/revision and green approval pair, always labelled.",
+      "html": "<div class=\"ds-status-row\"><span class=\"ds-status\">Pending review</span><span class=\"ds-status ds-approved\">Approved</span></div>",
+      "css": ".ds-status-row{display:flex;gap:12px;flex-wrap:wrap}.ds-status{display:inline-flex;align-items:center;gap:7px;border-radius:5px;background:var(--color-amber-soft,#fdf5e9);color:var(--color-amber,#96601a);font-family:var(--font-geist-sans,Arial),sans-serif;font-size:11px;font-weight:600;padding:5px 9px}.ds-approved{background:var(--color-green-soft,#f0f8f3);color:var(--color-green,#2a7755)}"
+    },
+    {
+      "name": "Workspace card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Shared surface primitive; content controls its padding.",
+      "html": "<section class=\"ds-card\"><div class=\"ds-card-content\"><strong>Teaching brief</strong><p>Explain one idea with a concrete example.</p></div></section>",
+      "css": ".ds-card{border:1px solid var(--color-line,#dde3ea);border-radius:var(--radius-md,12px);background:var(--color-surface,#fff);box-shadow:var(--shadow-card,0 1px 2px rgba(23,32,51,.04),0 8px 24px rgba(23,32,51,.035));color:var(--color-ink,#172033);font-family:var(--font-geist-sans,Arial),sans-serif}.ds-card-content{padding:24px}.ds-card strong{font-size:16px;font-weight:600}.ds-card p{margin:8px 0 0;color:var(--color-body,#536176);font-size:14px;line-height:1.8}"
+    },
+    {
+      "name": "Qualification upload",
+      "kind": "input",
+      "description": "Later application-page task for a teacher's first qualification submission or resubmission; absent from registration.",
+      "html": "<label class=\"ds-upload\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8m-8 4h5\"/></svg><span>Choose a document</span><input aria-label=\"Teaching qualification\" type=\"file\" accept=\"application/pdf,image/png,image/jpeg\"/></label>",
+      "css": ".ds-upload{position:relative;display:flex;align-items:center;gap:12px;min-height:60px;padding:12px 15px;border:1px dashed var(--color-body,#536176);border-radius:8px;background:var(--color-surface,#fff);color:var(--color-blue-deep,#264eaa);font-family:var(--font-geist-sans,Arial),sans-serif;font-size:12px;cursor:pointer}.ds-upload svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.ds-upload input{position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer}.ds-upload:focus-within{outline:3px solid var(--color-blue,#315fc6);outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Make teaching decisions visible.",
+    "overview": "Extend the incumbent Coursework system: navy ink, restrained blue actions, light blue-grey surfaces. Home/profile/application use scoped Manrope headings, Source Sans 3 body and locale-appropriate Noto Sans SC/TC; course editing and authentication retain Geist. The interface gives material, review and decisions distinct places. Authentication uses a focused form on the left and a quiet photographic learning-studio illustration on the right, retaining the shared brand and control vocabulary.\n\nThis is an extraction of the current system, not a rebrand. Sources are `frontend/app/globals.css`, `frontend/app/public.css`, `frontend/components/ui.tsx`, `PublicHeader.tsx`, `PublicHome.tsx`, `AuthScreen.tsx`, `AuthScreen.module.css` and `AccountPages.tsx`. The approved surface composition and narrative remain in `docs/design/public-entry-interface.md`; they are not mandatory layouts for every new screen.",
+    "keyCharacteristics": [
+      "Light surfaces separated by fine borders and modest tonal changes.",
+      "Blue actions, green acceptance and amber review/revision feedback.",
+      "Compact, legible operational controls with larger public headings.",
+      "Real text and code in demonstrations; visible human review states."
+    ],
+    "rules": [
+      {
+        "name": "The State Color Rule",
+        "body": "Green means acceptance and amber means review or revision; do not use either as an unrelated marketing accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Example Rule",
+        "body": "Reflow demonstration content on small screens before reducing its text size.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do reuse semantic theme variables, including the homepage teaching section, across light and dark modes.",
+      "Do distinguish approved, pending and revision states with visible text as well as color.",
+      "Do reflow examples, forms and review actions into a readable mobile sequence.",
+      "Do preserve visible keyboard focus and reduced-motion access to the complete content."
+    ],
+    "donts": [
+      "Don't replace the approved scoped type system or carry public display typography into the course editor.",
+      "Don't replace readable text/code demonstrations with raster artwork containing labels.",
+      "Don't add visual proof such as logos, testimonials, adoption numbers or progress that the product cannot substantiate."
+    ]
+  }
+}

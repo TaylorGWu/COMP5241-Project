@@ -72,6 +72,31 @@ async def test_each_section_agent_stops_at_terminal_tool():
         ]
 
 
+@pytest.mark.parametrize('only_search_uploaded_materials', [False, True])
+async def test_normal_generation_sends_the_shared_diagram_contract_to_each_section(only_search_uploaded_materials):
+    # Verify the instructions actually sent to the model, not its output prose.
+    class CapturingModel(FakeSectionModel):
+        def __init__(self):
+            super().__init__()
+            self.diagram_contracts = []
+
+        async def complete(self, *, model, messages, tools=None, temperature=0.0):
+            if tools:
+                diagram = next((t for t in tools if t['function']['name'] == 'make_diagram'), None)
+                if diagram:
+                    self.diagram_contracts.append((messages[0]['content'], diagram['function']['description']))
+            return await super().complete(model=model,messages=messages,tools=tools,temperature=temperature)
+
+    client = CapturingModel()
+    result = await generate_course(_req(), _deps(client=client,only_search_uploaded_materials=only_search_uploaded_materials))
+    assert client.diagram_contracts
+    for system, tool in client.diagram_contracts:
+        for contract in (system, tool):
+            assert 'classDef' in contract and 'subgraph' in contract and 'HTML' in contract
+            assert '共享渲染' in contract
+    assert all(agent.call_names.index('make_diagram') < agent.call_names.index('write_section') for agent in result.agents)
+
+
 async def test_sections_are_ordered_by_the_order_field():
     """并发跑完之后必须按 order 排好,否则课件页码是乱的。"""
     result = await generate_course(_req(), _deps())
@@ -455,3 +480,18 @@ async def test_failed_section_is_visible_not_silent():
     assert failed, "应该有且仅有一节失败"
     assert failed[0].content, "失败原因必须记录在案"
     assert any(c.error for c in failed[0].calls)
+
+
+async def test_unsubmitted_section_is_failed_not_reported_as_written():
+    from app.llm.client import ChatMessage
+
+    class NoSlidesModel(FakeSectionModel):
+        async def complete(self, *, model, messages, tools=None, temperature=0.0):
+            if tools:
+                return ChatMessage(content="Done")
+            return await super().complete(model=model, messages=messages, tools=tools, temperature=temperature)
+
+    result = await generate_course(_req(), _deps(client=NoSlidesModel()))
+    completed = [event for event in result.events if event.kind == "section" and event.status != "started"]
+    assert completed and all(event.status == "failed" for event in completed)
+    assert any("no_tool_calls" in error for error in result.assembly_errors)

@@ -1,0 +1,59 @@
+{
+  "title": "Coursework：教师可控 AI 备课系统实现解析",
+  "courseCode": "COMP5241-MIDTERM",
+  "description": "用当前源码讲清教师可控备课：L1 pipeline、L2 agent、Mermaid 视觉、分阶段 prompt、测试与实现边界。Midterm discussion 草稿与问答资料库。",
+  "durationMin": 50,
+  "common": "这是 Coursework 当前教师端的源码核对讲义，不是通用 AI 产品介绍。资料日期2026-10-26。严格区分当前实现、设计目标和演示样例；不要虚构外部访谈、成员贡献、部署状态或实验数值。课程不是正式提交版幻灯片；讲解者须核对、用自己的话改写，且保留1–2页进度摘要和真实分工。只讲本章两个学习目标，规划两个小节、每节5分钟；每节按既有4页教学弧线生成。所有页面用简体中文，保留英文函数名。脚本写明具体源码位置；每页一个判断，不要通用营销话术。架构/流程图用有具体对象和关系的Mermaid，禁止用文生图绘制文字。",
+  "chapters": [
+    {
+      "title": "01 产品故事与当前系统架构",
+      "objectives": [
+        "解释教师如何保留对AI备课修改与发布的控制权",
+        "沿一次章节生成请求定位前端、API、IR和SQLite各自职责"
+      ],
+      "material": "本章只解释定位和当前架构，pipeline六阶段细节留第2章，编辑循环留第3章。\n产品故事：教师输入主题/受众/时长/目标/讲义，得到可编辑课程材料；AI提出修改，教师审核再应用。保存草稿、应用修改、发布课程是三个不同动作。不是让AI替教师决定，也不是无限制聊天机器人。\n当前技术路径：Next.js/TypeScript界面 -> 同源API代理 -> FastAPI /api/demo/courses/... -> 生成/编辑服务 -> Pydantic CoursePackage IR -> SQLite课程、章节、patch和版本记录。网页SlideCanvas和PPTX导出器消费同一IR，而不是让模型直接输出网页或pptx文件。前端密钥不可见；模型配置/凭据留后端。\n主场景：教师用上传的项目讲义创建“Coursework实现解析”，生成一个章节，手动新增第三页，再向AI要求只改当前页，确认diff后才应用；最后导出。这是本课程将实际使用的产品流程，不虚构时间节省百分比。\n后端边界：真实登录、教师审批、课程归属和CSRF已经接入。未审批教师可完善资料/提交资质，但不能使用教师课程API；学生注册不需要教师资质。UI隐藏按钮不能代替后端检查。\n重要实现边界：当前数据是SQLite，不是已上线的PostgreSQL；/api/demo生成使用请求内SSE和asyncio任务，不是已落地ARQ；须单应用worker，内存锁/会话选择不支持跨进程协调。设计中的PostgreSQL、Redis/ARQ、对象存储是迁移方向，不应放进“已实现”图。\nModelRouter与models.yaml已存在，是设计约束；当前demo._build_model仍按settings/use_real_model装配客户端，不得声称demo已全部按任务走Router。配置文件里出现某模型并不代表该服务已连通。\n图建议：Teacher browser --主题/讲义--> FastAPI --调用--> L1 pipeline --校验--> CoursePackage IR --保存--> SQLite；IR --渲染--> SlideCanvas；IR --纯转换--> PPTX。将未来ARQ另放文字说明，不与当前路径混画。\n检查题：若浏览器隐藏Create course，但后端不检查审批，权限是否安全？答案否；必须在服务端拒绝未审批/跨课程请求。\n源码：frontend/app/courses/[courseId]/chapters/[chapterId]/page.tsx；frontend/lib/api.ts；backend/app/api/routes/demo.py；backend/app/schemas/ir.py；backend/app/services/sqlite_workspace.py；backend/app/llm/router.py。",
+      "topic": "产品故事与当前系统架构：Coursework当前源码与设计取舍",
+      "durationMin": 10
+    },
+    {
+      "title": "02 L1 Pipeline：从讲义到结构化课件",
+      "objectives": [
+        "用输入与输出解释L1六阶段及其实际边界",
+        "说明并发、失败隔离与IR校验怎样保住可用草稿"
+      ],
+      "material": "本章聚焦L1，不把pipeline说成一个大prompt或完全自主agent。\n六阶段来自pipeline.PHASES：摄取材料0–10%、规划大纲10–25%、分节生成25–75%、判定视觉需求75–85%、生成资产85–95%、组装与校验95–100%。百分比是代码定义的阶段进度，不是精确剩余时间预测。\n阶段1 ingest_file先探测格式/文字层，再抽文本或OCR；分块大小800字符、重叠100字符，保留材料和页码。原型make_chunk_retriever用查询字符与chunk字符的重叠排序，取前4块，每块最多300字符。当前不是已经接入BGE-M3/pgvector的向量检索；“阶段1向量化”注释是设计意图，不是当前代码事实。\n阶段2 plan_outline调用PLANNER_PROMPT，根据主题、受众、时长、语言、学习目标生成JSON骨架，解析/Pydantic校验并归一化时长；失败返回明确used_fallback的大纲，不假装模型成功。教师给的目标优先。\n阶段3各小节asyncio.gather并发，Semaphore(3)限流。每小节run_agent最多6轮，工具是search_materials、make_diagram、request_illustration、write_plan_entry、write_section。write_section为终止工具，要求每小节4页：解释、具体案例、理解检查、迁移/小结，含讲稿和目标关联。不是所有阶段都由agent自由决定。\n阶段4实际汇总已有visualPurpose和visuals，统计机制/步骤/比较等用途；完整AssetResolver决策树尚不是当前实现。阶段5当前主要汇总和报告资产；make_diagram前面已记录Mermaid spec与内容hash ID，网页或导出请求时再实际渲染。不要声称阶段5统一调用图像模型生成图片。\n阶段6合并资产，按节把局部s1等ID规范化为课件内唯一ID，重排order和教案slideIds，按大纲归一化教案时长，校验目标和资源等交叉引用。结构校验不等于事实全正确，不取代教师审核。\n失败隔离：坏工具调用的错误回喂agent；单节异常记录失败，其余小节继续；无课件failed，有部分内容但不完整draft，完整生成可ready。ready不等于课程published。无真实材料不能伪造sourceRefs，补充内容origin=ai。\n案例：三节并发，一节上游网络出错；留下其他节草稿并显示待重试，而不是把全部token成果丢弃。并发进度按各节单调分量求和，不能把“最后返回的一节进度”当全局进度。\n提示词原文位置：planner.py:PLANNER_PROMPT；pipeline.py:SECTION_SYSTEM_PROMPT/NO_MATERIAL_SECTION_SYSTEM_PROMPT/section_user_prompt。实际请求还有工具JSON Schema，不能只展示一句“帮我写课件”。\n源码：backend/app/services/pipeline.py；planner.py；ingest.py；tools.py；instructional_quality.py；schemas/ir.py。测试：backend/tests/test_pipeline.py。",
+      "topic": "L1 Pipeline：从讲义到结构化课件：Coursework当前源码与设计取舍",
+      "durationMin": 10
+    },
+    {
+      "title": "03 L2 Agent：先读、提议，再由教师应用",
+      "objectives": [
+        "沿工具调用与消息回传解释agent循环，而非把它等同于聊天",
+        "用新增第三页案例解释稳定ID、目标约束和proposed patch"
+      ],
+      "material": "本章只解释L2编辑，以及与L1的区别。\nPipeline是代码确定顺序的外壳；agent是模型在给定工具内决定下一步的有界循环。L1在分节阶段调用agent，L2围绕一个教师修改请求调用同一个run_agent机制。\nagent.py:run_agent建立system/user历史、发送工具schema，模型返回tool_calls；程序查工具表并验证/执行，保存role=assistant的调用和role=tool的对应结果，再让模型决定下一步。遇到JSON参数坏或未知工具把错误回喂；无工具调用、终止工具、轮数耗尽都有明确停止原因。L1上限6轮，L2 edit_artifact默认8轮。展示工具动作不是公开模型隐藏思维链，也不保证无限自主规划。\nplan_edit是确定性的只读IR分析，不是另一次LLM推理。传slide_id时返回该页的选择行动；plan.summary/target/slide_id保存在前端，执行时使用计划原本的target和stable ID，不能因为切换标签或页面而改靶。材料层target可为slides/questions/paper。\n新增第3页的案例：原本s3可能变成第4页；新插页得到新稳定ID（例如s-new-uuid是教学示意，非真实数据库记录），order=3只代表显示位置。AI不能用“第三页就是s3”推断对象。当前请求将选中ID发往/edit/plan与/edit/stream，执行层EditDeps.propose_patch拒绝对选定ID以外或其他材料的写提议。\n系统prompt原文短摘：『先读再改。修改课件用 read_slide』；『所有改动通过对应的 patch 工具提出。改动不会立刻生效』；『每次改动都要填 reason』。运行时增加“本次只能修改: target”与Selected slide scope。完整模板与builder在prompt-source-appendix.md，示例请求不是历史调用日志。\n真实user组装示例（按源码格式重建、非历史日志）：\n[revision target: slides]\n请把当前页的pipeline解释改成输入、处理、输出三点，保留技术边界。\nSelected slide scope: id=s-new-uuid, current page=3, title=L1流程. Only this stable ID may be patched; page numbers are not IDs.\n安全依靠多层约束：prompt要求先读，测试断言read_slide先于patch_slide；写入对象由服务端stable-ID guard检查。不能把“先读”说成服务端已经具有完整强制读权限状态机，因为propose_patch当前只检查写scope，没有read-history gate。\npatch工具只提议：SQLite patch status=proposed，记录target/payload/reason/diff，不改变CoursePackage。教师Approve经apply路径才更新IR并记录版本；Reject保留原文。每个字段/要点可分别审，不自动发布。\n图建议：教师选页 -> 确定性计划 -> run_agent --read_slide--> IR -> 工具结果回模型 -> patch_slide -> proposed patch -> 教师确认 -> apply -> 更新IR。拒绝分支回到原文。\n演示验证：请求AI提议时先截取原标题，看到diff后确认原文仍在，再应用；只在本讲解课程操作。测试backend/tests/test_edit.py、test_edit_planning.py；tools/ui-verify/export-target.cjs。",
+      "topic": "L2 Agent：先读、提议，再由教师应用：Coursework当前源码与设计取舍",
+      "durationMin": 10
+    },
+    {
+      "title": "04 视觉与 Prompt：图从哪里来",
+      "objectives": [
+        "分清Mermaid示意图、代码动画和插画占位路径",
+        "按阶段定位实际system prompt、动态user prompt及无模型转换"
+      ],
+      "material": "本章必须回答“图片怎么生成、prompt分别是什么”，不要声称每张图来自文生图。\n带文字架构/流程图的实际链：SectionAgent受SECTION_SYSTEM_PROMPT和工具schema约束，调用make_diagram(mermaid)。tools.py保存Asset.spec.code；当前demo注入fake_make_diagram，它仅按内容SHA-256返回as-前8位ID，不渲染像素。真正展示时章级diagram接口调用确定性SVG渲染，导出时render_mermaid_png走本地Mermaid CLI/支持的离线布局回退，再给纯PPTX转换器。SVG和离线PNG回退共用diagram_layout几何。渲染器不调用LLM。\n短Mermaid例子（本讲解用示例，不冒充原运行记录）：\nflowchart LR\nT[教师选择页面] -->|发送稳定ID| A[编辑Agent]\nA -->|读取内容| I[课件IR]\nA -->|提出差异| P[待确认Patch]\nP -->|教师确认| I\n讲解：AI负责提出语义结构/关系，确定性引擎负责文字、节点和连线排版；因此中文文字不靠扩散模型猜字。\n设计优先顺序是Mermaid结构图、图表、图标、插画、最后才文生图；但当前完整AssetResolver、图表/图标provider和真实插画provider并未全部接通。request_illustration的demo实现fake_illustration只返回as-illus-1，不是实际图片，models.yaml有image配置不等于已调用FLUX。这里必须如实说明“插画接口预留/占位”，不能虚构生图prompt或调用成功。\n代码动画不是文生视频：animation元数据只对已有title、bullet:i、visual:id指定reveal/emphasis/sequence及时间；前端确定性播放。无新增教学事实，不是Sora/可灵视频，也不代表TTS/Remotion mp4链已经完成。\nPrompt地图：\nP1 OCR：llm/ocr.py:OCR_PROMPT，要求完整逐字转录、保留层次、模糊写[无法辨认]，不是总结。\nP2 大纲：planner.py:PLANNER_PROMPT + plan_outline的user字段，要求JSON objectives/sections/minutes/objectiveIds/teachingArc，规划失败有fallback。\nP3 分节：pipeline.py:SECTION_SYSTEM_PROMPT，有材料先search_materials、文字图用make_diagram、最后write_section；无材料版本禁止编造引用。section_user_prompt动态填主题、节标题、课时、受众、语言、目标与教学蓝图。\nP4 编辑：edit.py:EDIT_SYSTEM_PROMPT + edit_artifact的target/stable-ID范围 + 教师请求；plan_edit拼接选定行动prompt。prompt只是约束的一层，schema、guard与教师apply不可省略。\nP5 题目：questions.py:QUESTION_SYSTEM_PROMPT + build_user_message，JSON题库、目标ID、MCQ答案/解析/难度/语言，真实来源白名单。\nP6 术语/替代文本：glossary.py:GLOSSARY_SYSTEM_PROMPT、ALT_TEXT_SYSTEM_PROMPT及各自builder，短白话定义/图的关系描述。\n无需prompt的部分：字符重叠检索、JSON/Pydantic/引用校验、IR组装、Mermaid像素渲染、PPTX导出、确定性组卷（paper.py）和plan_edit规则本身。不要为了凑“多agent”给这些编造模型。\n完整源码模板、动态builder和schema原文已单独整理prompt-source-appendix.md（带源码行号和文件hash）；它不是每次API最终展开后的payload，也不包含key或隐藏推理。\n源码：backend/app/services/tools.py、demo_pipeline.py、api/routes/demo.py、services/svg_diagrams.py、diagram_layout.py、mermaid_assets.py、services/animation.py、frontend/components/SlideCanvas.tsx。",
+      "topic": "视觉与 Prompt：图从哪里来：Coursework当前源码与设计取舍",
+      "durationMin": 10
+    },
+    {
+      "title": "05 测试、设计取舍与 Discussion 路线",
+      "objectives": [
+        "用真实缺陷及回归测试说明验证比堆功能更重要",
+        "区分内部测试、用户证据与尚未完成的基础设施"
+      ],
+      "material": "本章用当前仓库的可核对案例反思，不编造访谈、成绩概率、生产用户或成员贡献。\n案例一稳定ID错误：教师在第三页前新增页，display order和原ID不再一致。修复让plan与execution携带stable slide_id，并在后端拒绝越scope写提议；前端显示新请求目标，既有计划保留原目标。回归tools/ui-verify/export-target.cjs验证插入UUID、切至其他页/材料再执行仍保持原target；backend/tests/test_edit_planning.py和test_edit.py验证服务端。\n案例二导出看似没反应：下拉菜单曾在overflow-x-auto标签滚动容器内被裁切。把Export移出滚动区域，测试不只断言菜单存在，还用elementFromPoint验证命中并检查download事件。下载事件不等于所有格式已在PowerPoint/Word完整人工验收。\n案例三窄屏裁切：固定aspect-video画布配较大字体在390/320宽度隐藏后半段要点。真实三要点fixture先失败；编辑器手机阅读模式改自适应高度，IR和固定PPTX导出不变。不要用一句“手机无横向溢出”代替内容完整性验证。\n测试策略：agent断言read_slide->patch_slide序列、proposed前后package不变、scope越界、apply/reject；pipeline断言并发进度、局部失败与完整性；导出检查固定IR输入与离线图资源；浏览器检查筛选、前后插页、待确认和错误态。合成fixture内部回归，不可说成真人可用性测试。\n设计取舍：IR使预览与导出同源，但固定版式牺牲任意排版；patch增加一次确认操作，换来可解释与控制；分节并发上限3平衡速度/上游限流；有界agent防止不受控循环；阶段进度不伪装精确ETA。\n明确限制：当前SQLite和单worker原型，ARQ/Redis/PostgreSQL、语义向量检索、完整AssetResolver、真实插画provider、异厂商答案验证与完整视频导出不能因为设计文档/配置出现就宣称已落地。结构/覆盖率检查不是事实正确或教学有效性的保证。\nAI Fluency映射：Delegation把草稿交AI；Description把受众/目标/语言/schema和工具边界写清；Discernment检查技术前提和来源；Diligence用回归与diff/reason留证并由人负责。\n5–10分钟discussion路线：30秒问题与定位；1分钟架构当前实线；1分钟L1六阶段；2分钟第三页AI只提议、教师apply演示；1分钟Mermaid/Prompt地图；1分钟缺陷、测试与未完成项。其余页面是问答参考，不按40页全部讲。另准备1–2页进度摘要，成员贡献须由真实commits/issues和组员确认；本资料不擅自分配功劳。\n课程大纲强调不要直接提交未经编辑的AI幻灯片、不要读手机稿，必须能解释实现；本课程是可编辑讨论草稿。外部访谈/组外可用性测试仍需真实证据，测试通过不替代。\n源码/证据：docs/project_overivew.pdf；docs/PROJECT_PLAN.md；docs/REQUIREMENTS_DESK_RESEARCH.md；docs/design/public-ui-refinement-verification.md；backend/tests/test_pipeline.py、test_edit.py、test_edit_planning.py、test_diagram_layout.py；tools/ui-verify/export-target.cjs、slide-actions.cjs、course-library-layout.cjs。",
+      "topic": "测试、设计取舍与 Discussion 路线：Coursework当前源码与设计取舍",
+      "durationMin": 10
+    }
+  ]
+}

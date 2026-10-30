@@ -13,6 +13,7 @@ import { useRef } from "react";
 import { Badge, Button, Dot, SectionLabel, cx, inputCls } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import type { EditAttachment, EditPlan, EditProgressEvent, Patch } from "@/lib/api";
+import { workspaceCopy } from "@/lib/workspace-copy";
 
 /**
  * 把 L2 的进度帧折叠成「agent 做了哪几步」。
@@ -347,7 +348,8 @@ export function ReviewMargin({
   onToggleAction: (id: string) => void;
   onRunPlan: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const workspace = workspaceCopy[locale];
   const imagePickerRef = useRef<HTMLInputElement>(null);
   const proposed = patches.filter((p) => p.status === "proposed");
   const settled = patches.filter((p) => p.status !== "proposed");
@@ -362,24 +364,6 @@ export function ReviewMargin({
 
   return (
     <div className="studio-review-stack space-y-5" data-review-dock="1">
-      {proposed.length ? (
-        <section>
-          <ul className="mt-2.5 space-y-2.5">
-            {proposed.map((p, index) => (
-              <PatchRow
-                key={`${p.id}-${index}`}
-                patch={p}
-                busy={busy}
-                active={focusedPatchId === p.id}
-                onApply={() => onApply(p.id)}
-                onReject={() => onReject(p.id)}
-                onFocus={() => onFocusTarget(p)}
-              />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       <section className="studio-revision-composer" data-revision-composer="1">
         <div className="mb-3">
           <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-ink">{t.margin.askChange}</h2>
@@ -435,6 +419,19 @@ export function ReviewMargin({
           </details>
         ) : null}
       </section>
+
+      {proposed.length ? (
+        <section className="studio-proposals" data-proposed-changes>
+          <h2>{workspace.proposals} <span>{proposed.length}</span></h2>
+          <ul className="mt-2.5 space-y-2.5">
+            {proposed.map((p, index) => (
+              <PatchRow key={`${p.id}-${index}`} patch={p} busy={busy}
+              active={focusedPatchId === p.id} onApply={() => onApply(p.id)}
+              onReject={() => onReject(p.id)} onFocus={() => onFocusTarget(p)} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {settled.length ? (
         <section data-review-records="compact">

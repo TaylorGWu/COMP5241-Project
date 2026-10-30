@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { LessonPlan } from "@/components/LessonPlan";
+import { SlideActions } from "@/components/SlideActions";
 import { ReviewMargin } from "@/components/ReviewMargin";
 import { ReviewConnector, patchReviewField } from "@/components/ReviewConnector";
 import { ExportMenu, TeacherTools } from "@/components/TeacherTools";
@@ -52,6 +53,7 @@ import {
 } from "@/lib/api";
 import { LOCALES, LOCALE_LABELS, normalizeLocale, type Locale } from "@/lib/i18n-config";
 import { useI18n } from "@/lib/i18n";
+import { workspaceCopy } from "@/lib/workspace-copy";
 import { PRODUCT_NAME } from "@/lib/brand";
 
 /** 后端六阶段。用区间判断当前在哪一段,而不是解析字符串。 */
@@ -567,7 +569,7 @@ function Setup({
 // ── 主页面 ────────────────────────────────────────────────────
 
 export default function ChapterWorkspace() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const { courseId, chapterId } = useParams<{ courseId: string; chapterId: string }>();
   const routeKey = `${courseId}/${chapterId}`;
@@ -598,7 +600,7 @@ export default function ChapterWorkspace() {
   const [chapter, setChapter] = useState<TeacherChapter | null>(null);
   const [patches, setPatches] = useState<Patch[]>([]);
 
-  const [editMessage, setEditMessage] = useState("Slide 2 is too dense for a non-CS audience.");
+  const [editMessage, setEditMessage] = useState("");
   const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
   const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
   /**
@@ -831,7 +833,7 @@ export default function ChapterWorkspace() {
       setReply("");
       setCallNames([]);
       setIntegrity(null);
-      const plan = await api.editChapterPlan(courseId, chapterId, request, revisionTarget, true);
+      const plan = await api.editChapterPlan(courseId, chapterId, request, revisionTarget, true, revisionTarget === "slides" ? activeSlide?.id : null);
       setEditPlan(plan);
       setSelectedActionIds(plan.actions.filter((action) => action.selected).map((action) => action.id));
     });
@@ -853,7 +855,7 @@ export default function ChapterWorkspace() {
         // ★ 流式编辑:能看见 agent 先读了哪一页、为什么这么改。
         //   工具调用序列本身没变(后端还是同一个 edit_artifact),
         //   变的只是「什么时候看得到」。
-        await api.editChapterStream(courseId, chapterId, `Teacher request: ${editPlan.request}\n\nRun only these approved actions:\n${actions.map((action, index) => `${index + 1}. ${action.prompt}`).join("\n\n")}`, revisionTarget, true, editAttachments, {
+        await api.editChapterStream(courseId, chapterId, `Teacher request: ${editPlan.request}\n\nRun only these approved actions:\n${actions.map((action, index) => `${index + 1}. ${action.prompt}`).join("\n\n")}`, editPlan.target, true, editAttachments, {
           onProgress: (e) => setEditFrames((old) => [...old, e]),
           onResult: (r) => {
             setReply(r.reply);
@@ -866,7 +868,7 @@ export default function ChapterWorkspace() {
             setEditPlan(null);
             setSelectedActionIds([]);
           },
-        });
+        }, editPlan.slide_id);
       } finally {
         setEditRunning(false);
       }
@@ -954,6 +956,15 @@ export default function ChapterWorkspace() {
     return index >= 0 ? index : 0;
   }, [activeId, slides]);
   const activeSlide = slides[activeSlideIndex];
+
+  const changeSlides = (action: "before" | "after" | "delete") => run(async () => {
+    const title = contentLang === "en" ? "Untitled slide" : contentLang === "zh-HK" ? "未命名幻燈片" : "未命名幻灯片";
+    const result = await api.changeChapterSlides(courseId, chapterId, action, activeSlide?.id ?? null, title);
+    setPkg(result.package);
+    setPatches((old) => [result.patch, ...old]);
+    setActiveId(result.selected_slide_id ? `slide-${result.selected_slide_id}` : null);
+    setEditing(action !== "delete" && result.selected_slide_id ? `slide:${result.selected_slide_id}` : null);
+  });
 
   /**
    * This intentionally asks for a proposal, not a direct mutation. The agent
@@ -1101,7 +1112,7 @@ export default function ChapterWorkspace() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="chapter-workspace-page min-h-screen">
       <AppHeader
         title={pkg ? pkg.project.meta.title : undefined}
         busy={busy}
@@ -1176,8 +1187,8 @@ export default function ChapterWorkspace() {
                               <SlideThumbnail
                                 slide={s}
                                 diagramUrl={(() => {
-                                  const diagramAssetId = s.visuals.find((visual) => visual.kind === "diagram")?.assetId;
-                                  return diagramAssetId ? assetUrls.diagram(courseId, chapterId, diagramAssetId) : undefined;
+                                  const visual = s.visuals.find((visual) => visual.kind === "diagram" || visual.kind === "illustration");
+                                  return visual?.assetId ? assetUrls.visual(courseId, chapterId, visual.assetId, visual.kind) : undefined;
                                 })()}
                               />
                               <span className="min-w-0 flex-1 text-[12px] leading-[1.35]">{s.title}</span>
@@ -1301,7 +1312,7 @@ export default function ChapterWorkspace() {
             {/* ── 中:材料 ─────────────────────────────── */}
             <main className="studio-material min-w-0">
               <nav aria-label="Chapter workspace" className="studio-material-tabs" data-workspace-tabs="1" data-studio-material-tabs="1">
-                <div className="flex min-w-max gap-1 p-1">
+                <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto p-1">
                   {([
                     { value: "plan", label: t.rail.plan(timeline.length) },
                     { value: "slides", label: t.rail.slides(slides.length) },
@@ -1330,9 +1341,18 @@ export default function ChapterWorkspace() {
                       {tab.label}
                     </button>
                   ))}
-                  <ExportMenu pkg={pkg} courseId={courseId} chapterId={chapterId} label={t.tools.export} />
+                </div>
+                <div className="flex max-w-full flex-wrap items-center gap-1">
+                <ExportMenu pkg={pkg} courseId={courseId} chapterId={chapterId} label={t.tools.export} />
                 </div>
               </nav>
+
+              {view === "slides" ? <div className="studio-slide-toolbar" data-slide-toolbar>
+                <span>{workspaceCopy[locale].count(activeSlide ? activeSlideIndex + 1 : 0, slides.length)}</span>
+                <SlideActions busy={busy} editing={editing !== null} slideId={activeSlide?.id} title={activeSlide?.title}
+                  onInsert={changeSlides} onEdit={() => activeSlide && setEditing(`slide:${activeSlide.id}`)}
+                  onDelete={() => changeSlides("delete")} />
+              </div> : null}
 
               {view === "slides" ? (
                 activeSlide ? (
@@ -1350,12 +1370,12 @@ export default function ChapterWorkspace() {
                         ◀
                       </button>
                       {(() => {
-                      const diagramAssetId = activeSlide.visuals.find((visual) => visual.kind === "diagram")?.assetId;
+                      const activeVisual = activeSlide.visuals.find((visual) => visual.kind === "diagram" || visual.kind === "illustration");
                       return (
                         <SlideCanvas
                           key={activeSlide.id}
                           slide={activeSlide}
-                              diagramUrl={diagramAssetId ? assetUrls.diagram(courseId, chapterId, diagramAssetId) : undefined}
+                              diagramUrl={activeVisual?.assetId ? assetUrls.visual(courseId, chapterId, activeVisual.assetId, activeVisual.kind) : undefined}
                               index={activeSlideIndex}
                               active={focusedTarget === activeSlide.id}
                               focusedField={focusedSlidePatch?.target_id === activeSlide.id ? patchReviewField(focusedSlidePatch) : null}
@@ -1363,6 +1383,7 @@ export default function ChapterWorkspace() {
                           editing={editing === `slide:${activeSlide.id}`}
                           busy={busy}
                           onEdit={() => setEditing(`slide:${activeSlide.id}`)}
+                          hideEditAction
                               onRequestAnimation={requestCurrentSlideAnimation}
                               onCancelEdit={() => setEditing(null)}
                               onSave={(body) => onManualSave("slide", activeSlide.id, body)}
@@ -1386,9 +1407,11 @@ export default function ChapterWorkspace() {
                     </p>
                   </section>
                 ) : (
-                  <p className="rounded-md border border-dashed border-line bg-surface px-5 py-10 text-center text-[15px] text-muted">
-                    {t.slide.noSlides}
-                  </p>
+                  <div className="rounded-md border border-dashed border-line bg-surface px-5 py-10 text-center text-[15px] text-muted" data-retry-empty-slides>
+                    <p>{t.slide.noSlides}</p>
+                    <p className="mx-auto mt-2 max-w-prose text-sm">{t.slide.retrySlidesHint}</p>
+                    <Button className="mt-4" disabled={busy} onClick={() => setPkg(null)}>{t.slide.retrySlides}</Button>
+                  </div>
                 )
               ) : view === "plan" ? (
                 <LessonPlan

@@ -8,6 +8,27 @@ const coursesPagePath = new URL("../app/courses/page.tsx", import.meta.url);
 const createCoursePagePath = new URL("../app/courses/new/page.tsx", import.meta.url);
 const chapterWorkspacePath = new URL("../app/courses/[courseId]/chapters/[chapterId]/page.tsx", import.meta.url);
 
+test("course library starts with filters without a redundant title banner", async () => {
+  const source = await readFile(coursesPagePath, "utf8");
+  assert.doesNotMatch(source, /className="course-library-header"/);
+  assert.doesNotMatch(source, /Manage your teaching materials and continue where you left off/);
+  assert.match(source, /<h1 className="sr-only">Your courses<\/h1>/);
+  assert.match(source, /className="course-catalogue-toolbar"/);
+});
+
+test("chapter title is the row link, with management outside the link", async () => {
+  const source = await readFile(new URL("../app/courses/[courseId]/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /<h3><Link href=\{chapterHref\(courseId, chapter.id\)\} className="chapter-entry__link">/);
+  assert.doesNotMatch(source, /Open chapter|Build chapter/);
+  assert.match(source, /<details className="chapter-actions">/);
+});
+
+test("empty slides offer a recovery path without deleting the saved plan", async () => {
+  const source = await readFile(chapterWorkspacePath, "utf8");
+  assert.match(source, /data-retry-empty-slides/);
+  assert.match(source, /t.slide.retrySlides/);
+});
+
 test("a chapter editor URL belongs to its course", () => {
   assert.equal(chapterHref("course-7", "chapter-2"), "/courses/course-7/chapters/chapter-2");
 });
@@ -64,11 +85,12 @@ test("teacher navigation gives both destinations the same visual treatment", asy
   assert.match(nav, /aria-current=/);
 });
 
-test("course creation uses a compact heading without a decorative back arrow", async () => {
+test("course creation uses a compact heading without a redundant back link", async () => {
   const source = await readFile(createCoursePagePath, "utf8");
 
   assert.match(source, /course-create-page/);
-  assert.match(source, />Your courses<\/Link>/);
+  assert.doesNotMatch(source, />Your courses<\/Link>/);
+  assert.match(source, /<TeacherNavigation/);
   assert.doesNotMatch(source, /← Your courses/);
 });
 
@@ -86,4 +108,9 @@ test("publishing stays in course settings rather than the course header", async 
   assert.doesNotMatch(source, /className="course-publish"/);
   assert.match(source, /Publication check/);
   assert.match(source, /Publish reviewed course/);
+});
+test("creation screen omits the redundant title banner but keeps an accessible heading", async () => {
+  const source = await readFile(new URL("../app/courses/new/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /<h1 className="sr-only">Create a course<\/h1>/);
+  assert.doesNotMatch(source, /Define the course now\.|<header className="course-create-header/);
 });

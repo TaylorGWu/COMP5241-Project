@@ -11,6 +11,11 @@ export function chapterDiagramPath(courseId: string, chapterId: string, assetId:
   return `${chapterApiPath(courseId, chapterId)}/assets/${encodeURIComponent(assetId)}.svg`;
 }
 
+export function chapterVisualPath(courseId: string, chapterId: string, assetId: string, kind: string): string {
+  const extension = kind === "illustration" ? "png" : "svg";
+  return `${chapterApiPath(courseId, chapterId)}/assets/${encodeURIComponent(assetId)}.${extension}`;
+}
+
 export function chapterDeckPath(courseId: string, chapterId: string): string {
   return `${chapterApiPath(courseId, chapterId)}/export/deck.pptx`;
 }

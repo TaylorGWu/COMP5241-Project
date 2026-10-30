@@ -69,6 +69,8 @@ from app.demo_pipeline import (
 )
 from app.llm.client import ChatClient, build_deepseek_client
 from app.llm.ocr import make_ocr
+from app.llm.router import get_router
+from app.services.illustrations import IllustrationError, IllustrationGenerator, read_illustration
 from app.services.agent import AgentStep
 from app.services.edit import EditResult, edit_artifact
 from app.services.edit_planning import plan_edit
@@ -104,7 +106,7 @@ from app.services.glossary import (
 )
 from app.services.questions import QuestionRequest, generate_questions
 from app.exporters import exam_paper_to_docx, lesson_plan_to_docx, slide_deck_to_pptx
-from app.schemas.ir import CoursePackage
+from app.schemas.ir import CoursePackage, Slide
 from app.services.auth import SESSION_COOKIE, _store_at, approved_instructor, digest
 
 
@@ -137,15 +139,21 @@ class TeacherRoute(APIRoute):
                 # Only an explicit activation changes this session's deprecated
                 # unscoped adapter. Scoped operations never redirect another tab.
                 activation = request.url.path.endswith("/activate")
+                # Scoped asset handlers only read a committed package snapshot and
+                # saved files. Thumbnail requests must not contend for an edit
+                # lock; ownership checks above and reference checks stay intact.
+                asset_snapshot = request.method == "GET" and bool(chapter_id) and self.endpoint.__name__ in (
+                    "get_chapter_diagram", "get_chapter_diagram_svg",
+                )
                 fresh_legacy_state = self.endpoint.__name__ in ("generate", "generate_stream", "reset")
                 if not course_id or activation:
                     lock_candidates.append(_editing_lock("session", session_id))
                 if not course_id and legacy.active_course_id and not fresh_legacy_state:
                     course_id, chapter_id = legacy.active_course_id, legacy.active_chapter_id
                     _chapter_or_404(course_id, chapter_id)
-                if chapter_id:
+                if chapter_id and not asset_snapshot:
                     lock_candidates.append(_editing_lock("chapter", course_id, chapter_id))
-                elif course_id:
+                elif course_id and not chapter_id:
                     lock_candidates.append(_editing_lock("course", course_id))
                 for lock in lock_candidates:
                     if lock.locked():
@@ -403,6 +411,7 @@ class EditBody(BaseModel):
     message: str = Field(min_length=1, max_length=6_000)
     use_real_model: bool = False
     target: Literal["slides", "questions", "paper"] = "slides"
+    slide_id: str | None = Field(default=None, min_length=1, max_length=200)
     images: list["EditImage"] = Field(default_factory=list, max_length=4)
 
 
@@ -453,6 +462,12 @@ class ManualEditBody(BaseModel):
     target_id: str
     payload: dict[str, Any]
     note: str = "教师手动修改"
+
+
+class SlideStructureBody(BaseModel):
+    action: Literal["before", "after", "delete"]
+    anchor_id: str | None = None
+    title: str = Field(default="Untitled slide", min_length=1, max_length=200)
 
 
 class CourseCreateBody(BaseModel):
@@ -518,7 +533,19 @@ def _course_json(course: Any) -> dict[str, Any]:
 
 
 def _chapter_json(chapter: Any) -> dict[str, Any]:
-    return _camel_json(dataclasses.asdict(chapter))
+    payload = dataclasses.asdict(chapter)
+    # Canonicalize old quiz lists on read without silently rewriting saved drafts.
+    package = payload.get("package")
+    if isinstance(package, dict):
+        deck = package.get("slideDeck", package.get("slide_deck"))
+        if isinstance(deck, dict) and isinstance(deck.get("slides"), list):
+            for index, slide in enumerate(deck["slides"]):
+                if isinstance(slide, dict) and slide.get("layout") == "quiz":
+                    try:
+                        deck["slides"][index] = Slide.model_validate(slide).model_dump(by_alias=True)
+                    except ValueError:
+                        pass  # Preserve the existing recovery path for invalid IR.
+    return _camel_json(payload)
 
 
 def _course_or_404(course_id: str) -> Any:
@@ -898,12 +925,17 @@ async def _run_chapter_generation(
     except (Exception, asyncio.CancelledError):
         COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
         raise
+    slides = result.package.slide_deck.slides if result.package.slide_deck else []
+    incomplete = bool(result.assembly_errors) or any(
+        agent.stopped_by != "terminal" for agent in result.agents
+    )
+    status = "failed" if not slides else "draft" if incomplete else "ready"
     chapter = COURSE_WORKSPACE.repository.update_chapter(
         course_id,
         chapter_id,
         package=result.package,
         materials=result.materials,
-        status="ready",
+        status=status,
     )
     STATE.active_course_id = course_id
     STATE.active_chapter_id = chapter_id
@@ -918,7 +950,7 @@ async def _run_chapter_generation(
         reason="AI generated chapter draft",
         changed_fields=["package", "materials", "status"],
         before=before,
-        after={"package": _package_json(result.package), "status": "ready"},
+        after={"package": _package_json(result.package), "status": status},
     )
     return chapter, result, mode
 
@@ -966,6 +998,16 @@ def _diagram_code(package: CoursePackage, asset_id: str) -> str:
 @router.get("/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.png")
 async def get_chapter_diagram(course_id: str, chapter_id: str, asset_id: str) -> Response:
     package = _chapter_package(course_id, chapter_id)
+    illustration = next((asset for asset in package.assets if asset.id == asset_id and asset.kind == "illustration"), None)
+    if illustration is not None:
+        # Never serve a file by ID alone: the authorized chapter must reference it.
+        if illustration.status != "ready" or not any(v.asset_id == asset_id for s in package.slide_deck.slides for v in s.visuals):
+            raise HTTPException(status_code=404, detail="本章节没有这张插画")
+        try:
+            data = await asyncio.to_thread(read_illustration, settings.upload_dir, asset_id)
+        except IllustrationError:
+            raise HTTPException(status_code=404, detail="插画不可用，请重新生成后重试") from None
+        return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-store"})
     try:
         data = await asyncio.to_thread(render_mermaid_png, _diagram_code(package, asset_id))
     except MermaidRenderError as error:
@@ -1150,7 +1192,7 @@ async def _run_generation(
             search_materials=no_material_search if body.use_real_model else fake_search,
             only_search_uploaded_materials=body.use_real_model,
             make_diagram=fake_make_diagram,
-            request_illustration=fake_illustration,
+            request_illustration=IllustrationGenerator(settings, get_router()) if body.use_real_model else fake_illustration,
             section_concurrency=3,
             ingest_deps=IngestDeps(ocr_image=ocr),
         ),
@@ -1297,6 +1339,16 @@ def _edit_payload(result: EditResult, mode: str) -> dict[str, Any]:
     }
 
 
+def _validate_edit_selection(body: EditBody) -> None:
+    if body.slide_id is None:
+        return
+    if body.target != "slides":
+        raise HTTPException(status_code=400, detail="Slide scope requires the slides material")
+    slides = STATE.package.slide_deck.slides if STATE.package and STATE.package.slide_deck else []
+    if not any(slide.id == body.slide_id for slide in slides):
+        raise HTTPException(status_code=404, detail="Selected slide no longer exists. Select a slide and retry.")
+
+
 async def _run_edit(
     body: EditBody,
     on_step: Callable[[AgentStep], None] | None = None,
@@ -1304,7 +1356,7 @@ async def _run_edit(
     """跑一次 L2。同样只有一份实现,两条传输共用。"""
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
-
+    _validate_edit_selection(body)
     client, model, _, mode = _build_model(body.use_real_model, "edit")
     result = await edit_artifact(
         client=client,
@@ -1313,6 +1365,7 @@ async def _run_edit(
         message=body.message,
         images=[image.data_url for image in body.images],
         target=body.target,
+        slide_id=body.slide_id,
         store=STATE.store,
         on_step=on_step,
     )
@@ -1331,7 +1384,12 @@ async def edit_plan(body: EditBody) -> dict[str, Any]:
     """Read-only diagnostic phase before a teacher authorizes an Agent action."""
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
-    return plan_edit(STATE.package, body.message, body.target).model_dump(by_alias=True)
+    try:
+        return plan_edit(STATE.package, body.message, body.target, body.slide_id).model_dump(by_alias=True)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Selected slide no longer exists. Select a slide and retry.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/edit/stream")
@@ -1344,6 +1402,7 @@ async def edit_stream(body: EditBody, request: Request) -> StreamingResponse:
     # 而不是开了一个流再在里面报错 —— 前端处理 409 比处理流内 error 简单。
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
+    _validate_edit_selection(body)
 
     async def job(emit: Callable[[str, Any], None]) -> dict[str, Any]:
         def on_step(step: AgentStep) -> None:
@@ -1664,6 +1723,52 @@ async def manually_edit_chapter(
     return await manual(body)
 
 
+@router.post("/courses/{course_id}/chapters/{chapter_id}/slides")
+async def change_chapter_slides(course_id: str, chapter_id: str, body: SlideStructureBody) -> dict[str, Any]:
+    """Teacher-confirmed structure changes use the same applied patch audit as edits."""
+    from uuid import uuid4
+
+    chapter = _ensure_active_chapter(course_id, chapter_id)
+    package = STATE.package
+    if package is None or package.slide_deck is None or STATE.store is None:
+        raise HTTPException(status_code=409, detail="Generate the chapter before adding slides")
+    candidate = package.model_copy(deep=True)
+    slides = candidate.slide_deck.slides
+    index = next((i for i, slide in enumerate(slides) if slide.id == body.anchor_id), None)
+    if index is None and (slides or body.action == "delete" or body.anchor_id is not None):
+        raise HTTPException(status_code=404, detail="Slide not found; refresh and try again")
+    if body.action == "delete":
+        slides.pop(index)
+        if candidate.lesson_plan:
+            for entry in candidate.lesson_plan.timeline:
+                entry.slide_ids = [sid for sid in entry.slide_ids if sid != body.anchor_id]
+        selected = slides[min(index, len(slides) - 1)].id if slides else None
+    else:
+        from app.schemas.ir import Slide
+        position = 0 if index is None else index + (body.action == "after")
+        selected = f"s-{uuid4().hex}"
+        slides.insert(position, Slide(id=selected, order=position + 1, layout="bullets", title=body.title, origin="teacher"))
+        if candidate.lesson_plan and body.anchor_id:
+            for entry in candidate.lesson_plan.timeline:
+                if body.anchor_id in entry.slide_ids:
+                    offset = entry.slide_ids.index(body.anchor_id) + (body.action == "after")
+                    entry.slide_ids.insert(offset, selected)
+                    break
+    for order, slide in enumerate(slides, 1):
+        slide.order = order
+    before = _package_json(package)
+    patch, _ = manual_edit(package, STATE.store, kind="deck", target_id=package.slide_deck.artifact_id,
+        payload={"slideDeck": candidate.slide_deck.model_dump(by_alias=True),
+                 "lessonPlan": candidate.lesson_plan.model_dump(by_alias=True) if candidate.lesson_plan else None},
+        note=f"Teacher {body.action} slide {body.anchor_id or '(empty deck)'}")
+    _save_active_chapter_package()
+    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="draft")
+    COURSE_WORKSPACE.record_version(course_id, chapter_id, kind="manual-edit", reason=patch.reason,
+        changed_fields=["slideDeck", "lessonPlan"], before={"package": before, "status": chapter.status},
+        after={"package": _package_json(package), "status": "draft"})
+    return {"patch": _patch_json(STATE.store.get(patch.id)), "package": _package_json(package), "selected_slide_id": selected}
+
+
 @router.post("/courses/{course_id}/chapters/{chapter_id}/questions")
 async def make_chapter_questions(
     course_id: str,
@@ -1740,10 +1845,17 @@ async def _deck_pptx_with_diagrams(package: CoursePackage, *, include_questions:
         for slide in package.slide_deck.slides
         for visual in slide.visuals
     }
-    diagrams = [asset for asset in package.assets if asset.id in used_ids and asset.kind == "diagram"]
+    diagrams = [asset for asset in package.assets if asset.id in used_ids and asset.kind in {"diagram", "illustration"}]
     limit = asyncio.Semaphore(3)
 
     async def one(asset: Any) -> tuple[str, bytes | None]:
+        if asset.kind == "illustration":
+            if asset.status != "ready":
+                return asset.id, None
+            try:
+                return asset.id, await asyncio.to_thread(read_illustration, settings.upload_dir, asset.id)
+            except IllustrationError:
+                return asset.id, None
         code = asset.spec.get("code")
         if not isinstance(code, str):
             return asset.id, None

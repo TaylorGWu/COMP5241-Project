@@ -9,6 +9,8 @@ __pycache__/
 env.yaml
 # Per-developer teacher workspace; created automatically by the demo API.
 backend/.local/
+# Private generated illustrations; reference IDs live in IR, bytes stay local.
+backend/var/uploads/illustrations/
 
 # Node
 node_modules/

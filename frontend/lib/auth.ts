@@ -1,8 +1,9 @@
 /** Cookie credentials stay in the browser; this module never stores a bearer token. */
-export const AUTH_API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+import { API_BASE as AUTH_API_BASE } from "./api-base.ts";
+export { AUTH_API_BASE };
 export type AccountRole = "student" | "instructor" | "admin";
 export type AccountStatus = "active" | "pending" | "approved" | "rejected";
-export type Account = { id: string; name: string; email: string; role: AccountRole; status: AccountStatus; reviewReason: string | null };
+export type Account = { id: string; name: string; email: string; role: AccountRole; status: AccountStatus; reviewReason: string | null; qualificationSubmitted?: boolean };
 export type SessionResponse = { user: Account; csrfToken: string };
 export type Application = Account & { qualificationFilename: string; submittedAt: number };
 
@@ -38,16 +39,29 @@ export function setCsrfToken(token: string | null) { csrfToken = token; }
 export async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
-  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+  const unsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const secureHeaders = async () => {
     if (!csrfToken) {
-      const response = await fetch(`${AUTH_API_BASE}/api/auth/csrf`, { credentials: "include", cache: "no-store" });
+      const response = await fetch(`${AUTH_API_BASE}/api/auth/csrf`, { credentials: "include", cache: "no-store", signal: init.signal });
       if (!response.ok) throw new AuthError("Unable to establish a secure session. Please try again.", response.status);
       csrfToken = (await response.json()).csrfToken;
     }
     if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+  };
+  if (unsafe) await secureHeaders();
+  const request = () => fetch(`${AUTH_API_BASE}${path}`, { ...init, headers, credentials: "include", cache: "no-store" });
+  let response = await request();
+  // These endpoints validate CSRF before writing. Only their explicit expired-form
+  // rejection is safe to retry; private mutations must never be replayed.
+  if (method === "POST" && ["/api/auth/login", "/api/auth/register"].includes(path) && response.status === 403 && !init.signal?.aborted) {
+    const payload = await response.clone().json().catch(() => ({}));
+    if (payload.detail === "The form expired. Reload and try again.") {
+      csrfToken = null;
+      await secureHeaders();
+      response = await request();
+    }
   }
-  const response = await fetch(`${AUTH_API_BASE}${path}`, { ...init, headers, credentials: "include", cache: "no-store" });
-  if (response.status === 401 && !path.startsWith("/api/auth/")) {
+  if (response.status === 401 && !init.signal?.aborted && (["/api/auth/me", "/api/auth/logout", "/api/auth/profile", "/api/auth/avatar", "/api/auth/qualification"].includes(path) || !path.startsWith("/api/auth/"))) {
     csrfToken = null;
     if (typeof window !== "undefined") window.dispatchEvent(new Event("coursework-session-expired"));
   }
@@ -62,7 +76,7 @@ export async function authJson<T>(path: string, init: RequestInit = {}): Promise
     const message = typeof detail === "string" ? detail : Array.isArray(detail) ? detail.map((entry: { msg?: string }) => entry.msg).filter(Boolean).join(" ") : `Request failed (${response.status})`;
     throw new AuthError(message, response.status);
   }
-  if (payload.csrfToken) setCsrfToken(payload.csrfToken);
+  if (payload.csrfToken && !init.signal?.aborted) setCsrfToken(payload.csrfToken);
   return payload as T;
 }
 

@@ -28,10 +28,10 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 from collections.abc import Iterator
 
-from app.schemas.ir import CoursePackage, ExamPaper, Question, Slide
+from app.schemas.ir import CoursePackage, ExamPaper, Question, Slide, SlideDeck, LessonPlan
 
 PatchStatus = Literal["proposed", "applied", "rejected"]
-PatchKind = Literal["slide", "plan", "regenerate_slide", "timeline", "question", "paper"]
+PatchKind = Literal["slide", "plan", "regenerate_slide", "timeline", "question", "paper", "deck"]
 #: 谁提的这个改动。**审计和「这页是人改的还是 AI 改的」都靠它。**
 PatchAuthor = Literal["ai", "teacher"]
 
@@ -398,6 +398,11 @@ def current_values(package: CoursePackage, kind: PatchKind, target_id: str) -> d
     """
     if kind in ("slide", "regenerate_slide"):
         return find_slide(package, target_id).model_dump(by_alias=True)
+    if kind == "deck":
+        return {
+            "slideDeck": package.slide_deck.model_dump(by_alias=True) if package.slide_deck else None,
+            "lessonPlan": package.lesson_plan.model_dump(by_alias=True) if package.lesson_plan else None,
+        }
     if kind == "timeline":
         return find_timeline_entry(package, target_id).model_dump(by_alias=True)
     if kind == "question":
@@ -520,6 +525,19 @@ def apply_patch(package: CoursePackage, store: PatchStore, patch_id: str) -> Cou
                     bullets[bullet_index] = after
             merged["bullets"] = bullets
         deck.slides[index] = Slide.model_validate(merged)   # ← 重新校验
+
+    elif patch.kind == "deck":
+        # Validate both candidates before mutating either artifact.
+        before = current_values(package, "deck", patch.target_id)
+        merged = {**before, **patch.payload}
+        deck = SlideDeck.model_validate(merged["slideDeck"])
+        plan = LessonPlan.model_validate(merged["lessonPlan"]) if merged["lessonPlan"] else None
+        ids = {slide.id for slide in deck.slides}
+        if len(ids) != len(deck.slides):
+            raise ValueError("幻灯片 ID 重复")
+        if plan and any(sid not in ids for entry in plan.timeline for sid in entry.slide_ids):
+            raise ValueError("教案引用了不存在的幻灯片")
+        package.slide_deck, package.lesson_plan = deck, plan
 
     elif patch.kind == "timeline":
         # 按环节 id 精确定位。比「整份替换教案」精确得多 ——

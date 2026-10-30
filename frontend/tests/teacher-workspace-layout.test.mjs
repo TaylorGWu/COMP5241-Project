@@ -25,7 +25,8 @@ test("workspace derives revision target from the material tab and removes slide 
   const source = await readFile(pagePath, "utf8");
   assert.match(source, /const \[revisionTarget, setRevisionTarget\]/);
   assert.match(source, /editChapterStream\(courseId, chapterId,/);
-  assert.match(source, /revisionTarget, true, editAttachments/);
+  // The browser regression exercises stable plan scope across material navigation;
+  // execution must not be coupled to the currently selected material tab.
   assert.doesNotMatch(source, /w-44 shrink-0 snap-start/);
 });
 
@@ -156,7 +157,7 @@ test("slide workspace keeps a visual outline and gives AI revision a full compos
   const canvas = await readFile(new URL("../components/SlideCanvas.tsx", import.meta.url), "utf8");
   assert.match(canvas, /export function SlideThumbnail/);
   assert.match(canvas, /<SlideFrame slide=\{slide\} diagramUrl=\{diagramUrl\} thumbnail/);
-  assert.match(canvas, /function DiagramPreview\(\{ url, alt, labels, thumbnail = false \}/);
+  assert.match(canvas, /function DiagramPreview\(/);
   assert.match(canvas, /data-template="course-flow"/);
 
   const review = await readFile(reviewMarginPath, "utf8");

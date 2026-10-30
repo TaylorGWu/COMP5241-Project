@@ -71,7 +71,7 @@ from app.services.instructional_quality import (
     validate_section_quality,
 )
 from app.services.animation import normalize_slide_animation
-from app.services.tools import SectionDeps, build_section_tools
+from app.services.tools import DIAGRAM_STYLE_GUIDE, SectionDeps, build_section_tools
 
 # ────────────────────────────────────────────────────────────────
 # 阶段定义:(阶段名, 起始进度%, 结束进度%)
@@ -111,6 +111,8 @@ SECTION_SYSTEM_PROMPT = """你在为软件工程迷你课程撰写一节内容�
    不能只写抽象定义。随后用图、代码或材料证据解释原因,让学生作出一个明确的**决策**或判断。
 9. 每节必须有一页 layout="quiz" 的随堂**练习**。题干放在 title,选项或判断线索放在 bullets;
    speakerNotes 必须给出正确判断、一个常见错误思路及其**反馈**。这不是期末题,是检查理解。
+   quiz 的 bullets 只写可选择的答案内容，不写 A./B./C. 等编号，编号由渲染器统一生成。
+   “Pick one”“请选择一项并说明理由”等作答提示写入 quizInstruction，绝不能作为额外选项。
 10. 每页只承担一个教学动作:引出问题、解释证据、比较决策、指导操作或检查理解。
     不要用空泛总结、重复结论或超过 3 条的同义 bullet 凑页数。
 11. 本节必须按 teachingArc 形成：explain → worked_example → guided_practice 或
@@ -118,6 +120,10 @@ SECTION_SYSTEM_PROMPT = """你在为软件工程迷你课程撰写一节内容�
     练习页写出学生可执行的判断/操作及讲稿反馈。
 12. visualPurpose=sequence/mechanism 时才调用 make_diagram；
     comparison/scenario/evidence/none 不得为了配图调用流程图。
+    scenario 的具体教学环境/实物若不能用现有图标或插画表达，可以调用 request_illustration；
+    只生成不带文字的情境图，不用于技术标注或证明事实。每节最多一张，全章最多两张。
+    拿到 asset_id 后在对应页 visuals 填 kind="illustration" 和 assetId；说明图片是 AI 生成的示意，
+    不是事实照片。失败则保留文字并提交本节，不要为配图耗尽轮数。
 13. Mermaid 图不是装饰：节点必须是当前页的真实角色、对象或动作，边要写出
     关系（例如提交、查看、比较、确认）。禁止 Step 1/2、概念图、应用、开始/结束
     这类占位标签；若说不清一个具体关系，就不要调用 make_diagram。
@@ -149,7 +155,7 @@ SECTION_SYSTEM_PROMPT = """你在为软件工程迷你课程撰写一节内容�
     从图中推导什么判断。比较用并列条件与结果，操作示例给真实命令与结果；不强行画流程图。
 19. 提交前自检：学习目标有可观察证据吗？案例推理可复现吗？练习信息充分且答案唯一吗？
     讲稿解释了为什么吗？是否遗漏前提、重复要点或编造来源？先修正，再调用 write_section。
-"""
+""" + "\n" + DIAGRAM_STYLE_GUIDE
 
 NO_MATERIAL_SECTION_SYSTEM_PROMPT = SECTION_SYSTEM_PROMPT.replace(
     "1. 先用 search_materials 查一下教师上传的讲义,基于材料写,不要凭空编。",
@@ -286,7 +292,7 @@ class PipelineDeps:
     #: 下面三个会被原样透传给 SectionAgent 的工具
     search_materials: Callable[[str], Awaitable[list[dict[str, Any]]]]
     make_diagram: Callable[[str], Awaitable[str]]
-    request_illustration: Callable[[str], Awaitable[str]]
+    request_illustration: Callable[[str], Awaitable[str | dict[str, Any]]]
     #: 同时跑几节。太大容易被上游限流,太小就慢。
     section_concurrency: int = 3
     #: 材料摄取的依赖(OCR 等)。没有它就只能用调用方传进来的 search_materials。
@@ -543,10 +549,6 @@ async def generate_course(
                         error=result.content,
                     )
                 )
-                emit("分节生成", section_percent(index, 1.0),
-                     f"「{section.title}」失败:{type(exc).__name__}",
-                     kind="section", status="failed",
-                     section_index=index, section_title=section.title)
 
             quality_issues: list[SectionQualityIssue] = []
             parsed_section_slides: list[Slide] = []
@@ -597,7 +599,7 @@ async def generate_course(
                 f"(工具调用 {len(result.calls)} 次,{result.stopped_by})"
                 + (f" · needs review:{codes}" if quality_failed else ""),
                 kind="section",
-                status="written",
+                status="written" if parsed_section_slides else "failed",
                 section_index=index,
                 section_title=section.title,
             )
@@ -677,6 +679,14 @@ async def generate_course(
         for _, sd in pairs
         for warning in sd.animation_warnings
     ]
+    dropped.extend(
+        f"插画 {asset.id} 未生成，正文已保留，可稍后重新生成重试"
+        for asset in assets_by_id.values()
+        if asset.kind == "illustration" and asset.status == "failed"
+    )
+    for index, (agent, sd) in enumerate(pairs):
+        if not sd.written_slides:
+            dropped.append(f"第 {index + 1} 节没有提交幻灯片({agent.stopped_by})，需要重试")
     next_slide_order = 1
     for _, sd in pairs:
         local_ids: dict[str, str] = {}

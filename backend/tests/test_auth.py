@@ -49,13 +49,50 @@ def test_student_registration_normalization_cookie_persistence_and_logout(client
     assert client.get("/api/auth/me").status_code == 401
 
 
-def test_public_roles_fields_password_and_required_qualification(client):
+def test_public_roles_fields_and_password_validation(client):
     assert register(client, role="admin").status_code == 422
     assert register(client, active="true").status_code == 422
     assert register(client, password="short").status_code == 422
-    response = client.post("/api/auth/register", data=dict(name="Tutor", email="t@example.test", password=PASSWORD, role="instructor"), headers=headers(client))
-    assert response.status_code == 422
     assert client.get("/api/admin/applications").status_code == 401
+
+
+def test_instructor_registers_before_submitting_qualification(client):
+    response = client.post("/api/auth/register", data=dict(name="Tutor", email="t@example.test", password=PASSWORD, role="instructor"), headers=headers(client))
+    assert response.status_code == 201
+    user = response.json()["user"]
+    assert user["status"] == "pending"
+    assert user["qualificationSubmitted"] is False
+    assert client.get("/api/auth/me").json()["user"] == user
+    assert client.get("/api/auth/qualification").status_code == 404
+    login = client.post("/api/auth/login", json=dict(email="t@example.test", password=PASSWORD), headers=headers(client))
+    assert login.json()["user"] == user
+    uploaded = client.post("/api/auth/qualification", files={"qualification": ("qualification.pdf", PDF, "application/pdf")}, headers=headers(client))
+    assert uploaded.status_code == 200
+    assert uploaded.json()["user"]["status"] == "pending"
+    assert uploaded.json()["user"]["qualificationSubmitted"] is True
+    assert client.get("/api/auth/me").json()["user"] == uploaded.json()["user"]
+    login = client.post("/api/auth/login", json=dict(email="t@example.test", password=PASSWORD), headers=headers(client))
+    assert login.json()["user"]["qualificationSubmitted"] is True
+    assert client.get("/api/auth/qualification").content == PDF
+    duplicate = client.post("/api/auth/qualification", files={"qualification": ("replacement.pdf", PDF + b"replacement", "application/pdf")}, headers=headers(client))
+    assert duplicate.status_code == 409
+    assert client.get("/api/auth/qualification").content == PDF
+
+
+@pytest.mark.parametrize("decision", ["approved", "rejected"])
+def test_admin_cannot_review_unsubmitted_qualification(client, decision):
+    from app.services.auth import get_auth_store
+    store = get_auth_store()
+    applicant = store.create_user(name="Tutor", email="t@example.test", password=PASSWORD, role="instructor")
+    admin = store.create_user(name="Reviewer", email="admin@example.test", password=PASSWORD, role="admin")
+    login = client.post("/api/auth/login", json=dict(email=admin["email"], password=PASSWORD), headers=headers(client))
+    assert login.status_code == 200
+    assert client.get("/api/admin/applications").json() == {"applications": []}
+    response = client.post(f"/api/admin/applications/{applicant['id']}/review", json=dict(decision=decision, reason="Reviewed"), headers=headers(client))
+    assert response.status_code in (404, 409)
+    assert store.authenticate("t@example.test", PASSWORD)["status"] == "pending"
+    with sqlite3.connect(demo.TEACHER_WORKSPACE_DB) as db:
+        assert db.execute("SELECT COUNT(*) FROM qualification_reviews").fetchone()[0] == 0
 
 
 def test_origin_csrf_and_json_only_login(client):

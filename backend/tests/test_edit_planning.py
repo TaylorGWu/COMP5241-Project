@@ -2,6 +2,27 @@
 
 from app.schemas.ir import CoursePackage, LearningObjective, Project, ProjectMeta, Slide, SlideDeck
 from app.services.edit_planning import plan_edit
+import pytest
+
+
+def test_inserted_slide_is_targeted_by_stable_id_not_page_number_or_density():
+    package = CoursePackage(
+        project=Project(id="p", meta=ProjectMeta(title="Test", audience="Beginners", duration_min=30)),
+        slide_deck=SlideDeck(artifact_id="deck", slides=[
+            Slide(id="s3", order=4, layout="bullets", title="Old third", bullets=["a", "b", "c", "d"]),
+            Slide(id="s-new-uuid", order=3, layout="bullets", title="Inserted third", bullets=[]),
+        ]),
+    )
+    before = package.model_dump_json()
+    for request in ["Make this clearer", "For slide 3 (s-new-uuid) only, plan a short concept animation"]:
+        plan = plan_edit(package, request, slide_id="s-new-uuid")
+        assert plan.slide_id == "s-new-uuid"
+        assert len(plan.actions) == 1
+        assert plan.actions[0].target_id == "s-new-uuid"
+        assert "s-new-uuid" in plan.actions[0].prompt
+    assert package.model_dump_json() == before
+    with pytest.raises(KeyError):
+        plan_edit(package, "Make this clearer", slide_id="deleted")
 
 
 def test_edit_plan_is_read_only_and_course_specific():

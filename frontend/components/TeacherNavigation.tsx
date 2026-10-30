@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AccountActions } from "@/components/AccountPages";
+import { AccountActions } from "@/components/AccountActions";
 
 import { cx } from "@/components/ui";
 import { PRODUCT_NAME } from "@/lib/brand";

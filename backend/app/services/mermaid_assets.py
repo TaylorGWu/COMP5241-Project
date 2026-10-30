@@ -14,14 +14,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from app.services.svg_diagrams import _graph, course_diagram_template
+from app.services.svg_diagrams import course_diagram_template
 
 
 class MermaidRenderError(RuntimeError):
     """A diagram could not be rendered; callers may keep a text fallback."""
-
-
-_NODE = re.compile(r"(?P<id>[A-Za-z][\w-]*)\s*\[(?P<label>[^\]]+)]")
 
 
 def _fallback_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -38,19 +35,6 @@ def _fallback_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _fallback_labels(code: str) -> list[str]:
-    labels: list[str] = []
-    seen: set[str] = set()
-    for match in _NODE.finditer(code):
-        node_id = match.group("id")
-        if node_id in seen:
-            continue
-        label = " ".join(match.group("label").replace("`", "").split())
-        labels.append(label[:28] + ("…" if len(label) > 28 else ""))
-        seen.add(node_id)
-    return (labels + ["Change", "Review", "Verified result"])[:4]
-
-
 def _draw_centered(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, font: ImageFont.ImageFont, fill: str) -> None:
     left, top, right, bottom = box
     text_box = draw.textbbox((0, 0), text, font=font)
@@ -64,105 +48,55 @@ def fallback_template_for(code: str) -> str:
     return course_diagram_template(code)
 
 
-def _draw_card(
-    draw: ImageDraw.ImageDraw,
-    box: tuple[int, int, int, int],
-    label: str,
-    font: ImageFont.ImageFont,
-    *,
-    fill: str = "#FFFFFF",
-    outline: str = "#DCE2EA",
-) -> None:
-    draw.rounded_rectangle(box, radius=24, fill=fill, outline=outline, width=4)
-    _draw_centered(draw, box, label, font, "#172033")
-
-
-def _draw_arrow(draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple[int, int], color: str) -> None:
-    draw.line((*start, *end), fill=color, width=10)
-    x, y = end
-    arrow = 26
-    if abs(end[0] - start[0]) >= abs(end[1] - start[1]):
-        direction = 1 if end[0] >= start[0] else -1
-        draw.polygon(((x, y), (x - direction * arrow, y - arrow // 2), (x - direction * arrow, y + arrow // 2)), fill=color)
-    else:
-        direction = 1 if end[1] >= start[1] else -1
-        draw.polygon(((x, y), (x - arrow // 2, y - direction * arrow), (x + arrow // 2, y - direction * arrow)), fill=color)
-
-
-def _draw_exchange_png(draw: ImageDraw.ImageDraw, labels: list[str], edge_labels: list[str]) -> None:
-    labels = (labels + ["Local workspace", "Shared source", "Teammate workspace"])[:3]
-    label_font = _fallback_font(32)
-    hint_font = _fallback_font(27)
-    _draw_card(draw, (650, 166, 1270, 350), labels[1], label_font, fill="#E7EEFF", outline="#B6C9F5")
-    _draw_card(draw, (130, 676, 650, 858), labels[0], label_font)
-    _draw_card(draw, (1270, 676, 1790, 858), labels[2], label_font)
-    _draw_arrow(draw, (650, 676), (815, 350), "#315FC6")
-    _draw_arrow(draw, (1105, 350), (1270, 676), "#16806A")
-    _draw_centered(draw, (530, 428, 750, 480), edge_labels[0] if edge_labels else "send", hint_font, "#315FC6")
-    _draw_centered(draw, (1170, 428, 1390, 480), edge_labels[1] if len(edge_labels) > 1 else "receive", hint_font, "#16806A")
-
-
-def _draw_decision_png(draw: ImageDraw.ImageDraw, labels: list[str], edge_labels: list[str]) -> None:
-    labels = (labels + ["Check state", "Decision", "Continue", "Resolve"])[:4]
-    label_font = _fallback_font(31)
-    hint_font = _fallback_font(27)
-    _draw_card(draw, (112, 470, 530, 650), labels[0], label_font, fill="#E7EEFF", outline="#B6C9F5")
-    _draw_arrow(draw, (530, 560), (720, 560), "#315FC6")
-    diamond = ((960, 330), (1160, 560), (960, 790), (760, 560))
-    draw.polygon(diamond, fill="#F5F8FF", outline="#5472A6", width=5)
-    _draw_centered(draw, (805, 500, 1115, 620), labels[1], label_font, "#172033")
-    _draw_card(draw, (1370, 222, 1808, 402), labels[2], label_font, fill="#DDF4EC", outline="#9BD8C8")
-    _draw_card(draw, (1370, 720, 1808, 900), labels[3], label_font, fill="#FFF4E5", outline="#F2C980")
-    _draw_arrow(draw, (1108, 500), (1370, 316), "#16806A")
-    _draw_arrow(draw, (1108, 620), (1370, 810), "#C46B1B")
-    _draw_centered(draw, (1120, 385, 1320, 435), edge_labels[0] if edge_labels else "option A", hint_font, "#16806A")
-    _draw_centered(draw, (1120, 690, 1320, 740), edge_labels[1] if len(edge_labels) > 1 else "option B", hint_font, "#C46B1B")
-
-
 def _render_local_png(code: str) -> bytes:
-    """Draw the same compact teaching-flow fallback without a browser process.
+    """Offline export uses the exact same node/edge layout as SVG previews."""
+    from app.services.diagram_layout import EDGE_FONT_SIZE, EDGE_LINE_HEIGHT, NODE_FONT_SIZE, NODE_LINE_HEIGHT, layout_graph, node_colors, wrap_label
 
-    Mermaid remains the stored structural language. This renderer only makes the
-    export resilient when mmdc/Puppeteer is unavailable (for example, a locked
-    down deployment or test runner).
-    """
-    canvas = Image.new("RGB", (1920, 1080), "#F7F9FD")
+    scene = layout_graph(code)
+    # Preserve the scene's aspect ratio, not a second slide-shaped white mat.
+    # Exporters already fit the image inside their own bounded placeholders.
+    scale = min(1856 / scene.width, 1016 / scene.height)
+    canvas = Image.new("RGB", (round(scene.width * scale) + 64, round(scene.height * scale) + 64), "#FFFFFF")
     draw = ImageDraw.Draw(canvas)
-    labels = _fallback_labels(code)
-    graph_labels, edges = _graph(code)
-    if graph_labels:
-        labels = graph_labels
-    template = fallback_template_for(code)
-    title_font = _fallback_font(34)
-    label_font = _fallback_font(32)
-    number_font = _fallback_font(30)
-    card_width, card_height, gap = 390, 166, 62
-    total_width = len(labels) * card_width + (len(labels) - 1) * gap
-    start_x = (1920 - total_width) // 2
-    card_top = 460
+    offset_x = offset_y = 32
 
-    draw.rounded_rectangle((72, 70, 1848, 1010), radius=48, fill="#FFFFFF", outline="#DCE2EA", width=4)
-    draw.text((130, 150), "工程決策流程", font=title_font, fill="#172033")
-    draw.text((130, 208), "從改動追蹤到可驗證結果。", font=label_font, fill="#66758D")
-    edge_labels = [edge.label for edge in edges if edge.label]
-    if template == "exchange-lane":
-        _draw_exchange_png(draw, labels, edge_labels)
-    elif template == "decision-branch":
-        _draw_decision_png(draw, labels, edge_labels)
-    else:
-        for index, label in enumerate(labels):
-            x = start_x + index * (card_width + gap)
-            draw.ellipse((x + 18, 350, x + 78, 410), fill="#315FC6")
-            _draw_centered(draw, (x + 18, 350, x + 78, 410), str(index + 1), number_font, "#FFFFFF")
-            draw.rounded_rectangle((x, card_top, x + card_width, card_top + card_height), radius=26, fill="#EEF4FF", outline="#B6C9F5", width=4)
-            _draw_centered(draw, (x + 28, card_top + 30, x + card_width - 28, card_top + card_height - 30), label, label_font, "#172033")
-            if index < len(labels) - 1:
-                line_start = x + card_width + 12
-                line_end = x + card_width + gap - 20
-                mid_y = card_top + card_height // 2
-                draw.line((line_start, mid_y, line_end, mid_y), fill="#315FC6", width=10)
-                draw.polygon(((line_end, mid_y), (line_end - 24, mid_y - 16), (line_end - 24, mid_y + 16)), fill="#315FC6")
+    def point(x: float, y: float) -> tuple[float, float]:
+        return offset_x + x * scale, offset_y + y * scale
 
+    for edge in scene.edges:
+        points = [point(x, y) for x, y in edge.points]
+        draw.line(points, fill="#64748B", width=max(2, round(1.75 * scale)), joint="curve")
+        (ax, ay), (bx, by) = points[-2:]
+        size = 8 * scale
+        if abs(bx - ax) > abs(by - ay):
+            direction = 1 if bx > ax else -1
+            triangle = [(bx, by), (bx - direction * size, by - size / 2), (bx - direction * size, by + size / 2)]
+        else:
+            direction = 1 if by > ay else -1
+            triangle = [(bx, by), (bx - size / 2, by - direction * size), (bx + size / 2, by - direction * size)]
+        draw.polygon(triangle, fill="#64748B")
+    font = _fallback_font(max(12, round(NODE_FONT_SIZE * scale)))
+    for node in scene.nodes:
+        fill, stroke, ink = node_colors(node)
+        draw.rounded_rectangle((*point(node.x, node.y), *point(node.x + node.width, node.y + node.height)),
+            radius=round(12 * scale), fill=fill, outline=stroke, width=max(1, round(1.25 * scale)))
+        top = node.y + (node.height - len(node.lines) * NODE_LINE_HEIGHT) / 2
+        for index, line in enumerate(node.lines):
+            left, y = point(node.x, top + index * NODE_LINE_HEIGHT)
+            right, bottom = point(node.x + node.width, top + (index + 1) * NODE_LINE_HEIGHT)
+            _draw_centered(draw, (left, y, right, bottom), line, font, ink)
+    hint_font = _fallback_font(max(11, round(EDGE_FONT_SIZE * scale)))
+    for edge in scene.edges:
+        if not edge.label:
+            continue
+        x, y, width, height = edge.caption
+        if edge.caption_anchor != (x+width/2, y+height/2):
+            draw.line((point(*edge.caption_anchor), point(x+width/2, y+height/2)), fill="#A9B9D4", width=max(1, round(scale)))
+        draw.rectangle((*point(x, y), *point(x+width, y+height)), fill="#FFFFFF")
+        for index, line in enumerate(wrap_label(edge.label, 8)):
+            left, top = point(x, y + 6 + index * EDGE_LINE_HEIGHT)
+            right, bottom = point(x+width, y + 6 + (index + 1) * EDGE_LINE_HEIGHT)
+            _draw_centered(draw, (left, top, right, bottom), line, hint_font, "#475569")
     output = BytesIO()
     canvas.save(output, format="PNG", optimize=True)
     return output.getvalue()
@@ -203,7 +137,7 @@ def mermaid_render_config() -> dict[str, object]:
         "theme": "base",
         "themeVariables": {
             "fontFamily": "Arial, 'Hiragino Sans GB', sans-serif",
-            "fontSize": "18px",
+            "fontSize": "26px",
             "primaryColor": "#eef4ff",
             "primaryTextColor": "#172033",
             "primaryBorderColor": "#5472a6",
@@ -230,6 +164,12 @@ def render_mermaid_png(code: str) -> bytes:
     """Convert one Mermaid diagram to PNG; identical diagrams reuse cached bytes."""
     if not code.strip() or len(code) > 20_000:
         raise MermaidRenderError("Diagram source is empty or too large")
+    # The compact subset shown by the web preview must not acquire a different
+    # CLI layout during export. Rich Mermaid syntax still uses its full engine.
+    if re.match(r"\s*(?:graph|flowchart)\s+(?:LR|RL|TD|TB|BT)\b", code) and not re.search(
+        r"(?:^|[;\n])\s*(?:subgraph|end|classDef|style|linkStyle)\b|---|==>|-\.->|:::|\[\[|\(\(", code
+    ):
+        return _render_local_png(code)
     with tempfile.TemporaryDirectory(prefix="course-mermaid-") as directory:
         root = Path(directory)
         source = root / "diagram.mmd"

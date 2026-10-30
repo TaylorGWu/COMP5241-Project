@@ -5,11 +5,11 @@
  * by JSON, streams, uploads and deletes; authorization remains on the backend.
  */
 
-import { chapterDeckPath, chapterDiagramPath, chapterToolPath } from "./routes.ts";
+import { chapterDeckPath, chapterDiagramPath, chapterVisualPath, chapterToolPath } from "./routes.ts";
 import { authFetch } from "./auth.ts";
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+import { API_BASE } from "./api-base.ts";
+export { API_BASE };
 
 function apiErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
@@ -231,23 +231,28 @@ export type Outline = {
   usedFallback: boolean;
 };
 
+export type StatusState = "complete" | "partial" | "unverified" | "excluded";
+export type StatusGroup = { title: string; items: { label: string; status: StatusState }[] };
+
 export type Slide = {
   id: string;
   order: number;
   layout: string;
   title: string;
   bullets: string[];
+  quizInstruction?: string;
+  statusGroups?: StatusGroup[];
   speakerNotes: string;
   // spec 保留图的可编辑来源；预览使用后端按同一 IR 渲染的图片。
   visuals: {
     id: string;
     kind: string;
     assetId?: string;
-    spec?: { engine?: string; code?: string };
+    spec?: { engine?: string; code?: string; display?: "full"; capture?: boolean; sourceUrl?: string };
   }[];
   objectiveIds: string[];
   sourceRefs: { materialId: string; page?: number }[];
-  origin: "sourced" | "ai";
+  origin: "sourced" | "ai" | "teacher";
   teachingRole?: "explain" | "worked_example" | "guided_practice" | "check_understanding" | "transfer" | "recap";
   visualPurpose?: "comparison" | "sequence" | "mechanism" | "scenario" | "evidence" | "none";
   animation?: SlideAnimation | null;
@@ -483,6 +488,8 @@ export type EditResponse = {
 export type EditPlan = {
   request: string;
   summary: string;
+  slide_id: string | null;
+  target: "slides" | "questions" | "paper";
   findings: { id: string; title: string; detail: string; tone: string }[];
   actions: { id: string; title: string; detail: string; prompt: string; target_id: string | null; selected: boolean }[];
 };
@@ -517,6 +524,8 @@ export const exportUrls = {
 };
 
 export const assetUrls = {
+  visual: (courseId: string, chapterId: string, assetId: string, kind: string) =>
+    `${API_BASE}${chapterVisualPath(courseId, chapterId, assetId, kind)}`,
   diagram: (courseId: string, chapterId: string, assetId: string) =>
     `${API_BASE}${chapterDiagramPath(courseId, chapterId, assetId)}`,
 };
@@ -584,10 +593,11 @@ export const api = {
       onResult: (r: EditResponse) => void;
       signal?: AbortSignal;
     },
+    slideId?: string | null,
   ) =>
     streamRequest(
       chapterToolPath(courseId, chapterId, "edit/stream"),
-      { message, target, use_real_model: useReal, images: images.map(({ name, dataUrl }) => ({ name, data_url: dataUrl })) },
+      { message, target, slide_id: slideId, use_real_model: useReal, images: images.map(({ name, dataUrl }) => ({ name, data_url: dataUrl })) },
       {
         onProgress: (d) => handlers.onProgress?.(d as unknown as EditProgressEvent),
         onResult: (d) => handlers.onResult(d as unknown as EditResponse),
@@ -601,8 +611,9 @@ export const api = {
     message: string,
     target: "slides" | "questions" | "paper",
     useReal: boolean,
+    slideId?: string | null,
   ) => post<EditPlan>(chapterToolPath(courseId, chapterId, "edit/plan"), {
-    message, target, use_real_model: useReal,
+    message, target, slide_id: slideId, use_real_model: useReal,
   }),
 
   /**
@@ -787,5 +798,9 @@ export const api = {
       target_id: targetId,
       payload,
       note,
+    }),
+  changeChapterSlides: (courseId: string, chapterId: string, action: "before" | "after" | "delete", anchorId: string | null, title: string) =>
+    post<{ patch: Patch; package: CoursePackage; selected_slide_id: string | null }>(chapterToolPath(courseId, chapterId, "slides"), {
+      action, anchor_id: anchorId, title,
     }),
 };

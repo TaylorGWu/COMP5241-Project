@@ -39,11 +39,7 @@ export default function CreateCoursePage() {
   return <main className="course-create-page min-h-screen bg-canvas">
     <div className="course-create-shell mx-auto w-full max-w-[1280px] px-5 pb-20 pt-4 sm:px-8">
       <TeacherNavigation active="create" />
-      <header className="course-create-header border-b border-line pb-7">
-        <Link href="/courses" className="course-create-back text-sm font-semibold text-blue hover:text-blue-deep">Your courses</Link>
-        <h1 className="mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.1] tracking-[-0.055em] text-ink">Create a course</h1>
-        <p className="mt-2 max-w-[58ch] text-[15px] leading-6 text-body">Define the course now. Add chapters in its workspace afterwards.</p>
-      </header>
+      <h1 className="sr-only">Create a course</h1>
       {error ? <div className="mt-6"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
       <div className="course-create-content mt-7 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="overflow-hidden rounded-md border border-line bg-surface">

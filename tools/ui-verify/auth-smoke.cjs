@@ -39,6 +39,15 @@ async function login(page, email, secret = password) {
   };
   try {
     const student=await make(390);
+    await student.goto(base+'/');
+    const demo = await student.locator('.example-phases').evaluate(element => ({
+      columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
+      cues: [...element.querySelectorAll('.example-phase-cue')].map(node => parseFloat(getComputedStyle(node).fontSize)),
+      descriptions: [...element.querySelectorAll('p')].map(node => parseFloat(getComputedStyle(node).fontSize)),
+    }));
+    assert.equal(demo.columns,1,'mobile teaching steps must stack rather than shrink');
+    assert.ok(demo.cues.every(size=>size>=13),'mobile prompts must remain readable');
+    assert.ok(demo.descriptions.every(size=>size>=13),'mobile explanations must remain readable');
     await student.goto(base+'/register/student');
     await fillCredentials(student,studentEmail,'Preview student');
     await student.getByLabel('Confirm password',{exact:true}).fill('a-different-long-password');
@@ -58,9 +67,14 @@ async function login(page, email, secret = password) {
     const teacher=await make();
     await teacher.goto(base+'/register/instructor');
     await fillCredentials(teacher,teacherEmail,'Preview teacher');
+    assert.equal(await teacher.locator('input[type=file]').count(),0,'registration must not require a qualification');
+    await teacher.getByRole('button',{name:'Create account',exact:true}).click();
+    await teacher.waitForURL('**/application');
+    await teacher.getByRole('heading',{name:'Your teacher account is ready.'}).waitFor();
+    await teacher.screenshot({path:shot('application-unsubmitted'),fullPage:true});
+    assert.equal(await teacher.evaluate(async(api)=>(await fetch(api+'/api/demo/courses',{credentials:'include'})).status,apiBase),403);
     await teacher.locator('input[type=file]').setInputFiles(qualification);
     await teacher.getByRole('button',{name:'Submit application',exact:true}).click();
-    await teacher.waitForURL('**/application');
     await teacher.getByRole('heading',{name:'Your application is in review.'}).waitFor();
     await teacher.screenshot({path:shot('application-pending'),fullPage:true});
     const denied = await teacher.evaluate(async(api)=> (await fetch(api+'/api/demo/courses',{credentials:'include'})).status,apiBase);
@@ -73,6 +87,10 @@ async function login(page, email, secret = password) {
     const entry=admin.locator('.application-entry').filter({hasText:teacherEmail});
     await entry.waitFor();
     await admin.screenshot({path:shot('admin-queue'),fullPage:true});
+    await admin.setViewportSize({width:390,height:950});
+    await admin.screenshot({path:shot('admin-queue-mobile'),fullPage:true});
+    assert.equal(await admin.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await admin.setViewportSize({width:1440,height:950});
     const [download] = await Promise.all([admin.waitForEvent('download'),entry.getByRole('link').click()]);
     assert.equal(download.suggestedFilename(),'sample-qualification.pdf');
     await entry.getByRole('button',{name:'Request revision',exact:true}).click();
@@ -82,6 +100,10 @@ async function login(page, email, secret = password) {
     await teacher.getByRole('button',{name:'Check status',exact:true}).click();
     await teacher.getByRole('heading',{name:'A little more information is needed.'}).waitFor();
     await teacher.screenshot({path:shot('application-rejected'),fullPage:true});
+    await teacher.setViewportSize({width:390,height:950});
+    await teacher.screenshot({path:shot('application-rejected-mobile'),fullPage:true});
+    assert.equal(await teacher.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await teacher.setViewportSize({width:1440,height:950});
     await teacher.locator('input[type=file]').setInputFiles(qualification);
     await teacher.getByRole('button',{name:'Resubmit application',exact:true}).click();
     await teacher.getByRole('heading',{name:'Your application is in review.'}).waitFor();
@@ -94,6 +116,7 @@ async function login(page, email, secret = password) {
     await teacher.getByRole('heading',{name:'Your courses',exact:true}).waitFor();
     await teacher.screenshot({path:shot('approved-workspace'),fullPage:true});
     console.log('PASS administrator attachment download, rejection, resubmission and approval');
+    await teacher.locator('[data-account-menu-trigger]').click();
     await teacher.getByRole('button',{name:'Sign out',exact:true}).click();
     await teacher.waitForURL(url => url.pathname === '/login');
     await login(teacher,teacherEmail);

@@ -22,8 +22,21 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+from uuid import uuid4
 
 from app.services.agent import Tool
+
+
+# Shared by the actual section system message and the tool schema. Presentation
+# belongs to deterministic renderers, not per-course hand-authored model CSS.
+DIAGRAM_STYLE_GUIDE = """流程图采用产品统一风格，适用于所有普通课程生成：
+只用 graph LR 或 graph TD、真实对象的短标签和普通箭头表达一个清楚的关系。
+通常 3–6 个节点；分支保留真实条件，反馈连线保留真实方向，不为简化而删掉必要关系。
+复杂内容拆成多个教学页，不把整段讲稿塞进一张图或节点；补充解释放页面要点和讲稿。
+不要输出 init 配置、classDef、style、linkStyle、subgraph、HTML 或外部图片/字体链接；
+不要自行指定坐标、字号、配色或固定图片背景比例。
+短标签换行、节点字号、间距、长流程折行和默认配色交给共享渲染器，网页与 PPTX 共用图源。
+这只是图表表达规范，不增加事实，不改变课程的审核、应用或发布边界。"""
 
 
 @dataclass
@@ -35,7 +48,7 @@ class SectionDeps:
     #: Mermaid 代码 → assetId(§8.2:示意图走确定性渲染,不用生图模型)
     make_diagram: Callable[[str], Awaitable[str]]
     #: 生图 prompt → assetId(§8.2:这是兜底路径)
-    request_illustration: Callable[[str], Awaitable[str]]
+    request_illustration: Callable[[str], Awaitable[str | dict[str, Any]]]
 
     # ── 产出暂存在这里,而不是直接写数据库 ──────────────────
     # 与 L2 编辑的「写操作只暂存、不落库」是同一个原则(§7.2)。
@@ -102,10 +115,10 @@ SLIDE_SCHEMA: dict[str, Any] = {
         "order": {"type": "integer", "description": "页码,从 1 开始"},
         "layout": {
             "type": "string",
-            "enum": ["title", "bullets", "diagram", "twoCol", "code", "quiz"],
+            "enum": ["title", "bullets", "diagram", "twoCol", "code", "quiz", "statusBoard"],
             "description": (
                 "版面类型:title=封面或章节页,bullets=要点页,diagram=示意图页,"
-                "twoCol=左右对比,code=代码页,quiz=随堂测验页"
+                "twoCol=左右对比,code=代码页,quiz=随堂测验页,statusBoard=分组状态清单(必须提供statusGroups，不编完成率)"
             ),
         },
         "title": {
@@ -118,11 +131,25 @@ SLIDE_SCHEMA: dict[str, Any] = {
             "description": "每页 3–5 个完整信息单元，一条一至两句，包含结论及依据、条件或具体例子。中文通常 25–60 字、英文 12–28 词，仅作可读性参考。案例应展示输入、推理、操作和结果；不可只列名词或同义句。",
         },
         "speakerNotes": {"type": "string", "description": "可实际授课的讲稿：引入问题、解释机制/推理、预期回答、纠错及过渡，不能复述要点。通常中文 120–220 字、英文 80–140 词。练习必须含正确答案、错误选项的误解及反馈；操作须说明前提、结果和验证方式。"},
+        "quizInstruction": {"type": "string", "description": "仅测验页使用：作答提示，如选择一项并说明理由。不是选项；不放入 bullets，不写答案。"},
+        "statusGroups": {
+            "type": "array", "minItems": 1, "maxItems": 3,
+            "description": "statusBoard使用：1至3组，每组1至6条短标签，状态必须有证据。不确定用unverified。详细解释放speakerNotes。",
+            "items": {"type": "object", "properties": {
+                "title": {"type": "string", "minLength": 1, "maxLength": 40},
+                "items": {"type": "array", "minItems": 1, "maxItems": 6, "items": {
+                    "type": "object", "properties": {
+                        "label": {"type": "string", "minLength": 1, "maxLength": 80},
+                        "status": {"type": "string", "enum": ["complete", "partial", "unverified", "excluded"]},
+                    }, "required": ["label", "status"],
+                }},
+            }, "required": ["title", "items"]},
+        },
         "visuals": {
             "type": "array",
             "description": (
                 "本页需要的视觉元素。要配图的页必须在这里列出,"
-                "并且先调 make_diagram 拿到 assetId 再填进来"
+                "并且先调 make_diagram 或 request_illustration 拿到 assetId 再填进来"
             ),
             "items": {
                 "type": "object",
@@ -379,18 +406,21 @@ def build_section_tools(deps: SectionDeps, *, include_search: bool = True) -> li
     async def request_illustration(args: dict[str, Any]) -> Any:
         """请求无文字插画(兜底路径),并登记资产。"""
 
-        asset_id = await deps.request_illustration(args["prompt"])
-        deps.assets.append(
-            {
-                "id": asset_id,
-                "kind": "illustration",
-                "status": "ready",
-                "provider": "flux-1-schnell",
-                "spec": {"prompt": args["prompt"]},
-            }
-        )
+        from app.services.illustrations import IllustrationError
+        try:
+            result = await deps.request_illustration(args["prompt"])
+        except Exception as error:
+            # Optional assets never prevent write_section. Only deliberately
+            # sanitized errors may be returned to the model or teacher.
+            asset_id = f"il-{uuid4().hex}"
+            message = str(error) if isinstance(error, IllustrationError) else "Illustration unavailable; retry later"
+            deps.assets.append({"id": asset_id, "kind": "illustration", "status": "failed", "spec": {"prompt": args["prompt"]}, "meta": {"retryable": True, "error": message}})
+            return {"asset_id": asset_id, "status": "failed", "retryable": True, "error": message, "note": "继续提交文字内容，不要反复重试生图；教师可稍后重新生成。"}
+        asset = result if isinstance(result, dict) else {"id": result, "kind": "illustration", "status": "ready", "provider": "demo", "spec": {"prompt": args["prompt"]}}
+        deps.assets.append(asset)
         return {
-            "asset_id": asset_id,
+            "asset_id": asset["id"],
+            "status": asset["status"],
             "note": "这是兜底路径。优先考虑图标库 / 插画库 / 图表库(§8.2)",
         }
 
@@ -435,7 +465,8 @@ def build_section_tools(deps: SectionDeps, *, include_search: bool = True) -> li
                 "流程用 graph LR/TD,对比用左右两组节点,层级用 graph TD。"
                 "节点必须写当前页的真实角色、对象或动作，边必须写关系；禁止 Step 1/2、"
                 "概念图、应用、开始/结束等占位标签。"
-                "不要把讲稿、完整句子、项目符号或多段解释塞进节点。"
+                "不要把讲稿、完整句子、项目符号或多段解释塞进节点。\n"
+                + DIAGRAM_STYLE_GUIDE
             ),
             parameters={
                 "type": "object",
@@ -455,6 +486,9 @@ def build_section_tools(deps: SectionDeps, *, include_search: bool = True) -> li
             description=(
                 "请求一张无文字的概念插画,返回 assetId。"
                 "这是兜底路径:先用图标库和插画库,只有它们表达不出来时才用。"
+                "适合具体教学情境、实物或环境，不用于文字标注示意图、流程图或数据图。"
+                "用英文描述主体、动作和构图；禁止文字、标签、logo。每节至多一张，全章至多两张。"
+                "成功后在对应页的 visuals 填 kind=illustration 和返回的 assetId。失败则保留文字继续提交。"
             ),
             parameters={
                 "type": "object",

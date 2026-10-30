@@ -111,8 +111,11 @@ def qualification_file(filename: str, content_type: str, data: bytes) -> tuple[s
     return name or "qualification" + suffix, expected[suffix], data
 
 
-def public_user(row: sqlite3.Row) -> dict:
-    return dict(id=row["id"], name=row["name"], email=row["email"], role=row["role"], status=row["status"], reviewReason=row["review_reason"])
+def public_user(row: sqlite3.Row, db: sqlite3.Connection) -> dict:
+    user = dict(id=row["id"], name=row["name"], email=row["email"], role=row["role"], status=row["status"], reviewReason=row["review_reason"])
+    if row["role"] == "instructor":
+        user["qualificationSubmitted"] = db.execute("SELECT 1 FROM qualifications WHERE user_id=?", (row["id"],)).fetchone() is not None
+    return user
 
 
 class AuthStore:
@@ -120,7 +123,13 @@ class AuthStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._migrate()
+        from app.services.teacher_profile import migrate
+        migrate(self)
         self.path.chmod(0o600)
+
+    def profile(self, user_id: str) -> dict:
+        from app.services.teacher_profile import profile
+        return profile(self, user_id)
 
     @contextmanager
     def connection(self):
@@ -179,8 +188,6 @@ class AuthStore:
         validate_password(password)
         if not name.strip() or len(name.strip()) > 100 or role not in ("student", "instructor", "admin"):
             raise ValueError("Enter a name and valid account type")
-        if role == "instructor" and qualification is None:
-            raise ValueError("Instructor applications require a qualification document")
         if qualification:
             qualification = qualification_file(*qualification)
         password_hash = PASSWORD_HASHER.hash(password)
@@ -189,7 +196,7 @@ class AuthStore:
             db.execute("INSERT INTO users VALUES(?,?,?,?,?,1,?,NULL,?)", (user_id,email,name.strip(),password_hash,role,"pending" if role == "instructor" else "active",now))
             if qualification:
                 db.execute("INSERT INTO qualifications VALUES(?,?,?,?,?)", (user_id,*qualification,now))
-            return public_user(db.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+            return public_user(db.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone(), db)
 
     def authenticate(self, email: str, password: str) -> dict | None:
         try:
@@ -198,18 +205,19 @@ class AuthStore:
             email = ""
         with self.connection() as db:
             row = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+            user = public_user(row, db) if row else None
         try:
             valid = PASSWORD_HASHER.verify(row["password_hash"] if row else dummy_hash(), password)
         except (VerificationError, InvalidHashError):
             valid = False
-        return public_user(row) if valid and row and row["active"] else None
+        return user if valid and row and row["active"] else None
 
     def session(self, token: str | None) -> dict | None:
         if not token or len(token) > 256:
             return None
         with self.connection() as db:
             row = db.execute("SELECT u.*,s.csrf_digest FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_digest=? AND s.expires_at>? AND u.active=1", (digest(token),time.time())).fetchone()
-            return public_user(row) if row else None
+            return public_user(row, db) if row else None
 
     def new_session(self, user: dict, old: str | None) -> tuple[str,str]:
         raw = secrets.token_urlsafe(32)
@@ -258,7 +266,7 @@ class AuthStore:
     def applications(self) -> list[dict]:
         with self.connection() as db:
             rows=db.execute("SELECT u.*,q.filename,q.submitted_at FROM users u JOIN qualifications q ON q.user_id=u.id WHERE u.role='instructor' ORDER BY q.submitted_at DESC LIMIT 500").fetchall()
-        return [dict(**public_user(row),qualificationFilename=row["filename"],submittedAt=row["submitted_at"]) for row in rows]
+            return [dict(**public_user(row, db),qualificationFilename=row["filename"],submittedAt=row["submitted_at"]) for row in rows]
 
     def qualification(self,user_id: str):
         with self.connection() as db:
@@ -275,20 +283,23 @@ class AuthStore:
                 raise HTTPException(404,"Application not found")
             if row["status"]!="pending":
                 raise HTTPException(409,"Only pending applications can be reviewed")
+            if not db.execute("SELECT 1 FROM qualifications WHERE user_id=?", (user_id,)).fetchone():
+                raise HTTPException(409,"A qualification document must be submitted before review")
             db.execute("INSERT INTO qualification_reviews VALUES(?,?,?,?,?,?)",(secrets.token_urlsafe(18),user_id,reviewer_id,decision,reason.strip(),time.time()))
             db.execute("UPDATE users SET status=?,review_reason=? WHERE id=?",(decision,reason.strip() or None,user_id))
-            return public_user(db.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone())
+            return public_user(db.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone(), db)
 
     def resubmit(self,user_id: str,qualification: tuple) -> dict:
         qualification=qualification_file(*qualification)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             row=db.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
-            if row["role"]!="instructor" or row["status"]!="rejected":
-                raise HTTPException(409,"Only rejected applications can be resubmitted")
-            db.execute("UPDATE qualifications SET filename=?,content_type=?,data=?,submitted_at=? WHERE user_id=?",(*qualification,time.time(),user_id))
+            submitted = db.execute("SELECT 1 FROM qualifications WHERE user_id=?", (user_id,)).fetchone() is not None
+            if not row or row["role"]!="instructor" or not (row["status"]=="rejected" or (row["status"]=="pending" and not submitted)):
+                raise HTTPException(409,"Qualifications can be submitted before review or after rejection")
+            db.execute("INSERT INTO qualifications VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET filename=excluded.filename,content_type=excluded.content_type,data=excluded.data,submitted_at=excluded.submitted_at",(user_id,*qualification,time.time()))
             db.execute("UPDATE users SET status='pending',review_reason=NULL WHERE id=?",(user_id,))
-            return public_user(db.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone())
+            return public_user(db.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone(), db)
 
     def claim_unowned(self,email: str,course_ids: list[str]) -> list[str]:
         if not course_ids or len(set(course_ids))!=len(course_ids):

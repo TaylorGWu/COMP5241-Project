@@ -12,5 +12,5 @@ tasks:
   mermaid:       { provider: deepseek,    tier: cheap,   temperature: 0.0 }
   vision:        { provider: deepseek,    tier: flash }
   embed:         { provider: siliconflow, model: bge-m3 }
-  image:         { provider: siliconflow, model: flux-1-schnell }
+  image:         { provider: cloudflare, model: "@cf/black-forest-labs/flux-1-schnell" }
   tts:           { provider: edge,        voice: zh-CN-XiaoxiaoNeural }

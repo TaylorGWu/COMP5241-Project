@@ -1,0 +1,19 @@
+/* Shared signed-in account disclosure. Keep identity inside, not across the nav. */
+.account-actions.account-menu { position: relative; display: inline-flex; min-height: 44px; flex-wrap: nowrap; gap: 0; flex-shrink: 0; }
+.account-menu .account-menu-trigger { display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 3px; border: 1px solid var(--color-line); border-radius: 50%; background: var(--color-surface); cursor: pointer; }
+.account-menu .account-menu-trigger:hover, .account-menu .account-menu-trigger[aria-expanded="true"] { border-color: var(--color-blue); background: var(--color-blue-soft); }
+.account-menu .account-menu-trigger .teacher-photo { width: 36px; height: 36px; border-radius: 50%; font-size: 16px; line-height: 1; object-fit: cover; }
+.account-menu-panel { position: absolute; z-index: 60; top: calc(100% + 10px); right: 0; width: min(272px, calc(100vw - 32px)); border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface); color: var(--color-ink); text-align: start; padding: 8px; font-family: inherit; }
+.account-menu-summary { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-bottom: 1px solid var(--color-line); }
+.account-menu-summary strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.account-menu-summary > span { font-size: 13px; font-weight: 400; color: var(--color-body); overflow-wrap: anywhere; }
+.account-menu-links { display: grid; gap: 2px; padding: 6px 0; }
+.account-menu .account-menu-links a, .account-menu .account-menu-logout { display: flex; align-items: center; min-height: 44px; width: 100%; border-radius: 6px; padding: 10px 12px; font-size: 14px; line-height: 1.5; font-weight: 500; color: var(--color-ink); text-decoration: none; text-align: start; white-space: normal; }
+.account-menu .account-menu-links a:hover, .account-menu .account-menu-logout:hover { background: var(--color-soft); color: var(--color-blue-deep); }
+.account-menu .account-menu-links a[aria-current="page"] { background: var(--color-blue-soft); color: var(--color-blue-deep); }
+.account-menu .account-menu-logout { color: var(--color-body); border-top: 1px solid var(--color-line); border-radius: 0 0 6px 6px; cursor: pointer; }
+.account-menu .account-menu-logout:disabled { opacity: .6; cursor: wait; }
+.account-menu-error { padding: 8px 12px; color: var(--color-amber); font-size: 13px; font-weight: 400; line-height: 1.6; }
+@media (max-width: 800px) {
+  .public-header .account-actions.account-menu { margin-left: auto; }
+}

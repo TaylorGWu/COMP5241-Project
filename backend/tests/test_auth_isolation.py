@@ -20,13 +20,13 @@ async def accounts(monkeypatch):
     monkeypatch.setattr(demo, "FAKE_MODEL_DELAY", 0)
     clients = []
 
-    async def create(email, role="instructor", approved=True):
+    async def create(email, role="instructor", approved=True, qualification=True):
         client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
         clients.append(client)
         csrf = (await client.get("/api/auth/csrf")).json()["csrfToken"]
         response = await client.post(
             "/api/auth/register", data=dict(name=email, email=email, password=PASSWORD, role=role),
-            files={"qualification": ("qualification.pdf", PDF, "application/pdf")} if role == "instructor" else None,
+            files={"qualification": ("qualification.pdf", PDF, "application/pdf")} if role == "instructor" and qualification else None,
             headers={"Origin": ORIGIN, "X-CSRF-Token": csrf},
         )
         assert response.status_code == 201, response.text
@@ -46,6 +46,42 @@ async def course(client, title="Private course"):
     assert response.status_code == 201, response.text
     item = response.json()
     return item, f"/api/demo/courses/{item['id']}/chapters/{item['chapterIds'][0]}"
+
+
+async def test_parallel_private_images_read_snapshots_without_taking_the_edit_lock(accounts, monkeypatch, tmp_path):
+    import io
+    from PIL import Image
+    from app.services.illustrations import _save_image
+    from app.schemas.ir import CoursePackage
+
+    teacher = await accounts('image-owner@example.test')
+    stranger = await accounts('image-stranger@example.test')
+    item, path = await course(teacher)
+    assert (await teacher.post(path + '/generate', json={'topic': 'Private images'})).status_code == 200
+    package = (await teacher.get(path)).json()['package']
+    image = io.BytesIO()
+    Image.new('RGB', (320, 180), 'white').save(image, 'PNG')
+    monkeypatch.setattr(demo.settings, 'upload_dir', str(tmp_path / 'uploads'))
+    ids = ['il-' + 'a' * 32, 'il-' + 'b' * 32]
+    for aid in ids:
+        _save_image(demo.settings.upload_dir, image.getvalue(), aid)
+        package['assets'].append({'id': aid, 'kind': 'illustration', 'status': 'ready'})
+    package['slideDeck']['slides'][0]['visuals'] = [{'id': str(i), 'kind': 'illustration', 'assetId': aid} for i, aid in enumerate(ids)]
+    package['slideDeck']['slides'][0]['animation'] = None
+    CoursePackage.model_validate(package)
+    chid = path.rsplit('/', 1)[1]
+    demo.COURSE_WORKSPACE.repository.update_chapter(item['id'], chid, package=package)
+    lock = demo._editing_lock('chapter', item['id'], chid)
+    await lock.acquire()
+    try:
+        images = await asyncio.gather(*(teacher.get(path + f'/assets/{aid}.png') for aid in ids))
+        assert [response.status_code for response in images] == [200, 200]
+        assert all(response.content.startswith(b'\x89PNG') for response in images)
+        assert (await stranger.get(path + f'/assets/{ids[0]}.png')).status_code == 404
+        edit = await teacher.post(path + '/manual-edit', json={'kind': 'slide', 'target_id': 's1', 'payload': {'title': 'Must remain locked'}})
+        assert edit.status_code == 409
+    finally:
+        lock.release()
 
 
 @pytest.mark.parametrize("path", ["/courses", "/state", "/export/deck.pptx", "/export/lesson-plan.docx"])
@@ -155,6 +191,20 @@ async def test_every_teacher_route_authenticates_before_body_or_resource_resolut
             for method in route.methods:
                 assert (await client.request(method, url)).status_code == 401, (method, url)
                 checked += 1
+    assert checked >= 40
+
+
+async def test_unsubmitted_instructor_cannot_access_any_teacher_route(accounts):
+    instructor = await accounts("unsubmitted@example.test", approved=False, qualification=False)
+    user = (await instructor.get("/api/auth/me")).json()["user"]
+    assert user["status"] == "pending"
+    assert user["qualificationSubmitted"] is False
+    checked = 0
+    for route in demo.router.routes:
+        url = "/api" + route.path.replace("{course_id}", "missing").replace("{chapter_id}", "missing").replace("{asset_id}", "missing")
+        for method in route.methods:
+            assert (await instructor.request(method, url)).status_code == 403, (method, url)
+            checked += 1
     assert checked >= 40
 
 

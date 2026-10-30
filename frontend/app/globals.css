@@ -808,8 +808,12 @@ main :is(input, select, textarea)::placeholder { color: color-mix(in srgb, var(-
 .chapter-entry__facts { display: flex; align-items: center; gap: .625rem; flex-shrink: 0; white-space: nowrap; }
 .course-detail .chapter-entry__actions { gap: .75rem; }
 .course-detail .chapter-actions summary { min-height: 40px; font-size: .8125rem; }
-.chapter-entry__open { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: .5rem .875rem; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface); color: var(--color-ink); font-size: .8125rem; font-weight: 650; white-space: nowrap; transition: background-color .16s ease, border-color .16s ease; }
-.chapter-entry__open:hover { border-color: var(--color-blue); background: var(--color-blue-soft); color: var(--color-blue-deep); }
+.chapter-entry__link { color: inherit; text-decoration: none; }
+.chapter-entry__link::after { content: ""; position: absolute; inset: 0; z-index: 2; border-radius: 8px; }
+.chapter-entry__link:focus-visible { outline: none; }
+.chapter-entry__link:focus-visible::after { outline: 2px solid var(--color-blue); outline-offset: -3px; }
+.chapter-entry:hover .chapter-entry__link { color: var(--color-blue-deep); }
+.chapter-entry .chapter-actions, .chapter-entry__rename { position: relative; z-index: 3; }
 .chapter-entry__rename { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .chapter-entry__rename input { min-width: 0; flex: 1 1 160px; }
 .course-outline__empty { padding: 2rem 1.5rem; border-top: 1px solid var(--color-line); }
@@ -850,12 +854,31 @@ main :is(input, select, textarea)::placeholder { color: color-mix(in srgb, var(-
   .course-detail .chapter-entry__top { flex-wrap: wrap; }
   .course-detail .chapter-entry__foot { flex-wrap: wrap; }
   .course-detail .chapter-entry__actions { width: 100%; justify-content: flex-end; }
-  .course-detail .chapter-entry__open, .course-detail .chapter-actions summary { min-height: 44px; }
+  .course-detail .chapter-actions summary { min-height: 44px; }
   .course-detail .course-add { margin: 0 1.125rem 1rem; }
 }
 
 /* The chapter editor is dense by nature; make its adjoining surfaces feel intentional. */
 .studio-shell .studio-material-tabs { margin-bottom: .4rem; }
+.studio-shell .studio-material-tabs { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; overflow: visible; gap: .25rem; }
+.slide-actions { display: flex; align-items: center; gap: .25rem; padding: .25rem; }
+.slide-actions > button, .slide-actions__add { min-height: 40px; font-size: .8125rem; white-space: nowrap; }
+.slide-actions__insert { position: relative; }
+.slide-actions__add { display: inline-flex; align-items: center; gap: .375rem; padding: .5rem .75rem; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface); color: var(--color-ink); font-weight: 600; }
+.slide-actions__add:hover { border-color: var(--color-blue); color: var(--color-blue-deep); }
+.slide-actions__add:disabled { opacity: .45; cursor: not-allowed; }
+.slide-actions__options { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 190px; padding: .375rem; border: 1px solid var(--color-line); border-radius: 10px; background: var(--color-surface); box-shadow: 0 8px 24px rgb(23 32 51 / .12); }
+.slide-actions__options button { display: block; width: 100%; padding: .75rem; text-align: left; color: var(--color-ink); white-space: nowrap; }
+.slide-actions__options button:hover { background: var(--color-blue-soft); }
+.slide-actions button:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 2px; }
+.slide-actions .slide-actions__delete:not(:disabled), .slide-delete-dialog .slide-actions__delete { color: #b42318; }
+.slide-delete-dialog { width: min(440px, calc(100vw - 32px)); margin: auto; padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); color: var(--color-ink); }
+.slide-delete-dialog::backdrop { background: rgb(23 32 51 / .35); }
+.slide-delete-dialog h2 { font-size: 1.25rem; font-weight: 650; }
+.slide-delete-dialog p { margin-top: .75rem; color: var(--color-body); line-height: 1.6; overflow-wrap: anywhere; }
+.slide-delete-dialog__name { font-weight: 600; }
+.slide-delete-dialog__buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.5rem; }
+@media (max-width: 640px) { .slide-actions { width: 100%; justify-content: flex-end; } .slide-actions button { min-height: 44px; } .slide-actions__options { right: auto; left: 0; } }
 .studio-shell .studio-slide-stage { border-radius: 14px; }
 .studio-outline__body { border-right-color: color-mix(in srgb, var(--color-line) 88%, var(--color-blue)); }
 .global-system-settings__trigger { border-color: color-mix(in srgb, var(--color-line) 82%, var(--color-blue)); }

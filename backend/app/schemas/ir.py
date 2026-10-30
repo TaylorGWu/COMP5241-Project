@@ -160,8 +160,8 @@ class LessonPlan(_IRBase):
 # 课件(§5.1)
 # ═══════════════════════════════════════════════════════════════
 
-SlideLayout = Literal["title", "bullets", "diagram", "twoCol", "code", "quiz"]
-Origin = Literal["sourced", "ai"]
+SlideLayout = Literal["title", "bullets", "diagram", "twoCol", "code", "quiz", "statusBoard"]
+Origin = Literal["sourced", "ai", "teacher"]
 TeachingRole = Literal[
     "explain",
     "worked_example",
@@ -263,6 +263,16 @@ def slide_animation_validation_error(slide: "Slide", animation: SlideAnimation) 
     return None
 
 
+class StatusItem(_IRBase):
+    label: str = Field(min_length=1, max_length=80)
+    status: Literal["complete", "partial", "unverified", "excluded"] = "unverified"
+
+
+class StatusGroup(_IRBase):
+    title: str = Field(min_length=1, max_length=40)
+    items: list[StatusItem] = Field(min_length=1, max_length=6)
+
+
 class Slide(_IRBase):
     """课件的一页。origin 用来区分「有讲义出处」和「AI 补充」(§9.2)。"""
 
@@ -271,6 +281,8 @@ class Slide(_IRBase):
     layout: SlideLayout
     title: str
     bullets: list[str] = Field(default_factory=list)
+    status_groups: list[StatusGroup] = Field(default_factory=list, max_length=3)
+    quiz_instruction: str = Field(default="", description="测验作答提示，与选项分开，不参与 A/B/C 编号")
     speaker_notes: str = Field(default="", description="讲稿,同时用作视频旁白来源(§12.3)")
     visuals: list[Visual] = Field(default_factory=list)
     objective_ids: list[str] = Field(default_factory=list)
@@ -283,9 +295,53 @@ class Slide(_IRBase):
     #: Optional deterministic preview metadata. Renderers may ignore it safely.
     animation: SlideAnimation | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_quiz(cls, value: Any) -> Any:
+        """Accept old option-labelled lists without inventing or dropping answers.
+
+        Only a clear, unlabelled trailing imperative is moved to instructions.
+        Explicitly labelled answers are never classified as instructions. Remove
+        letter prefixes only when they form a sequential A/B/... run.
+        """
+        if not isinstance(value, dict) or value.get("layout") != "quiz":
+            return value
+        raw = value.get("bullets")
+        if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+            return value
+        result = dict(value)
+        options = list(raw)
+        label = re.compile(r"^\s*(?:([A-Z])[.．)、:：]|[（(]([A-Z])[）)])\s*(.+)$", re.I)
+        instruction = re.compile(r"^(?:(?:pick|select|choose)\s+(?:one|an?\s+(?:answer|option)|the\s+(?:pair|best\s+(?:answer|option)))\b|decide\s+which\s+one\b|(?:請|请)(?:選擇|选择|選出|选出)(?:一|最|正確|正确))", re.I)
+        removed_instruction = False
+        if len(options) >= 3 and not label.match(options[-1]) and instruction.match(options[-1].strip()):
+            prompt = options.pop().strip()
+            existing = str(result.get("quizInstruction", result.get("quiz_instruction", ""))).strip()
+            result["quizInstruction"] = existing if existing == prompt else "\n".join(filter(None, [existing, prompt]))
+            removed_instruction = True
+        matched = []
+        for index, item in enumerate(options):
+            hit = label.match(item)
+            if not hit or (hit.group(1) or hit.group(2)).upper() != chr(65 + index):
+                break
+            matched.append(hit.group(3))
+        if len(matched) >= 2:
+            options[:len(matched)] = matched
+        result["bullets"] = options
+        if removed_instruction and isinstance(result.get("animation"), dict):
+            animation = dict(result["animation"])
+            steps = animation.get("steps")
+            if isinstance(steps, list):
+                removed_target = f"bullet:{len(raw) - 1}"
+                animation["steps"] = [step for step in steps if not isinstance(step, dict) or step.get("target") != removed_target]
+                result["animation"] = animation if animation["steps"] else None
+        return result
+
     @model_validator(mode="after")
     def _sourced_needs_refs(self) -> "Slide":
         """§6.4:不能声称有来源却拿不出来。"""
+        if self.layout == "statusBoard" and not self.status_groups:
+            raise ValueError("statusBoard requires at least one status group")
         if self.origin == "sourced" and not self.source_refs:
             raise ValueError("origin=sourced 的幻灯片必须有非空 sourceRefs")
         if self.animation:

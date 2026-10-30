@@ -33,5 +33,5 @@ test("content-heavy slide layouts use their available height instead of leaving 
   assert.match(source, /function BalancedBulletColumns/);
   assert.match(source, /<BalancedBulletColumns items=\{bullets\} presentation=\{presentation\} \/>/);
   assert.match(source, /function EvidenceFrame[\s\S]*<Bullets items=\{items\} spread presentation=\{presentation\} \/>/);
-  assert.match(source, /<ol className="flex min-h-0 flex-1 flex-col justify-evenly">/);
+  assert.match(source, /<ol[^>]*className="flex min-h-0 flex-1 flex-col justify-evenly"[^>]*>/);
 });

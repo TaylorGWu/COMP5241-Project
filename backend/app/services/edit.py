@@ -89,6 +89,7 @@ class EditDeps:
 
     package: CoursePackage
     store: PatchStore
+    slide_id: str | None = None
 
     @property
     def artifact_id(self) -> str:
@@ -119,6 +120,8 @@ class EditDeps:
 
         payload: dict[str, Any] = args.get("patch") or {}
         target_id: str = args.get("slide_id") or args.get("question_id") or "paper"
+        if self.slide_id is not None and (kind not in ("slide", "regenerate_slide") or target_id != self.slide_id):
+            raise ValueError(f"Outside selected slide scope: only {self.slide_id} may be changed")
         reason: str = args.get("reason") or "(模型未说明理由)"
 
         # diff 需要「改之前是什么」,所以先去取当前值
@@ -234,6 +237,7 @@ async def edit_artifact(
     message: str,
     images: list[str] | None = None,
     target: str = "slides",
+    slide_id: str | None = None,
     store: PatchStore | None = None,
     max_turns: int = 8,
     on_step: Callable[[AgentStep], None] | None = None,
@@ -249,13 +253,23 @@ async def edit_artifact(
     不传就没有任何开销,现有调用方一个字都不用改。
     """
     store = store if store is not None else InMemoryPatchStore()
-    deps = EditDeps(package=package, store=store)
+    if slide_id is not None:
+        if target != "slides":
+            raise ValueError("Slide scope requires the slides material")
+        selected = find_slide(package, slide_id)
+    deps = EditDeps(package=package, store=store, slide_id=slide_id)
+    artifact_id = deps.artifact_id_for({"slides": "slide", "questions": "question", "paper": "paper"}.get(target, "slide"))
+    previous_ids = {patch.id for patch in store.list(artifact_id, status="proposed")}
 
     extra: dict[str, Any] = {}
     if on_step is not None:
         extra["on_step"] = on_step
 
     user: str | list[dict[str, Any]] = f"[revision target: {target}]\n{message}"
+    scope = ""
+    if slide_id is not None:
+        scope = f"\nSelected slide scope: id={slide_id}, current page={selected.order}, title={selected.title}. Only this stable ID may be patched; page numbers are not IDs."
+        user += scope
     if images:
         user = [
             {"type": "text", "text": user},
@@ -265,7 +279,7 @@ async def edit_artifact(
     agent_result = await run_agent(
         client=client,
         model=model,
-        system=f"{EDIT_SYSTEM_PROMPT}\n\n本次只能修改: {target}。请只使用匹配该材料的 read / patch 工具。",
+        system=f"{EDIT_SYSTEM_PROMPT}\n\n本次只能修改: {target}。请只使用匹配该材料的 read / patch 工具。{scope}",
         user=user,
         tools=build_edit_tools(deps),
         max_turns=max_turns,
@@ -274,6 +288,6 @@ async def edit_artifact(
 
     return EditResult(
         reply=agent_result.content,
-        proposed=store.list(deps.artifact_id_for({"slides": "slide", "questions": "question", "paper": "paper"}.get(target, "slide")), status="proposed"),
+        proposed=[patch for patch in store.list(artifact_id, status="proposed") if patch.id not in previous_ids],
         agent=agent_result,
     )

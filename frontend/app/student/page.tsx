@@ -1,2 +1,3 @@
 import { StudentAccountPage } from "@/components/AccountPages";
-export default function Page() { return <StudentAccountPage />; }
+import { AccountGate } from "@/components/AccountProvider";
+export default function Page() { return <AccountGate destination="/student"><StudentAccountPage /></AccountGate>; }

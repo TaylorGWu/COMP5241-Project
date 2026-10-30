@@ -5,7 +5,7 @@
  *
  * 这里刻意**不把幻灯片渲染成字段列表**。教师审的是「这一页讲台上放出来长什么样」,
  * 不是 `{title, bullets, layout}`。所以每一页按 16:9 真实版面渲染,
- * 版面分歧(title / bullets / twoCol / diagram / code / quiz)都走同一份 IR。
+ * 版面分歧(title / bullets / twoCol / diagram / code / quiz / statusBoard)都走同一份 IR。
  *
  * 顺带一个好处:渲染器和将来的 pptx 导出器读的是同一份 IR,
  * 所以画布上看到的版面就是导出后拿到的版面。
@@ -18,8 +18,9 @@ import { SlideAnimationPreview, type AnimationPresentation } from "@/components/
 import { useI18n } from "@/lib/i18n";
 import type { Messages } from "@/lib/i18n-config";
 import type { Slide } from "@/lib/api";
+import { StatusBoard, StatusBoardEditor } from "@/components/StatusBoard";
 
-const LAYOUTS = ["title", "bullets", "diagram", "twoCol", "code", "quiz"] as const;
+const LAYOUTS = ["title", "bullets", "diagram", "twoCol", "code", "quiz", "statusBoard"] as const;
 
 /** 版面名走词典;遇到后端新增的未知版面就原样显示,不崩。 */
 function layoutLabel(t: Messages, layout: string): string {
@@ -36,6 +37,8 @@ function layoutLabel(t: Messages, layout: string): string {
       return t.slide.layoutCode;
     case "quiz":
       return t.slide.layoutQuiz;
+    case "statusBoard":
+      return "Status board";
     default:
       return layout;
   }
@@ -110,11 +113,12 @@ function DiagramFallback({ title, labels }: { title: string; labels: string[] })
 }
 
 /** 和 PPTX 使用同一个后端资源；资源不可达时不留空白，而是保留可审阅的 SVG。 */
-function DiagramPreview({ url, alt, labels, thumbnail = false }: { url?: string; alt: string; labels: string[]; thumbnail?: boolean }) {
-  const { t } = useI18n();
+function DiagramPreview({ url, alt, labels, thumbnail = false, illustration = false }: { url?: string; alt: string; labels: string[]; thumbnail?: boolean; illustration?: boolean }) {
+  const { t, locale } = useI18n();
   const [failed, setFailed] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   if (!url || failed) {
+    if (illustration) return <p role="status" className="m-auto p-4 text-sm text-muted">{locale === "en" ? "Image unavailable. The lesson content is kept." : "图片暂不可用，正文已保留。"}</p>;
     return <DiagramFallback title={alt} labels={labels} />;
   }
   if (thumbnail) {
@@ -127,7 +131,7 @@ function DiagramPreview({ url, alt, labels, thumbnail = false }: { url?: string;
     <>
       <button
         type="button"
-        aria-label={t.slide.expandDiagram}
+        aria-label={illustration ? alt : t.slide.expandDiagram}
         onClick={() => dialogRef.current?.showModal()}
         className="group relative flex h-full w-full cursor-zoom-in items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue"
       >
@@ -135,7 +139,7 @@ function DiagramPreview({ url, alt, labels, thumbnail = false }: { url?: string;
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt={alt} className="max-h-full max-w-full object-contain" onError={() => setFailed(true)} />
         <span className="absolute bottom-2 right-2 rounded-sm bg-surface/95 px-2 py-1 text-[11px] font-semibold text-ink shadow-sm group-hover:text-blue">
-          {t.slide.expandDiagram}
+          {illustration ? (locale === "en" ? "View image" : "查看图片") : t.slide.expandDiagram}
         </span>
       </button>
       <dialog
@@ -226,10 +230,40 @@ function EvidenceFrame({ items, presentation }: { items: string[]; presentation?
 function SlideBody({ slide, diagramUrl, thumbnail = false, focusedField, presentation }: { slide: Slide; diagramUrl?: string; thumbnail?: boolean; focusedField?: string | null; presentation?: AnimationPresentation }) {
   const { t } = useI18n();
   const { layout, title, bullets, visualPurpose } = slide;
-  const visual = slide.visuals.find((item) => item.kind === "diagram");
-  const figure = visual ? <AnimatedVisual target={`visual:${visual.id}`} presentation={presentation}><DiagramPreview key={diagramUrl} url={diagramUrl} alt={`${title} diagram`} labels={bullets} thumbnail={thumbnail} /></AnimatedVisual> : null;
+  const visual = slide.visuals.find((item) => item.kind === "diagram" || item.kind === "illustration");
+  const illustration = visual?.kind === "illustration";
+  const figure = visual ? <AnimatedVisual target={`visual:${visual.id}`} presentation={presentation}><DiagramPreview key={diagramUrl} url={diagramUrl} alt={`${title} ${visual.spec?.capture ? "screenshot" : illustration ? "illustration" : "diagram"}`} labels={bullets} thumbnail={thumbnail} illustration={illustration} /></AnimatedVisual> : null;
   const titleTargetId = `slide:${slide.id}:title`;
   const titleFocused = focusedField === "title";
+
+  if (illustration && visual?.spec?.display === "full") {
+    return <div className="flex h-full flex-col" data-full-image-slide="1">
+      <SlideTitle targetId={titleTargetId} highlighted={titleFocused} presentation={presentation}>{title}</SlideTitle>
+      <figure className="min-h-0 flex-1">{figure}</figure>
+      {bullets.length ? <p className="mt-3 text-sm leading-5 text-body">{bullets.join(" · ")}</p> : null}
+    </div>;
+  }
+
+  if (layout === "statusBoard" && slide.statusGroups?.length) {
+    return <div className="flex h-full flex-col">
+      <SlideTitle targetId={titleTargetId} highlighted={titleFocused} presentation={presentation}>{title}</SlideTitle>
+      <StatusBoard groups={slide.statusGroups} />
+    </div>;
+  }
+
+  if (illustration) {
+    return (
+      <div className="flex h-full flex-col" data-slide-illustration="1">
+        <SlideTitle targetId={titleTargetId} highlighted={titleFocused} presentation={presentation}>{title}</SlideTitle>
+        <div className="flex min-h-0 flex-1 gap-6">
+          <div className="flex min-w-0 flex-1 flex-col"><Bullets items={bullets} spread presentation={presentation} /></div>
+          <figure className="flex min-h-0 w-1/2 flex-col rounded-lg border border-line bg-soft p-4">
+            <div className="min-h-0 flex-1">{figure}</div>
+          </figure>
+        </div>
+      </div>
+    );
+  }
 
   if (visualPurpose === "comparison" || visualPurpose === "scenario" || visualPurpose === "evidence") {
     const treatment = visualPurpose === "comparison"
@@ -317,7 +351,8 @@ function SlideBody({ slide, diagramUrl, thumbnail = false, focusedField, present
     return (
       <div className="flex h-full flex-col">
         <SlideTitle targetId={titleTargetId} highlighted={titleFocused} presentation={presentation}>{title}</SlideTitle>
-        <ol className="flex min-h-0 flex-1 flex-col justify-evenly">
+        {slide.quizInstruction ? <p data-quiz-instruction="1" className="mb-2 text-sm text-body">{slide.quizInstruction}</p> : null}
+        <ol data-quiz-options="1" className="flex min-h-0 flex-1 flex-col justify-evenly">
           {bullets.map((b, i) => (
             <li
               key={i}
@@ -409,6 +444,8 @@ function SlideEditor({
   const [layout, setLayout] = useState(slide.layout);
   const [bullets, setBullets] = useState(slide.bullets.join("\n"));
   const [notes, setNotes] = useState(slide.speakerNotes);
+  const [quizInstruction, setQuizInstruction] = useState(slide.quizInstruction ?? "");
+  const [statusGroups, setStatusGroups] = useState(slide.statusGroups?.length ? slide.statusGroups : [{ title: "New group", items: [{ label: "New item", status: "unverified" as const }] }]);
 
   return (
     <div className="rounded-md border border-blue/40 bg-blue-soft/60 p-4">
@@ -431,14 +468,17 @@ function SlideEditor({
         </Field>
       </div>
       <div className="mt-3 grid gap-3">
-        <Field label={t.slide.fieldBullets} hint={t.setup.onePerLine}>
+        {layout === "statusBoard" ? <StatusBoardEditor groups={statusGroups} onChange={setStatusGroups} /> : <Field label={t.slide.fieldBullets} hint={t.setup.onePerLine}>
           <textarea
             rows={4}
             className={inputCls}
             value={bullets}
             onChange={(e) => setBullets(e.target.value)}
           />
-        </Field>
+        </Field>}
+        {layout === "quiz" ? <Field label={t.slide.fieldQuizInstruction}>
+          <textarea rows={2} className={inputCls} value={quizInstruction} onChange={(e) => setQuizInstruction(e.target.value)} />
+        </Field> : null}
         <Field label={t.slide.fieldNotes}>
           <textarea
             rows={3}
@@ -451,7 +491,7 @@ function SlideEditor({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
-          disabled={busy}
+          disabled={busy || (layout === "statusBoard" && statusGroups.some(group => !group.title.trim() || group.items.some(item => !item.label.trim())))}
           onClick={() =>
             onSave({
               title,
@@ -461,6 +501,8 @@ function SlideEditor({
                 .map((s) => s.trim())
                 .filter(Boolean),
               speakerNotes: notes,
+              quizInstruction,
+              ...(layout === "statusBoard" ? { statusGroups } : {}),
             })
           }
         >
@@ -485,6 +527,7 @@ export function SlideCanvas({
   editing,
   busy,
   onEdit,
+  hideEditAction = false,
   onRequestAnimation,
   onCancelEdit,
   onSave,
@@ -501,6 +544,7 @@ export function SlideCanvas({
   editing: boolean;
   busy: boolean;
   onEdit: () => void;
+  hideEditAction?: boolean;
   /** Creates a proposed animation for this visible slide; it is never applied automatically. */
   onRequestAnimation: () => void;
   onCancelEdit: () => void;
@@ -530,6 +574,8 @@ export function SlideCanvas({
             <Dot tone="blue" />
             {t.slide.sourced}
           </Badge>
+        ) : slide.origin === "teacher" ? (
+          <Badge>{t.slide.teacherAdded}</Badge>
         ) : (
           <Badge tone="amber">
             <Dot tone="amber" />
@@ -546,14 +592,14 @@ export function SlideCanvas({
             >
               {t.slide.generateAnimation}
             </Button>
-            <Button
+            {!hideEditAction ? <Button
               variant="quiet"
               className="min-h-0 px-2 py-1 text-[13px]"
               onClick={onEdit}
               disabled={busy}
             >
               {t.slide.edit}
-            </Button>
+            </Button> : null}
           </div>
         ) : null}
       </header>

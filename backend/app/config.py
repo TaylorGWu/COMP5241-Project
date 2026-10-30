@@ -23,7 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 
 from pydantic_settings import (
     BaseSettings,
@@ -83,6 +83,8 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     siliconflow_api_key: str = ""
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: SecretStr = SecretStr("")
 
     models_config_path: str = "config/models.yaml"
     upload_dir: str = "var/uploads"

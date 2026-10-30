@@ -1,2 +1,3 @@
 import { ApplicationPage } from "@/components/AccountPages";
-export default function Page() { return <ApplicationPage />; }
+import { AccountGate } from "@/components/AccountProvider";
+export default function Page() { return <AccountGate destination="/application"><ApplicationPage /></AccountGate>; }

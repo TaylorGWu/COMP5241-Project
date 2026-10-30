@@ -183,8 +183,9 @@ export function ExportMenu({
     <details className="relative" data-export-menu="1">
       <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-md px-3.5 text-[13px] font-semibold text-muted transition-colors hover:bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue [&::-webkit-details-marker]:hidden">
         {label}
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m7 10 5 5 5-5" /></svg>
       </summary>
-      <div className="absolute top-full right-0 z-30 mt-2 w-[288px] rounded-md border border-line bg-surface p-3 shadow-card">
+      <div className="absolute top-full left-0 sm:left-auto sm:right-0 z-30 mt-2 w-[288px] rounded-md border border-line bg-surface p-3 shadow-card">
         <label className="flex cursor-pointer items-center gap-2 text-[13px] leading-[1.4] text-body">
           <input
             type="checkbox"

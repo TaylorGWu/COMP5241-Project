@@ -1,49 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { CourseWorkflowDemo } from "@/components/CourseWorkflowDemo";
 import { PublicHeader } from "@/components/PublicHeader";
 import { useI18n } from "@/lib/i18n";
-import { publicCopy } from "@/lib/public-copy";
+import { homepageCopy } from "@/lib/homepage-copy";
+import { useAccount } from "@/components/AccountProvider";
+import { roleDestination } from "@/lib/auth";
 
 export function PublicHome() {
   const { locale } = useI18n();
-  const c = publicCopy(locale);
-  const [step, setStep] = useState(0);
-  const [accepted, setAccepted] = useState(false);
-  const [playing, setPlaying] = useState(true);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !playing || step >= 2) return;
-    const timer = window.setTimeout(() => setStep((current) => current + 1), 5000);
-    return () => window.clearTimeout(timer);
-  }, [step, playing]);
-  const select = (next: number) => { setStep(next); setPlaying(false); };
-  return <main className="public-page">
+  const c = homepageCopy(locale);
+  const { user } = useAccount();
+  return <main className="public-page public-home-page">
+    <a className="home-skip" href="#home-main">{locale === "en" ? "Skip to content" : locale === "zh-HK" ? "跳至主要內容" : "跳至主要内容"}</a>
     <PublicHeader />
-    <section className="public-hero" aria-labelledby="home-title">
-      <h1 id="home-title">{c.heroA}<br /><span>{c.heroB}</span></h1>
-      <div className="public-hero-aside"><p>{c.heroBody}</p><div className="public-actions"><Link className="public-button" href="/register/instructor">{c.teacherCta}<Arrow /></Link><Link className="public-text-link" href="/register/student">{c.studentCta}<Arrow /></Link></div></div>
-    </section>
-    <section className="teaching-example" id="how-it-works" aria-labelledby="example-title">
-      <div className="example-heading"><h2 id="example-title">{c.exampleTitle}</h2><span>{c.example}</span></div>
-      <div className="example-workspace">
-        <div className="example-topline"><span><i aria-hidden="true" />Coursework / Git essentials</span><span className="example-draft">{accepted ? c.accepted : c.draft}</span></div>
-        <div className="example-body">
-          <aside className={`example-brief ${step === 0 ? "is-current" : ""}`}><span className="example-file"><Document />{c.material}</span><p>{c.briefText}</p><div className="example-objective"><span>LO1</span>{c.objective}</div><div className="example-source-lines" aria-hidden="true"><i /><i /><i /></div></aside>
-          <div className={`example-slide ${step === 1 ? "is-current" : ""}`}><span className="example-slide-number">01 / Git</span><h3>{c.slideTitle}</h3><div className="git-demo-flow">{[c.working, c.staging, c.history].map((label, index) => <div key={label} className={`git-demo-stop ${step >= 1 ? "is-revealed" : ""}`}><span className="git-demo-index">0{index + 1}</span><strong>{label}</strong><code>{index === 0 ? c.file : index === 1 ? "git add app.js" : "git commit"}</code><p>{[c.draftText, c.stagedText, c.historyText][index]}</p></div>)}</div><p className="example-slide-foot">{accepted ? c.after : c.before}</p></div>
-          <aside className={`example-review ${step === 2 ? "is-current" : ""}`}><div className="example-review-heading"><span>AI</span><strong>{c.suggestion}</strong></div><del>{c.before}</del><ins>{c.after}</ins><p>{c.reason}</p><button type="button" disabled={accepted} onClick={() => { setAccepted(true); setStep(2); setPlaying(false); }}>{accepted ? <Check /> : null}{accepted ? c.accepted : c.accept}</button></aside>
-        </div>
+    <section className="public-hero" id="home-main" aria-labelledby="home-title">
+      <div className="public-hero-copy"><h1 id="home-title">{c.headline.map((line, index) => <span key={line}>{line}{index < c.headline.length - 1 ? " " : null}</span>)}</h1>
+        <p>{c.body}</p><div className="home-assurance"><Check /><span>{c.assurance}</span></div>
       </div>
-      <div className="example-controls"><div className="example-stepper" role="group" aria-label={c.demoLabel}>{[c.brief, c.draft, c.review].map((label, index) => <button type="button" key={label} aria-pressed={step === index} className={step === index ? "is-active" : ""} onClick={() => select(index)}><span>0{index + 1}</span>{label}</button>)}</div><button type="button" className="example-replay" onClick={() => { setStep(0); setAccepted(false); setPlaying(true); }}>{c.replay}<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg></button></div>
-      <p className="example-disclaimer">{c.exampleNote}</p>
+      <CourseWorkflowDemo hero />
     </section>
-    <section className="public-teacher-story" aria-labelledby="teacher-story"><div><h2 id="teacher-story">{c.teacherTitle}</h2><p>{c.teacherBody}</p><Link href="/register/instructor" className="public-button public-button--light">{c.teacherCta}<Arrow /></Link></div><div className="public-story-proof"><div><Document /><span>{c.source}</span></div><div><Check /><span>{c.human}</span></div><div><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15v5Z" /></svg><span>{c.editable}</span></div></div></section>
-    <section className="public-student-story" aria-labelledby="student-story"><h2 id="student-story">{c.studentTitle}</h2><div><p>{c.studentBody}</p><Link href="/register/student" className="public-text-link">{c.studentCta}<Arrow /></Link></div></section>
-    <section className="public-close"><h2>{c.finalTitle}</h2><p>{c.finalBody}</p><Link href="/register" className="public-button">{c.start}<Arrow /></Link></section>
-    <footer className="public-footer"><Link href="/" className="public-footer-brand">Coursework.</Link><p>{c.footer}</p><Link href="/login">{c.login}</Link></footer>
+    <section className="home-overview" id="home-workflow" aria-labelledby="home-overview-title"><div className="home-section-inner"><h2 id="home-overview-title">{c.overview}</h2><ol>{c.steps.map((step,index)=><li key={step.title}><span className="home-step-icon" aria-hidden="true">{index===0?<Document />:index===1?<Chapters />:<Adjust />}</span><div><h3>{index+1}. {step.title}</h3><p>{step.body}</p></div>{index<2?<span className="home-step-arrow" aria-hidden="true"><Arrow /></span>:null}</li>)}</ol></div></section>
+    <Tagline lines={c.tagline} detail={c.detail} />
+    <section className="home-faq" aria-labelledby="home-faq-title"><h2 id="home-faq-title">{c.faqTitle}</h2><div>{c.faq.map(item=><details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></section>
+    <section className="home-close"><h2>{c.close}</h2><Link className="public-button" href={user ? roleDestination(user) : "/register/instructor"}>{user ? (locale === "en" ? "Open workspace" : locale === "zh-HK" ? "進入後台" : "进入后台") : c.create}<Arrow /></Link><p>{c.student} <Link href="/register/student">{c.studentLink}</Link></p></section>
   </main>;
+}
+
+function Tagline({ lines, detail }: { lines: string[]; detail: string }) {
+  const host = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) { entry.target.setAttribute("data-revealed", "true"); observer.unobserve(entry.target); } }), { threshold: .6 });
+    host.current?.querySelectorAll("[data-reveal-word]").forEach(word => observer.observe(word));
+    return () => observer.disconnect();
+  }, [lines]);
+  return <section className="home-tagline" ref={host}><h2 aria-label={lines.join(" ")}>{lines.map(line=><span className="home-tagline-line" key={line}>{line.split(" ").map((word,index)=><span key={`${word}-${index}`} data-reveal-word style={{transitionDelay:`${Math.min(index*60,400)}ms`}}>{word}{" "}</span>)}</span>)}</h2><p>{detail}</p></section>;
 }
 
 export function Arrow() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>; }
 export function Document() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8m-8 4h5" /></svg>; }
 export function Check() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>; }
+function Chapters() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M3 6h1M3 12h1M3 18h1" /></svg>; }
+function Adjust() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h10m4 0h4M3 18h4m4 0h10M3 12h4m4 0h10" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="9" cy="18" r="2" /></svg>; }

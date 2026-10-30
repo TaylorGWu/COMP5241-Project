@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +29,8 @@ class PlannedAction(BaseModel):
 class EditPlan(BaseModel):
     request: str
     summary: str
+    slide_id: str | None = None
+    target: Literal["slides", "questions", "paper"] = "slides"
     findings: list[EditFinding] = Field(default_factory=list)
     actions: list[PlannedAction] = Field(default_factory=list)
 
@@ -44,19 +47,38 @@ def _animation_target(slides: list[Slide], request: str) -> Slide | None:
     match = re.search(r"\bslide\s+(?:s)?(\d+)\b", request, flags=re.IGNORECASE)
     if not match:
         return None
-    slide_id = f"s{match.group(1)}"
-    return next((slide for slide in slides if slide.id == slide_id), None)
+    return next((slide for slide in slides if slide.order == int(match.group(1))), None)
 
 
-def plan_edit(package: CoursePackage, request: str, target: str = "slides") -> EditPlan:
+def plan_edit(package: CoursePackage, request: str, target: str = "slides", slide_id: str | None = None) -> EditPlan:
     """Inspect IR only; selecting a result later still uses the existing patch review flow."""
     slides = package.slide_deck.slides if package.slide_deck else []
     findings: list[EditFinding] = []
     actions: list[PlannedAction] = []
+    if slide_id is not None:
+        if target != "slides":
+            raise ValueError("Slide scope requires the slides material")
+        selected = next((slide for slide in slides if slide.id == slide_id), None)
+        if selected is None:
+            raise KeyError("Selected slide no longer exists")
+        animation = "animation" in request.lower()
+        return EditPlan(
+            request=request, slide_id=slide_id,
+            summary=f"Review is limited to slide {selected.order}: {selected.title}. Changes still require your approval.",
+            actions=[PlannedAction(
+                id=f"{'animate' if animation else 'edit'}-{slide_id}",
+                title=f"{'Animate' if animation else 'Improve'} slide {selected.order}",
+                detail=selected.title,
+                prompt=(f"Teacher request: {request}. First read slide {slide_id} ({selected.title}). "
+                        + ("Propose an animation patch only using existing content. Do not change text, notes, visuals, or objectives. " if animation else "Propose only the requested improvements as reviewable patches. ")
+                        + "Do not modify any other slide or material."),
+                target_id=slide_id,
+            )],
+        )
     if target != "slides":
         findings.append(EditFinding(id="target", title="Review the selected material", detail="The Agent will inspect the selected assessment material before proposing an editable patch."))
         actions.append(PlannedAction(id="review-selected", title="Improve the selected material", detail="Read the selected material and propose only the smallest useful changes.", prompt=f"Teacher request: {request}. First read the selected {target} material. Then propose only the smallest useful patches, explaining the teaching reason for each."))
-        return EditPlan(request=request, summary="This is a read-only plan. Selected actions still create reviewable proposed patches only.", findings=findings, actions=actions)
+        return EditPlan(request=request, target=target, summary="This is a read-only plan. Selected actions still create reviewable proposed patches only.", findings=findings, actions=actions)
     if not slides:
         return EditPlan(request=request, summary="There are no slides to inspect yet.", findings=[EditFinding(id="no-slides", title="No slides available", detail="Generate courseware before asking the Agent to plan an edit.", tone="warning")])
     animation_target = _animation_target(slides, request)

@@ -170,7 +170,7 @@ export default function CourseDetailPage() {
                         <input autoFocus aria-label="Chapter name" className={inputCls} value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveChapterTitle(chapter); }} />
                         <Button onClick={() => saveChapterTitle(chapter)} disabled={busy || !draftTitle.trim()}>Save</Button>
                         <Button variant="quiet" onClick={() => setEditingChapter(null)}>Cancel</Button>
-                      </div> : <><h3>{chapter.title}</h3><p>{summary}</p></>}
+                      </div> : <><h3><Link href={chapterHref(courseId, chapter.id)} className="chapter-entry__link">{chapter.title}</Link></h3><p>{summary}</p></>}
                     </div>
                   </div>
                   <div className="chapter-entry__foot">
@@ -185,7 +185,6 @@ export default function CourseDetailPage() {
                           <button type="button" disabled={busy || chapters.length === 1} onClick={() => removeChapter(chapter)}>Delete</button>
                         </div>
                       </details>
-                      <Link href={chapterHref(courseId, chapter.id)} className="chapter-entry__open" aria-label={`${chapter.package ? "Open" : "Build"} ${chapter.title}`}>{chapter.package ? "Open chapter" : "Build chapter"}</Link>
                     </div>
                   </div>
                 </div>

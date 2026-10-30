@@ -9,9 +9,9 @@
 封面信息(受众、课时)挂在**第一页**上,而不是单独占一页。
 
 ═══════════════════════════════════════════════════════════════════
-版面:固定 6 种,不追求任意排版
+版面:固定 7 种,不追求任意排版
 ═══════════════════════════════════════════════════════════════════
-title / bullets / diagram / twoCol / code / quiz —— 与 IR 的 `SlideLayout`
+title / bullets / diagram / twoCol / code / quiz / statusBoard —— 与 IR 的 `SlideLayout`
 一一对应。规格里写明了不追求任意排版:占位符 + 自适应文本框极易溢出,
 而溢出的表现是文字跑到页面外,教师拿到手才发现。
 
@@ -102,7 +102,7 @@ def _background(slide, color: str) -> None:
     _panel(slide, left=0, top=0, width=SLIDE_WIDTH, height=SLIDE_HEIGHT, color=color, rounded=False)
 
 
-def _line(frame, text: str, *, size, bold: bool = False, color: str = INK) -> None:
+def _line(frame, text: str, *, size, bold: bool = False, color: str = INK, font_family: str = FONT_FAMILY) -> None:
     """往文本框追加一行。
 
     python-pptx 的 text_frame 永远自带一个空段落,所以第一行要**复用**它,
@@ -112,10 +112,10 @@ def _line(frame, text: str, *, size, bold: bool = False, color: str = INK) -> No
     paragraph.text = text
     paragraph.font.size = size
     paragraph.font.bold = bold
-    paragraph.font.name = FONT_FAMILY
+    paragraph.font.name = font_family
     paragraph.font.color.rgb = RGBColor.from_string(color)
     for run in paragraph.runs:
-        run.font.name = FONT_FAMILY
+        run.font.name = font_family
         run.font.color.rgb = RGBColor.from_string(color)
         east_asian = OxmlElement("a:ea")
         east_asian.set("typeface", FONT_FAMILY)
@@ -178,6 +178,23 @@ def _render_slide(
 ) -> None:
     """把一页 IR 渲染成一页 pptx。"""
     slide = _blank_slide(prs)
+
+    if slide_ir.layout == "statusBoard":
+        _render_status_board(slide, slide_ir)
+        slide.notes_slide.notes_text_frame.text = slide_ir.speaker_notes
+        return
+
+    full_image = next((visual for visual in slide_ir.visuals if visual.kind == "illustration" and visual.spec.get("display") == "full"), None)
+    if full_image:
+        _background(slide, CANVAS)
+        title = _textbox(slide, left=MARGIN, top=450000, width=SLIDE_WIDTH - 2 * MARGIN, height=750000)
+        _line(title, slide_ir.title, size=FONT_SLIDE_TITLE, bold=True, font_family="Manrope")
+        _add_visual(slide, full_image, left=MARGIN, top=1300000, width=SLIDE_WIDTH - 2 * MARGIN,
+                    height=4700000, asset_paths=asset_paths)
+        caption = _textbox(slide, left=MARGIN, top=6200000, width=SLIDE_WIDTH - 2 * MARGIN, height=450000)
+        _line(caption, " · ".join(slide_ir.bullets), size=FONT_META, color=BODY, font_family="Manrope")
+        slide.notes_slide.notes_text_frame.text = slide_ir.speaker_notes
+        return
 
     if slide_ir.layout == "title":
         _background(slide, INK)
@@ -246,6 +263,14 @@ def _render_slide(
         )
         for item in right_items:
             _line(right_frame, item, size=FONT_BODY)
+    elif slide_ir.layout == "quiz":
+        instruction_height = 548640 if slide_ir.quiz_instruction else 0
+        body_frame = _textbox(slide, left=MARGIN, top=BODY_TOP, width=body_width, height=BODY_HEIGHT - instruction_height)
+        for index, option in enumerate(slide_ir.bullets):
+            _line(body_frame, f"{chr(65 + index)}. {option}", size=FONT_BODY)
+        if slide_ir.quiz_instruction:
+            instruction_frame = _textbox(slide, left=MARGIN, top=BODY_TOP + BODY_HEIGHT - instruction_height, width=body_width, height=instruction_height)
+            _line(instruction_frame, slide_ir.quiz_instruction, size=FONT_META)
     elif slide_ir.bullets:
         body_frame = _textbox(
             slide, left=MARGIN, top=BODY_TOP, width=body_width, height=BODY_HEIGHT
@@ -267,6 +292,29 @@ def _render_slide(
         )
 
     slide.notes_slide.notes_text_frame.text = slide_ir.speaker_notes
+
+
+def _render_status_board(slide, slide_ir: Slide) -> None:
+    """Fixed, editable columns from the same groups as the web preview; no AI."""
+    _background(slide, CANVAS)
+    frame = _textbox(slide, left=MARGIN, top=MARGIN, width=SLIDE_WIDTH - 2 * MARGIN, height=800000)
+    _line(frame, slide_ir.title, size=FONT_SLIDE_TITLE, bold=True, font_family="Manrope")
+    gap, inset = 240000, 200000
+    count = len(slide_ir.status_groups)
+    width = (SLIDE_WIDTH - 2 * MARGIN - gap * (count - 1)) // count
+    labels = {"complete": "Complete", "partial": "Partial", "unverified": "To confirm", "excluded": "Out of scope"}
+    tones = {"complete": "2A7755", "partial": "96601A", "unverified": BODY, "excluded": BODY}
+    for index, group in enumerate(slide_ir.status_groups):
+        left = MARGIN + index * (width + gap)
+        _panel(slide, left=left, top=1600000, width=width, height=4400000, rounded=False)
+        heading = _textbox(slide, left=left + inset, top=1780000, width=width - 2 * inset, height=450000)
+        _line(heading, group.title, size=Pt(21), bold=True, font_family="Manrope")
+        row_height = 590000
+        for row, item in enumerate(group.items):
+            top = 2350000 + row * row_height
+            body = _textbox(slide, left=left + inset, top=top, width=width - 2 * inset, height=row_height - 50000)
+            _line(body, item.label, size=Pt(16), bold=True, font_family="Manrope")
+            _line(body, labels[item.status], size=Pt(11), color=tones[item.status], font_family="Manrope")
 
 
 def _render_question_slide(prs: Presentation, question: Question, *, number: int) -> None:

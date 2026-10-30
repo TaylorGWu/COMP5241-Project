@@ -275,7 +275,7 @@ SlideDeck {
       ],
       "objectiveIds": ["LO1"],
       "sourceRefs": [{ "materialId": "m1", "page": 14 }],
-      "origin": "sourced"        // sourced | ai —— 无来源时必须显式标 ai(第 9.2 节)
+      "origin": "sourced"        // sourced | ai | teacher —— AI 无来源时标 ai；教师手动新增标 teacher
     }
   ]
 }
@@ -609,6 +609,16 @@ phase 6  组装 + IR 校验                       95–100%
 
 ### 8.3 为什么不优先用 AI 生图
 
+**2026-10-27 原型接入状态：** `request_illustration` 已提供 Cloudflare Workers AI
+实现，模型从 `ModelRouter.image` 获取；仅真实模型生成会调用，离线演示不调用。
+每次章节生成最多两次外部生图尝试（4 steps，无自动重试），同作业内相同 prompt 复用成功结果。
+无文字教学场景才适用；带标注图仍走 Mermaid。图标库／插画库检索和完整 AssetResolver
+尚未自动实现，不将提示词中的资源优先级描述成已实现的检索链。
+图片校验并重编码后私密保存，IR 记录实际 prompt、模型、provider、状态；
+预览需章节归属与引用校验，导出是已保存 PNG → PPTX 的纯转换，不调用模型。
+失败资产标记可重试、正文继续装配；生成内容仍待教师审核。当前使用已有 demo SSE
+原型路径（§13.4 的已知偏离），不是正式 ARQ 作业实现。
+
 | | 现成资产 | AI 生成 |
 | --- | --- | --- |
 | 成本 | 0 | 每张都花钱 |
@@ -630,6 +640,22 @@ phase 6  组装 + IR 校验                       95–100%
 真正能画好图中文字的模型(Nano Banana / Ideogram)属于特例,不该进主流程。
 
 ### 8.5 质量闸门
+
+**默认可读尺寸（本地原型，2026-10-27）:** 流程图的大小由确定性渲染器统一控制，
+不依赖每次提示词要求“放大”。节点使用 26 单位字号、边注使用 18 单位字号；
+英文标签优先按单词换行，中文仍按字宽预算换行，不省略完整标签。
+四层以上、每层至多两个节点的紧凑流程采用每行三层的折行布局，保持节点身份、
+分支与箭头方向；短图保留原方向。SVG 预览与该 Mermaid 子集的 PNG 导出共用几何，
+PNG 不额外填充一层固定 16:9 白底。富 Mermaid 语法仍交给 CLI 渲染，不承诺任意
+复杂图都能在一个小画框里读清；超复杂图应拆页。该变化只改变渲染，不修改 IR 内容、
+已审核状态或发布状态，已有资源刷新后同样生效。
+
+普通 L1 生成同时把同一份 `DIAGRAM_STYLE_GUIDE` 交给 section 系统提示和
+`make_diagram` 工具说明（有材料、无材料两条路径均适用）。模型负责短标签、真实
+连线与分支，不自行指定 init/theme、classDef/style、subgraph、HTML 或外部资源。
+共享渲染器负责排版；这不是向 discussion 课注入特例。提示约束不是模型一定遵循
+的保证，仍需教师审核。回归测试从普通生成 API 获取资产，再核对 PPTX 内嵌 PNG
+与同一资产的预览 PNG 字节一致，不以人工写入的展示课替代生成流程证据。
 
 渲染出的图可以**回喂给多模态模型**做自检:「这张图有没有文字乱码、箭头指错、标签重叠?」不合格就回喂错误让 agent 重画,两次失败则降级为纯文字版式。
 
@@ -674,7 +700,11 @@ phase 6  组装 + IR 校验                       95–100%
 
 **为什么**:直接打中 H-03。教师看到「这句话来自我第 14 页」和看到「这是 AI 编的」,信任度完全不同。竞品做的是**文档问答**,不是**逐条溯源**。
 
-**IR 变化**:`sourceRefs` 已存在,新增一个显式标记 `origin`(`sourced` | `ai`)。
+**IR 变化**:`sourceRefs` 已存在,显式标记 `origin` 为 `sourced` | `ai` | `teacher`。
+教师手动新增的空白页使用 `teacher`，不冒充 AI 产出或有材料出处。
+已有页的人工编辑保留原始来源，人工修改记录由 `author=teacher` 的 patch 表达。
+教师前插、后插和删除使用教师专用的 `deck` patch，一次校验并更新课件与教案引用，
+页 ID 保持稳定，仅重新计算显示顺序；不向 AI 工具暴露直接应用该 patch 的能力。
 
 **要求**:
 
@@ -1185,7 +1215,7 @@ data: {"ok":true}
 | **Asset** | 项目级共享的视觉 / 音频资源,按 hash 去重 |
 | **speakerNotes** | 课件每页的讲稿,同时用作视频旁白来源 |
 | **RemediationKit(补救包)** | 由错题统计触发生成的轻量补救材料 |
-| **origin** | 内容来源标记:`sourced`(有原始材料出处)或 `ai`(AI 补充) |
+| **origin** | 内容来源标记:`sourced`(有原始材料出处)、`ai`(AI 补充)或 `teacher`(教师手动新增页) |
 | **coverage(覆盖率)** | 学习目标被课件与题目覆盖的程度 |
 
 ---
@@ -1198,3 +1228,15 @@ data: {"ok":true}
 - 需求与假设:`REQUIREMENTS_DESK_RESEARCH.md`
 - 竞品分析:`competitor_analysis/README.md`
 - 项目大纲:`project_overivew.pdf`
+
+### 2026-10-29 增量：分组状态清单固定版式
+
+为减少进度/范围类课件的长段落，增加 `layout: statusBoard`。
+`statusGroups` 为 1–3 组，每组 `title` 与 1–6 个 `{label,status}`；
+状态为 `complete / partial / unverified / excluded`，未知状态不得推成完成。
+正文只放短标签，解释、来源和验收边界放 `speakerNotes`。
+这是通用 IR 组件，不依赖课程 ID、标题关键词或 midterm 页面特例。
+网页、原生编辑器、生成工具 schema 和固定 PPTX 导出读取同一字段；
+渲染/导出不调用模型，不计算未经证实的完成百分比。
+新增能力不改变 patch 确认、版本保留与发布边界。
+实现与验证记录见 `status-board-verification.md`。

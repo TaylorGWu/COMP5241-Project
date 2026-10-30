@@ -42,12 +42,7 @@ export default function CoursesPage() {
     <main className="course-library-page min-h-screen bg-canvas">
       <div className="course-library-shell mx-auto w-full max-w-[1160px] px-5 pb-16 pt-4 sm:px-8">
         <TeacherNavigation active="courses" />
-        <header className="course-library-header">
-          <div className="course-library-intro">
-            <div className="course-library-title-row"><h1>Your courses</h1></div>
-            <p>Manage your teaching materials and continue where you left off.</p>
-          </div>
-        </header>
+        <h1 className="sr-only">Your courses</h1>
 
         {error ? <div className="mt-7"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
         <section className="course-library-workspace" aria-label="Course library">

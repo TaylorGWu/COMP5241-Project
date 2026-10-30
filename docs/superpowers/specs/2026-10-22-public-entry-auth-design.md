@@ -1,6 +1,7 @@
 # Public entry, role registration and local authentication
 
-Status: design for user review; not an implementation-completion claim.
+Status: approved design, including qualification-review amendment. Implementation
+and verification status is tracked in the companion implementation plan.
 
 ## 1. Approved intent
 
@@ -9,12 +10,33 @@ registration, and working SQLite-backed accounts. Preserve the existing
 Coursework identity and teacher workflow. Administrators are provisioned locally,
 not through public registration. Existing course data must survive the change.
 
+Approved amendment (2026-10-22, registration order revised below): students register without approval. Instructor
+qualification submission creates a pending application. Only
+an administrator may approve/reject it; pending/rejected instructors may sign in
+to their application-status page but cannot access any teacher endpoint. Rejection
+requires a reason. A rejected applicant can replace the document and resubmit.
+PDF, JPEG and PNG are allowed up to 5 MiB with signature checks and bounded reads.
+Store uploads privately in SQLite, expose only authorized attachment downloads
+with nosniff/no-store, never an inline public URL. No automated identity-verification
+claim. Record reviewer, timestamp and reason for each decision. Existing sessions
+must observe approval changes on the next request.
+
+Approved revision (2026-10-23): instructor account registration is separate from
+qualification submission. Credentials alone create the account; the applicant
+uploads qualification afterward on `/application`. Account JSON includes
+`qualificationSubmitted` to distinguish not-yet-submitted from in-review. The
+initial upload is allowed once; pending files cannot be replaced until rejection.
+An administrator cannot review an account without a submitted file. Unsubmitted,
+pending and rejected accounts cannot create courses or call teacher tools. Student
+registration is unchanged. Registration may still accept a qualification for
+backwards compatibility, but the current registration form does not collect one.
+
 The user approved the combined visual and account-system scope on 2026-10-22.
 This document resolves the implementation and safety boundaries for review before
 coding. Existing uncommitted navigation refinements and unrelated student HTML
 prototype changes must not be discarded or silently included in design commits.
 
-## 2. Current state and consequences
+## 2. Pre-implementation baseline and consequences
 
 - `/` redirects directly to `/courses`; there is no public entry or auth flow.
 - FastAPI mounts `/api/demo/*`; these teacher endpoints are not authenticated.
@@ -66,7 +88,8 @@ inline errors, submission/loading states, and accessible error summaries. Do not
 disable paste or prevent password-manager use. No social-login, password-reset
 or email-verification controls until their services actually exist. State the
 local prototype's lack of email verification without suggesting a verified
-teacher identity. Self-registered instructors only gain their own empty workspace.
+teacher identity. Approved self-registered instructors only gain their own empty
+workspace; pending and rejected instructors see their application status instead.
 
 Inherit the existing language/theme settings. New public/auth copy belongs in the
 existing English, Traditional Chinese and Simplified Chinese dictionaries. Public
@@ -81,6 +104,7 @@ headings and metadata must no longer describe the whole app as teacher-only.
 | `/register` | Accessible student/instructor choice, not an admin option |
 | `/register/student` | Student account creation |
 | `/register/instructor` | Instructor account creation |
+| `/application` | Instructor qualification status, review reason and resubmission |
 | `/courses` and descendants | Existing instructor workspace, now protected |
 | `/student` | Authenticated student account landing, with honest availability/empty state |
 | `/admin` | Authenticated administrator account landing, not the full planned admin console |

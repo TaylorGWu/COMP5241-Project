@@ -94,6 +94,25 @@ async def test_proposed_patch_does_not_change_the_package():
     assert package.model_dump_json() == before, "提议阶段产物就被改了 —— 设计被破坏"
 
 
+async def test_scoped_edit_blocks_other_pages_and_only_returns_new_patches():
+    package = await _package()
+    package.slide_deck.slides[2].id = "s-inserted-uuid"
+    before = package.model_dump_json()
+    store = InMemoryPatchStore()
+    stale = store.propose(artifact_id=package.slide_deck.artifact_id, kind="slide", target_id="s1", payload={"title": "Old pending"}, reason="Old request", diff="")
+    deps = EditDeps(package=package, store=store, slide_id="s-inserted-uuid")
+    for kind, args in [("slide", {"slide_id": "s1"}), ("plan", {}), ("question", {"question_id": "q1"})]:
+        with pytest.raises(ValueError, match="scope"):
+            await deps.propose_patch(kind, {**args, "patch": {"title": "Wrong page"}})
+    result = await edit_artifact(client=ScriptedChatClient(_edit_script("s-inserted-uuid")), model="fake", package=package,
+                                 message="Improve this page", store=store, slide_id="s-inserted-uuid")
+    assert result.call_names == ["read_slide", "patch_slide"]
+    assert len(result.proposed) == 1
+    assert result.proposed[0].target_id == "s-inserted-uuid"
+    assert result.proposed[0].id != stale.id
+    assert package.model_dump_json() == before
+
+
 async def test_apply_is_the_only_way_to_change_the_package():
     """只有 apply 之后产物才变 —— 证明上一条不是「什么都没做」。"""
     package = await _package()

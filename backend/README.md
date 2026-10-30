@@ -18,6 +18,46 @@ cp env.yaml.example env.yaml   # 填入密钥(env.yaml 已被 git 忽略)
 
 健康检查:`GET http://127.0.0.1:8000/api/health`
 
+### 可选 AI 教学插画（Cloudflare Workers AI）
+
+在实际启动后端的目录中编辑已忽略的 `env.yaml`，加入
+`cloudflare_account_id` 和 `cloudflare_api_token`（或设置同名大写环境变量）。
+Token 仅需所选账户的 Workers AI Read / Edit 权限，不要提交或截图真实值。
+模型由 `config/models.yaml` 的 `image` 任务经 ModelRouter 选择。
+
+真实模型生成中，SectionAgent 可为具体教学情境调用 `request_illustration`。
+它不是每页必备装饰，也不替代 Mermaid：含文字标注的结构、流程和技术图仍用确定性渲染。
+当前没有自动接入图标／插画库检索；资源优先级由工具提示约束，不声称已有完整 AssetResolver。
+每次章节生成最多尝试两张，固定 4 steps；不自动重试，避免重复消耗额度。
+图片验证并重新编码为 PNG，存入 `var/uploads/illustrations/`，IR 保留 prompt、实际发送的
+resolvedPrompt、provider、model 和状态。仅引用它的已授权章节可读取图片，PPTX 导出只读取已存文件，绝不再次生图。
+失败保留正文、标记 `failed` / `retryable`，教师可以重新生成重试；仍须人工审核发布。
+离线假模型演示不会调用 Cloudflare。本接入沿用已记录的 `/api/demo/*` 原型 SSE 路径，
+不等同于已完成正式 ARQ 作业迁移。更改配置后需重启后端。
+
+### 账号、教师审核和权限
+
+当前 `/api/demo/*` 路由虽保留原型名称，但已经要求真实登录且为已审核教师。
+学生直接注册；教师须提交最多 5 MiB 的 PDF／JPEG／PNG 资质，管理员审核通过
+后才能使用教师接口。详情见 [根 README](../README.md#注册审核与旧课程)。
+会话使用 HttpOnly Cookie；写请求还需精确匹配的 Origin 和 `X-CSRF-Token`。
+前端通过 `/api/auth/csrf` 或 `/api/auth/me` 获取令牌，不能仅靠前端隐藏按钮。
+资质仅本人和管理员可下载，不能在公开静态目录提供。
+
+可选教师资料由 `services/teacher_profile.py` 管理，新增 `teacher_profiles` 表与认证 schema v2，不覆盖原有账号、资质或课程。`GET/PUT /api/auth/profile` 仅处理当前教师的可编辑资料，严格拒绝额外字段、无效选择项和超长输入；`GET/PUT/DELETE /api/auth/avatar` 管理本人私密头像。写请求继续要求 Origin/CSRF。管理员只可通过 `/api/admin/applications/{id}/profile` 和 `/avatar` 查看已提交资质的申请者。头像限 5 MiB JPG/PNG、2000 万像素，缩至最长边 512 像素并重新编码，清除元数据；所有读取均 `no-store`。这些接口允许未审核教师完善资料，但绝不改变审核状态。
+
+```bash
+# 在 backend/ 运行；密码交互输入，不出现在命令行
+../.venv/bin/python -m app.auth_cli create-admin --name "Administrator" --email admin@example.com
+# 旧课程只在核对课程 ID 和目标教师后显式认领，不自动迁给首个用户
+../.venv/bin/python -m app.auth_cli claim-unowned --instructor-email teacher@example.com course-1
+```
+
+只运行一个应用 worker。请求级上下文及章级锁隔离不同教师和章节，流中断会释放
+锁；旧版未带章节路径的工具使用当前会话明确激活的章节，带章节路径的请求不会
+更改其他标签页的旧版选择。临时会话选择与锁映射仍驻留进程内直到重启，尚不适合
+长时间多用户生产部署。课程 IR、patch 和归属存于 SQLite。
+
 ### 教师端本机工作区
 
 教师端的课程、章节 IR、审核 patch、版本记录、学生名单和作答分析默认保存在
