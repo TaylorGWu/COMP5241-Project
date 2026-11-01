@@ -49,6 +49,12 @@ Impeccable detector ran once on changed portal sources and returned `[]`.
 
 Evidence is archived under `assets/student-admin-polish/`. It shows internal
 synthetic accounts and the independent preview database, not external testing.
+An independent read-only code/visual review of `321bcb5..3f94f92` found no
+Critical, Important or actionable Minor code issues. The light desktop admin
+capture was refreshed: an earlier capture had a viewport-offset artifact, while
+the actual header starts at the top. The unreliable admin320px capture was
+removed from the final evidence set; its no-overflow result is a DOM measurement,
+not screenshot evidence. Student320px and admin390px captures remain available.
 The previous design-check record describes the pre-refinement version; this note
 supersedes its portal layout/type details, not the root design system.
 
