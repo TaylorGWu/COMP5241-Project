@@ -33,6 +33,48 @@ def test_student_home_requires_an_authenticated_session():
         assert client.get('/api/student/home').status_code == 401
 
 
+def test_admin_overview_reports_real_disjoint_categories_and_course_memberships():
+    # Catches duplicate suspended/published buckets and invented/unique-user totals.
+    with TestClient(app) as admin, TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(admin, 'dashboard-admin@example.test', 'admin')
+        signed_in(teacher, 'dashboard-teacher@example.test', 'instructor')
+        signed_in(student, 'dashboard-student@example.test', 'student')
+        ids = []
+        for title in ['Published', 'Suspended', 'Unpublished']:
+            course = teacher.post('/api/demo/courses', json={'title': title}).json()
+            ids.append(course['id'])
+            if title != 'Unpublished':
+                teacher.patch(f"/api/demo/courses/{course['id']}/chapters/{course['chapterIds'][0]}", json={'status': 'ready', 'package': {'slideDeck': {'slides': [{'id': 's1', 'title': title}]}}})
+                assert teacher.post(f"/api/demo/courses/{course['id']}/publish").status_code == 200
+                assert student.post(f"/api/student/courses/{course['id']}/enroll", json={}).status_code == 200
+        admin.post(f'/api/admin/courses/{ids[1]}/archive', json={'reason': 'Review'})
+        data = admin.get('/api/admin/overview').json()
+        assert data['userRoles'] == [
+            {'role': 'student', 'count': 1}, {'role': 'instructor', 'count': 1}, {'role': 'admin', 'count': 1}]
+        assert data['courseStates'] == [
+            {'state': 'published', 'count': 1}, {'state': 'unpublished', 'count': 1}, {'state': 'suspended', 'count': 1}]
+        assert (data['users'], data['courses'], data['publishedCourses'], data['enrollments']) == (3, 3, 1, 2)
+        assert [(r['courseId'], r['count']) for r in data['courseEnrollments']] == [(ids[0], 1), (ids[1], 1), (ids[2], 0)]
+        assert set(data['courseEnrollments'][0]) == {'courseId', 'title', 'courseCode', 'count'}
+        assert 'email' not in str(data)
+        listed = admin.get('/api/admin/courses').json()['courses']
+        assert [(c['id'], c['enrollmentCount']) for c in listed] == [(ids[0], 1), (ids[1], 1), (ids[2], 0)]
+        assert student.get('/api/admin/overview').status_code == 403
+        assert teacher.get('/api/admin/overview').status_code == 403
+    with TestClient(app) as anonymous:
+        assert anonymous.get('/api/admin/overview').status_code == 401
+
+
+def test_admin_overview_empty_course_categories_remain_zero():
+    with TestClient(app) as admin:
+        signed_in(admin, 'empty-dashboard@example.test', 'admin')
+        data = admin.get('/api/admin/overview').json()
+        assert data['courses'] == data['enrollments'] == 0
+        assert data['courseEnrollments'] == []
+        assert data['courseStates'] == [
+            {'state': 'published', 'count': 0}, {'state': 'unpublished', 'count': 0}, {'state': 'suspended', 'count': 0}]
+
+
 def test_stale_question_revision_is_rejected_before_first_submission():
     with TestClient(app) as teacher, TestClient(app) as student:
         signed_in(teacher, 'revision-teacher@example.test', 'instructor')

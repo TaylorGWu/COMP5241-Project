@@ -89,6 +89,7 @@ export type AdminCourse = {
   archived: boolean;
   moderationReason: string | null;
   chapterCount: number;
+  enrollmentCount: number;
 };
 export function replacePortalRecord<T extends { id: string }>(
   records: T[],
@@ -113,7 +114,48 @@ export type Overview = {
   publishedCourses: number;
   pendingApplications: number;
   enrollments: number;
+  userRoles: { role: AccountRole; count: number }[];
+  courseStates: {
+    state: "published" | "unpublished" | "suspended";
+    count: number;
+  }[];
+  courseEnrollments: {
+    courseId: string;
+    title: string;
+    courseCode: string;
+    count: number;
+  }[];
 };
+export type AdminCourseFilter =
+  "all" | "published" | "unpublished" | "suspended" | "enrolled";
+export type AdminSection =
+  "overview" | "applications" | "users" | "courses" | "activity";
+export type AdminDestination = {
+  section: AdminSection;
+  role?: AccountRole;
+  courseFilter?: AdminCourseFilter;
+  courseId?: string;
+};
+export function matchesAdminCourse(
+  course: Pick<AdminCourse, "id" | "status" | "archived" | "enrollmentCount">,
+  filter: AdminCourseFilter,
+  courseId?: string,
+) {
+  if (courseId && course.id !== courseId) return false;
+  if (filter === "published")
+    return course.status === "published" && !course.archived;
+  if (filter === "unpublished")
+    return course.status !== "published" && !course.archived;
+  if (filter === "suspended") return course.archived;
+  if (filter === "enrolled") return course.enrollmentCount > 0;
+  return true;
+}
+export function matchesAdminUser(
+  user: Pick<AdminUser, "role">,
+  role: AccountRole | "all",
+) {
+  return role === "all" || user.role === role;
+}
 const coursePath = (id: string) =>
   `/api/student/courses/${encodeURIComponent(id)}`;
 const chapterPath = (id: string, chapter: string) =>

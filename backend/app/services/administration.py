@@ -42,12 +42,31 @@ def update_user(actor, user_id, role, active):
 
 def courses():
     with get_auth_store().connection() as db:
+        enrollments = dict(db.execute('SELECT course_id,COUNT(*) FROM portal_enrollments GROUP BY course_id').fetchall())
         rows = db.execute('SELECT c.id,c.payload_json,u.name AS owner_name,m.reason FROM courses c LEFT JOIN course_owners o ON o.course_id=c.id LEFT JOIN users u ON u.id=o.instructor_id LEFT JOIN portal_moderation m ON m.course_id=c.id ORDER BY c.id').fetchall()
         result = []
         for row in rows:
             course = json.loads(row['payload_json'])
-            result.append(dict(id=row['id'], title=course.get('title', ''), courseCode=course.get('course_code', ''), ownerName=row['owner_name'], status=course.get('status', 'draft'), archived=row['reason'] is not None, moderationReason=row['reason'], chapterCount=len(course.get('chapter_ids', []))))
+            result.append(dict(id=row['id'], title=course.get('title', ''), courseCode=course.get('course_code', ''), ownerName=row['owner_name'], status=course.get('status', 'draft'), archived=row['reason'] is not None, moderationReason=row['reason'], chapterCount=len(course.get('chapter_ids', [])), enrollmentCount=enrollments.get(row['id'], 0)))
         return result
+
+
+def overview():
+    accounts, catalogue = users(), courses()
+    states = {'published': 0, 'unpublished': 0, 'suspended': 0}
+    for course in catalogue:
+        state = 'suspended' if course['archived'] else 'published' if course['status'] == 'published' else 'unpublished'
+        states[state] += 1
+    with get_auth_store().connection() as db:
+        pending = db.execute("SELECT COUNT(*) FROM users u JOIN qualifications q ON q.user_id=u.id WHERE u.role='instructor' AND u.status='pending'").fetchone()[0]
+    return dict(
+        users=len(accounts), courses=len(catalogue), publishedCourses=states['published'],
+        pendingApplications=pending,
+        enrollments=sum(c['enrollmentCount'] for c in catalogue),
+        userRoles=[dict(role=role, count=sum(u['role'] == role for u in accounts)) for role in ('student', 'instructor', 'admin')],
+        courseStates=[dict(state=state, count=count) for state, count in states.items()],
+        courseEnrollments=[dict(courseId=c['id'], title=c['title'], courseCode=c['courseCode'], count=c['enrollmentCount']) for c in sorted(catalogue, key=lambda c: (-c['enrollmentCount'], c['title'].casefold(), c['id']))],
+    )
 
 
 def moderate(actor, course_id, reason):

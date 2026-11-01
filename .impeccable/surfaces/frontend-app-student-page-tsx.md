@@ -14,7 +14,8 @@ scope and explicitly asked to proceed without further confirmation rounds.
 ## Direction contract
 
 **THESIS:** Make the next learning action and the next administrative decision
-obvious. Reject a decorative dashboard of counters and equal-weight icon cards.
+obvious. Reject decorative counters: the user-requested statistics must open a
+relevant filtered list, and every chart must express real categorized data.
 
 **OWN-WORLD:** Inherit DESIGN.md: Manrope and existing CJK fallbacks, navy text,
 blue action/selection, semantic green/amber, flat themed surfaces, 12–16px panels,
@@ -79,6 +80,12 @@ Honor current light/dark mode, reduced motion and English/zh-HK/zh-CN settings.
 2026-11-01 refinement: single catalogue results fill the main column, saved goals
 use native expandable editing, and admin counts share one compact definition list
 with a distinct pending-review action. See `docs/design/student-admin-polish.md`.
+
+2026-11-01 analytics enhancement supersedes that admin definition list: actionable
+metrics, account-role donut, disjoint course-state stacked bar and per-course
+membership bars. Native legends/rows open visible, clearable filters; destination
+focus follows navigation. See `docs/design/admin-overview-analytics.md`. No new
+global palette, chart dependency or fabricated activity trend.
 
 ## Known context drift
 

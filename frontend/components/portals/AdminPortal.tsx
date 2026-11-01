@@ -1,14 +1,19 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { ApplicationQueue } from "@/components/AccountPages";
 import { useI18n } from "@/lib/i18n";
 import type { AccountRole } from "@/lib/auth";
 import { portalCopy } from "@/lib/portal-copy";
 import { PortalIcon } from "./PortalIcon";
+import { AdminDashboard } from "./AdminDashboard";
 import {
   portalApi,
   replacePortalRecord,
+  matchesAdminCourse,
+  matchesAdminUser,
+  type AdminDestination,
+  type AdminCourseFilter,
   type AdminUser,
   type AdminCourse,
 } from "@/lib/portal";
@@ -19,11 +24,25 @@ import {
   usePortalResource,
   usePortalWrite,
 } from "./PortalShell";
-type Section = "overview" | "applications" | "users" | "courses" | "activity";
 export function AdminPortal() {
   const { locale } = useI18n();
   const c = portalCopy(locale);
-  const [section, setSection] = useState<Section>("overview");
+  const [destination, setDestination] = useState<AdminDestination>({
+    section: "overview",
+  });
+  const { section } = destination;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const hasNavigated = useRef(false);
+  const navigate = (next: AdminDestination) => {
+    hasNavigated.current = true;
+    setDestination(next);
+  };
+  useEffect(() => {
+    if (hasNavigated.current) {
+      contentRef.current?.focus({ preventScroll: true });
+      contentRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [destination]);
   return (
     <PortalShell admin>
       <header className="portal-title">
@@ -44,22 +63,35 @@ export function AdminPortal() {
               key={key}
               type="button"
               aria-current={section === key ? "page" : undefined}
-              onClick={() => setSection(key)}
+              onClick={() => navigate({ section: key })}
             >
               <PortalIcon name={key === "courses" ? "book" : key} />
               {c[key]}
             </button>
           ))}
         </nav>
-        <div className="portal-admin-content">
+        <div
+          className="portal-admin-content"
+          ref={contentRef}
+          tabIndex={-1}
+          role="region"
+          aria-label={c[section]}
+        >
           {section === "overview" ? (
-            <AdminOverview navigate={setSection} />
+            <AdminDashboard navigate={navigate} />
           ) : section === "applications" ? (
             <ApplicationQueue />
           ) : section === "users" ? (
-            <AdminUsers />
+            <AdminUsers
+              key={destination.role ?? "all"}
+              initialRole={destination.role}
+            />
           ) : section === "courses" ? (
-            <AdminCourses />
+            <AdminCourses
+              key={`${destination.courseFilter ?? "all"}:${destination.courseId ?? ""}`}
+              initialFilter={destination.courseFilter}
+              initialCourseId={destination.courseId}
+            />
           ) : (
             <AdminActivity />
           )}
@@ -68,84 +100,23 @@ export function AdminPortal() {
     </PortalShell>
   );
 }
-function AdminOverview({ navigate }: { navigate: (section: Section) => void }) {
-  const { locale } = useI18n();
-  const c = portalCopy(locale);
-  const resource = usePortalResource(portalApi.overview);
-  return (
-    <section>
-      <div className="portal-section-heading">
-        <h2>{c.overview}</h2>
-        <button
-          type="button"
-          disabled={resource.loading}
-          onClick={resource.reload}
-        >
-          {c.refresh}
-        </button>
-      </div>
-      <PortalError error={resource.error} retry={resource.reload} />
-      {resource.loading ? (
-        <PortalLoading />
-      ) : resource.data ? (
-        <>
-          <dl className="portal-overview-list">
-            {(
-              ["users", "courses", "publishedCourses", "enrollments"] as const
-            ).map((key) => (
-              <div key={key}>
-                <dt>
-                  {
-                    {
-                      users: c.totalUsers,
-                      courses: c.totalCourses,
-                      publishedCourses: c.publishedCourses,
-                      pendingApplications: c.pendingApplications,
-                      enrollments: c.enrollments,
-                    }[key]
-                  }
-                </dt>
-                <dd>{resource.data![key]}</dd>
-              </div>
-            ))}
-          </dl>
-          <div className="portal-review-inbox">
-            <span className="portal-review-mark">
-              <PortalIcon name="applications" />
-            </span>
-            <div>
-              <h3>{c.applications}</h3>
-              <p>
-                {c.pendingApplications}:{" "}
-                <strong>{resource.data.pendingApplications}</strong>
-              </p>
-            </div>
-            <button
-              className="portal-button"
-              type="button"
-              onClick={() => navigate("applications")}
-            >
-              {c.reviewApplications}
-              <PortalIcon name="arrow" />
-            </button>
-          </div>
-        </>
-      ) : null}
-    </section>
-  );
-}
-function AdminUsers() {
+function AdminUsers({ initialRole }: { initialRole?: AccountRole }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   const { user } = useAccount();
   const resource = usePortalResource(portalApi.users);
   const [updated, setUpdated] = useState(false);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<AccountRole | "all">(
+    initialRole ?? "all",
+  );
   const visible =
-    resource.data?.users.filter((entry) =>
-      `${entry.name} ${entry.email} ${entry.role}`
-        .toLocaleLowerCase()
-        .includes(search.toLocaleLowerCase()),
+    resource.data?.users.filter(
+      (entry) =>
+        matchesAdminUser(entry, roleFilter) &&
+        `${entry.name} ${entry.email} ${entry.role}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
     ) ?? [];
   return (
     <section>
@@ -160,6 +131,27 @@ function AdminUsers() {
         </button>
       </div>
       <p>{c.userHint}</p>
+      <div className="portal-admin-filters">
+        <label>
+          {c.roleFilter}
+          <select
+            value={roleFilter}
+            onChange={(event) =>
+              setRoleFilter(event.target.value as AccountRole | "all")
+            }
+          >
+            <option value="all">{c.all}</option>
+            <option value="student">{c.student}</option>
+            <option value="instructor">{c.instructor}</option>
+            <option value="admin">{c.administrator}</option>
+          </select>
+        </label>
+        {roleFilter !== "all" ? (
+          <button type="button" onClick={() => setRoleFilter("all")}>
+            {c.clearFilters}
+          </button>
+        ) : null}
+      </div>
       <label className="portal-search">
         {c.search}
         <input
@@ -316,17 +308,29 @@ function UserRow({
     </li>
   );
 }
-function AdminCourses() {
+function AdminCourses({
+  initialFilter,
+  initialCourseId,
+}: {
+  initialFilter?: AdminCourseFilter;
+  initialCourseId?: string;
+}) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   const resource = usePortalResource(portalApi.courses);
   const [updated, setUpdated] = useState(false);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<AdminCourseFilter>(
+    initialFilter ?? "all",
+  );
+  const [courseId, setCourseId] = useState(initialCourseId);
   const visible =
-    resource.data?.courses.filter((entry) =>
-      `${entry.title} ${entry.courseCode} ${entry.ownerName}`
-        .toLocaleLowerCase()
-        .includes(search.toLocaleLowerCase()),
+    resource.data?.courses.filter(
+      (entry) =>
+        matchesAdminCourse(entry, filter, courseId) &&
+        `${entry.title} ${entry.courseCode} ${entry.ownerName}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
     ) ?? [];
   return (
     <section>
@@ -341,6 +345,42 @@ function AdminCourses() {
         </button>
       </div>
       <p>{c.courseHint}</p>
+      <div className="portal-admin-filters">
+        <label>
+          {c.courseFilter}
+          <select
+            value={filter}
+            onChange={(event) =>
+              setFilter(event.target.value as AdminCourseFilter)
+            }
+          >
+            <option value="all">{c.all}</option>
+            <option value="published">{c.published}</option>
+            <option value="unpublished">{c.unpublished}</option>
+            <option value="suspended">{c.suspended}</option>
+            <option value="enrolled">{c.enrolledCourses}</option>
+          </select>
+        </label>
+        {courseId ? (
+          <span className="portal-meta">
+            {c.filteredCourse}:{" "}
+            {resource.data?.courses.find((course) => course.id === courseId)
+              ?.title ?? courseId}
+          </span>
+        ) : null}
+        {filter !== "all" || courseId ? (
+          <button
+            type="button"
+            onClick={() => {
+              setFilter("all");
+              setCourseId(undefined);
+              setSearch("");
+            }}
+          >
+            {c.clearFilters}
+          </button>
+        ) : null}
+      </div>
       <label className="portal-search">
         {c.search}
         <input
@@ -410,6 +450,8 @@ function CourseRow({
           </p>
           <p className="portal-meta">
             {statusText(entry.status, c)} · {entry.chapterCount} {c.chapters}
+            {" · "}
+            {c.enrollments}: {entry.enrollmentCount}
           </p>
         </div>
         <span className="portal-status">

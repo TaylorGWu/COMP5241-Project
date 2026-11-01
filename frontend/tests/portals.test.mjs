@@ -10,7 +10,37 @@ import {
   prepareAttempt,
   mergeProgress,
   replacePortalRecord,
+  matchesAdminCourse,
+  matchesAdminUser,
 } from "../lib/portal.ts";
+test("dashboard course drilldowns exclude suspended publications and preserve identity", () => {
+  const live = {
+    id: "live",
+    status: "published",
+    archived: false,
+    enrollmentCount: 2,
+  };
+  const suspended = { ...live, id: "held", archived: true };
+  const draft = { ...live, id: "draft", status: "draft", enrollmentCount: 0 };
+  assert.equal(matchesAdminCourse(live, "published"), true);
+  assert.equal(matchesAdminCourse(suspended, "published"), false);
+  assert.equal(matchesAdminCourse(suspended, "suspended"), true);
+  assert.equal(matchesAdminCourse(draft, "unpublished"), true);
+  assert.equal(matchesAdminCourse(suspended, "unpublished"), false);
+  assert.equal(matchesAdminCourse(draft, "enrolled"), false);
+  assert.equal(matchesAdminCourse(suspended, "enrolled"), true);
+  assert.equal(matchesAdminCourse(live, "all", "held"), false);
+  assert.equal(matchesAdminCourse(live, "all", "live"), true);
+  assert.equal(matchesAdminCourse(draft, "all"), true);
+});
+test("dashboard role drilldowns retain disabled accounts and use exact roles", () => {
+  assert.equal(
+    matchesAdminUser({ role: "student", active: false }, "student"),
+    true,
+  );
+  assert.equal(matchesAdminUser({ role: "instructor" }, "student"), false);
+  assert.equal(matchesAdminUser({ role: "admin" }, "all"), true);
+});
 test("successful administrative changes replace only the matching list record", () => {
   const current = [
     { id: "a", active: true },

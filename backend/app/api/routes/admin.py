@@ -2,7 +2,7 @@
 from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
-from app.services.auth import admin_user, get_auth_store
+from app.services.auth import admin_user
 from app.services import administration
 
 router = APIRouter(prefix='/admin', tags=['admin'])
@@ -58,8 +58,4 @@ async def audit(request: Request):
 @router.get('/overview')
 async def overview(request: Request):
     await admin_user(request)
-    users, courses = administration.users(), administration.courses()
-    with get_auth_store().connection() as db:
-        enrollments = db.execute('SELECT COUNT(*) FROM portal_enrollments').fetchone()[0]
-        pending = db.execute("SELECT COUNT(*) FROM users u JOIN qualifications q ON q.user_id=u.id WHERE u.role='instructor' AND u.status='pending'").fetchone()[0]
-    return dict(users=len(users), courses=len(courses), publishedCourses=sum(c['status'] == 'published' and not c['archived'] for c in courses), pendingApplications=pending, enrollments=enrollments)
+    return administration.overview()
