@@ -699,9 +699,12 @@ async def update_course(course_id: str, body: CoursePatchBody) -> dict[str, Any]
 
 @router.post("/courses/{course_id}/publish")
 async def publish_course(course_id: str) -> dict[str, Any]:
-    _course_or_404(course_id)
+    course = _course_or_404(course_id)
     try:
-        return _course_json(COURSE_WORKSPACE.publish(course_id))
+        from app.services.publication import publish
+        published = publish(COURSE_WORKSPACE.repository, course_id, _USER_CONTEXT.get()['id'])
+        COURSE_WORKSPACE.record_version(course_id, None, kind="publish", reason="Instructor published course", changed_fields=["status"], before={"status": course.status}, after={"status": "published"})
+        return _course_json(published)
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -767,7 +770,12 @@ async def import_students(course_id: str, body: StudentImportBody) -> dict[str, 
 @router.post("/courses/{course_id}/invites", status_code=201)
 async def create_course_invite(course_id: str) -> dict[str, str]:
     _course_or_404(course_id)
-    return {"code": COURSE_WORKSPACE.create_invite(course_id)}
+    import secrets
+    from app.services.auth import get_auth_store
+    code = f"invite-{course_id}-{secrets.token_urlsafe(18)}"
+    with get_auth_store().connection() as db:
+        db.execute('INSERT INTO portal_invites VALUES(?,?)', (code, course_id))
+    return {"code": code}
 
 
 @router.get("/courses/{course_id}/analytics")
@@ -780,6 +788,43 @@ async def course_analytics(course_id: str) -> dict[str, Any]:
         payload = _camel_json(dataclasses.asdict(student))
         payload.update(latest_attempts.get(student.id, {"completionPercent": 0, "score": 0}))
         students.append(payload)
+    from app.services.auth import get_auth_store
+    from app.services import student_learning
+    with get_auth_store().connection() as db:
+        row = db.execute('SELECT snapshot FROM portal_publications WHERE course_id=?', (course_id,)).fetchone()
+    snapshot = json.loads(row['snapshot']) if row else None
+    if snapshot:
+        with get_auth_store().connection() as db:
+            users = db.execute('SELECT u.id,u.name,u.email FROM portal_enrollments e JOIN users u ON u.id=e.user_id WHERE e.course_id=?', (course_id,)).fetchall()
+        missed = {}
+        matched_legacy = set()
+        for user in users:
+            states = [student_learning.state(course_id, chapter, user['id']) for chapter in snapshot['chapters']]
+            answers = [result for _, results in states for result in results.values()]
+            progress = round(sum(state['completionPercent'] for state, _ in states) / len(states)) if states else 0
+            score = round(100 * sum(result['correct'] for result in answers) / len(answers)) if answers else 0
+            for result in answers:
+                if not result['correct']:
+                    qid = result['questionId']
+                    missed[qid] = missed.get(qid, 0) + 1
+            existing = next((s for s in students if s['email'].casefold() == user['email'].casefold()), None)
+            if existing is None:
+                existing = {'id': user['id'], 'courseId': course_id, 'studentName': user['name'], 'email': user['email']}
+                students.append(existing)
+            else:
+                matched_legacy.add(existing['id'])
+            existing.update(studentId=user['id'], completionPercent=progress, score=score)
+        latest_legacy = {}
+        for attempt in COURSE_WORKSPACE.snapshot().get('attempts', {}).get(course_id, []):
+            if attempt['student_id'] not in matched_legacy:
+                latest_legacy[attempt['student_id']] = attempt
+        for attempt in latest_legacy.values():
+            for question_id, correct in attempt['answers'].items():
+                if not correct:
+                    missed[question_id] = missed.get(question_id, 0) + 1
+        analytics['mostMissed'] = [{'questionId': qid, 'wrongCount': count} for qid, count in sorted(missed.items(), key=lambda item: (-item[1], item[0]))]
+        scores = [s['score'] for s in students if s.get('studentId')]
+        analytics['averageScore'] = round(sum(scores) / len(scores), 2) if scores else 0
     return {
         "enrolledCount": len(students),
         "averageScore": analytics["averageScore"],

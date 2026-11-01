@@ -7,7 +7,7 @@ API 契约见 docs/design/course-generation-design.md §13。
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, demo, health
+from app.api.routes import admin, auth, demo, health, student
 from app.config import settings
 
 app = FastAPI(title="COMP5241 API", version="0.1.0")
@@ -24,6 +24,8 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(demo.router, prefix="/api")
+app.include_router(student.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 # 后续按 §13 添加:
 #   materials / generation / artifacts / patches / admin

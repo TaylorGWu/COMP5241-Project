@@ -256,12 +256,12 @@ class RequestLimitMiddleware:
     async def __call__(self,scope,receive,send):
         if scope["type"]!="http":
             return await self.app(scope,receive,send)
-        private=scope["path"].startswith(("/api/auth/","/api/admin/","/api/demo/"))
+        private=scope["path"].startswith(("/api/auth/","/api/admin/","/api/demo/","/api/student/"))
         async def private_send(message):
             if private and message["type"]=="http.response.start":
                 message["headers"]=[(key,value) for key,value in message.get("headers",[]) if key.lower()!=b"cache-control"]+[(b"cache-control",b"no-store")]
             await send(message)
-        if scope["method"] in ("POST","PUT","PATCH") and scope["path"].startswith(("/api/auth/","/api/admin/")):
+        if scope["method"] in ("POST","PUT","PATCH") and scope["path"].startswith(("/api/auth/","/api/admin/","/api/student/")):
             limit=MAX_FILE_BYTES+64*1024 if scope["path"] in ("/api/auth/register","/api/auth/qualification","/api/auth/avatar") else 16*1024
             chunks=[]
             total=0

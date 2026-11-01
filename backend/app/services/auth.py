@@ -122,9 +122,11 @@ class AuthStore:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._migrate()
+        initial_upgrade = self._migrate()
         from app.services.teacher_profile import migrate
         migrate(self)
+        from app.services.portal_store import migrate as migrate_portal
+        migrate_portal(self, initial_upgrade=initial_upgrade)
         self.path.chmod(0o600)
 
     def profile(self, user_id: str) -> dict:
@@ -150,7 +152,7 @@ class AuthStore:
         with self.connection() as db:
             present = db.execute("SELECT 1 FROM sqlite_master WHERE name='auth_schema_versions'").fetchone()
             if present and db.execute("SELECT 1 FROM auth_schema_versions WHERE version=1").fetchone():
-                return
+                return False
             if existed:
                 backup_path = self.path.with_name(f"{self.path.name}.pre-auth-{time.time_ns()}.bak")
                 with sqlite3.connect(backup_path) as backup:
@@ -182,6 +184,7 @@ class AuthStore:
                     instructor_id TEXT NOT NULL REFERENCES users(id), assigned_at REAL NOT NULL);
                 INSERT OR IGNORE INTO auth_schema_versions VALUES(1, strftime('%s','now'));
             """)
+        return True
 
     def create_user(self, *, name: str, email: str, password: str, role: str, qualification=None) -> dict:
         email = normalized_email(email)
