@@ -172,7 +172,7 @@ function Lesson({
                     <StudentAsset
                       key={entry.url}
                       url={entry.url}
-                      alt={entry.altText}
+                      alt={entry.altText?.trim() || c.figure}
                     />
                   ) : null,
                 )}

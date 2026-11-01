@@ -419,6 +419,11 @@ html[lang="zh-HK"] .portal {
   height: auto;
   aspect-ratio: auto;
   overflow: visible;
+  overflow-wrap: anywhere;
+}
+.portal .portal-slide ul.font-mono {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .portal .portal-slide > div {
   height: auto;
@@ -687,9 +692,6 @@ html[lang="zh-HK"] .portal {
   }
   .portal .portal-slide .aspect-video {
     aspect-ratio: auto;
-  }
-  .portal .portal-slide pre {
-    overflow-x: auto;
   }
   .portal-row-actions > * {
     max-width: 100%;

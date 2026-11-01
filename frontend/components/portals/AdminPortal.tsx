@@ -5,7 +5,12 @@ import { ApplicationQueue } from "@/components/AccountPages";
 import { useI18n } from "@/lib/i18n";
 import type { AccountRole } from "@/lib/auth";
 import { portalCopy } from "@/lib/portal-copy";
-import { portalApi, type AdminUser, type AdminCourse } from "@/lib/portal";
+import {
+  portalApi,
+  replacePortalRecord,
+  type AdminUser,
+  type AdminCourse,
+} from "@/lib/portal";
 import {
   PortalShell,
   PortalError,
@@ -125,6 +130,7 @@ function AdminUsers() {
   const c = portalCopy(locale);
   const { user } = useAccount();
   const resource = usePortalResource(portalApi.users);
+  const [updated, setUpdated] = useState(false);
   const [search, setSearch] = useState("");
   const visible =
     resource.data?.users.filter((entry) =>
@@ -154,16 +160,24 @@ function AdminUsers() {
         />
       </label>
       <PortalError error={resource.error} retry={resource.reload} />
+      {updated ? <p role="status">{c.updated}</p> : null}
       {resource.loading ? (
         <PortalLoading />
       ) : visible.length ? (
         <ul className="portal-operation-list">
           {visible.map((entry) => (
             <UserRow
-              key={`${entry.id}/${entry.role}/${entry.active}`}
+              key={entry.id}
               entry={entry}
               self={entry.id === user?.id}
-              reload={resource.reload}
+              accept={(user) => {
+                resource.setData((current) =>
+                  current
+                    ? { users: replacePortalRecord(current.users, user) }
+                    : current,
+                );
+                setUpdated(true);
+              }}
             />
           ))}
         </ul>
@@ -176,11 +190,11 @@ function AdminUsers() {
 function UserRow({
   entry,
   self,
-  reload,
+  accept,
 }: {
   entry: AdminUser;
   self: boolean;
-  reload: () => void;
+  accept: (user: AdminUser) => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -201,9 +215,9 @@ function UserRow({
           action === "role" ? { role } : { active: !entry.active },
           signal,
         ),
-      () => {
+      ({ user }) => {
         setAction(null);
-        reload();
+        accept(user);
       },
     );
   };
@@ -290,7 +304,6 @@ function UserRow({
         </>
       )}
       <PortalError error={write.error} />
-      {write.saved ? <p role="status">{c.updated}</p> : null}
     </li>
   );
 }
@@ -298,6 +311,7 @@ function AdminCourses() {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   const resource = usePortalResource(portalApi.courses);
+  const [updated, setUpdated] = useState(false);
   const [search, setSearch] = useState("");
   const visible =
     resource.data?.courses.filter((entry) =>
@@ -327,15 +341,23 @@ function AdminCourses() {
         />
       </label>
       <PortalError error={resource.error} retry={resource.reload} />
+      {updated ? <p role="status">{c.updated}</p> : null}
       {resource.loading ? (
         <PortalLoading />
       ) : visible.length ? (
         <ul className="portal-operation-list">
           {visible.map((entry) => (
             <CourseRow
-              key={`${entry.id}/${entry.archived}`}
+              key={entry.id}
               entry={entry}
-              reload={resource.reload}
+              accept={(course) => {
+                resource.setData((current) =>
+                  current
+                    ? { courses: replacePortalRecord(current.courses, course) }
+                    : current,
+                );
+                setUpdated(true);
+              }}
             />
           ))}
         </ul>
@@ -347,10 +369,10 @@ function AdminCourses() {
 }
 function CourseRow({
   entry,
-  reload,
+  accept,
 }: {
   entry: AdminCourse;
-  reload: () => void;
+  accept: (course: AdminCourse) => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -362,9 +384,9 @@ function CourseRow({
     void write.run(
       (signal) =>
         portalApi.moderate(entry.id, entry.archived, reason.trim(), signal),
-      () => {
+      ({ course }) => {
         setConfirm(false);
-        reload();
+        accept(course);
       },
     );
   };
@@ -374,7 +396,8 @@ function CourseRow({
         <div>
           <h3>{entry.title}</h3>
           <p>
-            {entry.courseCode} · {c.owner}: {entry.ownerName}
+            {entry.courseCode} · {c.owner}:{" "}
+            {entry.ownerName?.trim() || c.notRecorded}
           </p>
           <p className="portal-meta">
             {statusText(entry.status, c)} · {entry.chapterCount} {c.chapters}
@@ -434,7 +457,6 @@ function CourseRow({
         </button>
       )}
       <PortalError error={write.error} />
-      {write.saved ? <p role="status">{c.updated}</p> : null}
     </li>
   );
 }

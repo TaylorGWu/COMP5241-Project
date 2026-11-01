@@ -83,12 +83,18 @@ export type AdminCourse = {
   id: string;
   title: string;
   courseCode: string;
-  ownerName: string;
+  ownerName: string | null;
   status: string;
   archived: boolean;
   moderationReason: string | null;
   chapterCount: number;
 };
+export function replacePortalRecord<T extends { id: string }>(
+  records: T[],
+  updated: T,
+): T[] {
+  return records.map((record) => (record.id === updated.id ? updated : record));
+}
 export type AuditEvent = {
   id: string;
   kind: string;

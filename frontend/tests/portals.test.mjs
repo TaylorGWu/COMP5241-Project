@@ -9,7 +9,22 @@ import {
   studentRenderSlide,
   prepareAttempt,
   mergeProgress,
+  replacePortalRecord,
 } from "../lib/portal.ts";
+test("successful administrative changes replace only the matching list record", () => {
+  const current = [
+    { id: "a", active: true },
+    { id: "b", active: true },
+  ];
+  assert.deepEqual(replacePortalRecord(current, { id: "a", active: false }), [
+    { id: "a", active: false },
+    { id: "b", active: true },
+  ]);
+  assert.deepEqual(current, [
+    { id: "a", active: true },
+    { id: "b", active: true },
+  ]);
+});
 import { setCsrfToken } from "../lib/auth.ts";
 import { portalCopy } from "../lib/portal-copy.ts";
 
