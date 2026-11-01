@@ -27,7 +27,7 @@ make an attributable decision and see its result. The UI never claims more data
 or completed work than the backend supplies.
 
 **FIRST VIEWPORT:** Compact brand/account header and role-specific navigation.
-Student home: 30px heading, one visible Continue learning action, restrained
+Student home: 30px heading, a 24px resume course title beneath a 20px section heading, restrained
 recommendation and searchable catalogue. Player: 240px outline, flexible slide
 canvas, controls below content; practice follows the lesson. Admin: 200px section
 navigation, flexible operational list and inline actions. No oversized hero.
@@ -70,11 +70,15 @@ selection: scope and visual world are fixed by the user's instruction.
 
 ## Accessibility and UI states
 
-Visible labels, normal sentence case, 14px supporting/16px form text, 24px section
+Visible labels, normal sentence case, 14px supporting/16px form text, 20px section
 headings. Every action keyboard reachable with visible focus. Busy actions disabled
 and labelled; GETs abort on route/account change. Alert/retry for failed requests,
 honest loading and empty states; no fake success or loading forever after 401.
 Honor current light/dark mode, reduced motion and English/zh-HK/zh-CN settings.
+
+2026-11-01 refinement: single catalogue results fill the main column, saved goals
+use native expandable editing, and admin counts share one compact definition list
+with a distinct pending-review action. See `docs/design/student-admin-polish.md`.
 
 ## Known context drift
 

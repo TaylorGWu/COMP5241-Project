@@ -20,7 +20,7 @@ make an attributable decision and see its result. The UI never claims more data
 or completed work than the backend supplies.
 
 **FIRST VIEWPORT:** Compact brand/account header and role-specific navigation.
-Student home: 30px heading, one visible Continue learning action, restrained
+Student home: 30px heading, a 24px resume course title beneath a 20px section heading, restrained
 recommendation and searchable catalogue. Player: 240px outline, flexible slide
 canvas, controls below content; practice follows the lesson. Admin: 200px section
 navigation, flexible operational list and inline actions. No oversized hero.
@@ -42,6 +42,9 @@ selection: scope and visual world are fixed by the user's instruction.
 - Student course cards communicate actual subject/code, title, short description,
   chapters/duration and a single Join/Continue action. Progress is labelled text and
   a simple accessible bar; do not invent a score when no question was submitted.
+- Single catalogue results fill the main column. Saved learning goals use a short
+  summary with native expandable editing; empty profiles begin expanded. Admin
+  counts form one compact definition list and a separate pending-review action.
 - Recommended course explanation cites the saved background/goal. Invite join and
   preference editing are inline secondary tasks, not blocking onboarding modals.
 - Student slide renderer is read-only; use existing SlideFrame if suitable. Never
@@ -63,11 +66,13 @@ selection: scope and visual world are fixed by the user's instruction.
 
 ## Accessibility and UI states
 
-Visible labels, normal sentence case, 14px supporting/16px form text, 24px section
+Visible labels, normal sentence case, 14px supporting/16px form text, 20px section
 headings. Every action keyboard reachable with visible focus. Busy actions disabled
 and labelled; GETs abort on route/account change. Alert/retry for failed requests,
 honest loading and empty states; no fake success or loading forever after 401.
 Honor current light/dark mode, reduced motion and English/zh-HK/zh-CN settings.
+
+Refinement evidence and actual changes: `student-admin-polish.md`.
 
 ## Known context drift
 

@@ -14,6 +14,8 @@ const en = {
   noCoursesHint:
     "Try another search or ask your instructor for an invite code.",
   profile: "Your learning goals",
+  editGoals: "Edit learning goals",
+  reviewApplications: "Review applications",
   background: "Your background",
   goal: "What would you like to learn?",
   profileHint:
@@ -127,6 +129,8 @@ const zhHK: Copy = {
   noCourses: "找不到課程",
   noCoursesHint: "試試其他關鍵字，或向教師索取邀請碼。",
   profile: "你的學習目標",
+  editGoals: "編輯學習目標",
+  reviewApplications: "審核申請",
   background: "你的背景",
   goal: "你想學習甚麼？",
   profileHint: "儲存背景與目標，協助選擇起步課程。",
@@ -234,6 +238,8 @@ const zhCN: Copy = {
   noCourses: "找不到课程",
   noCoursesHint: "试试其他关键词，或向教师索取邀请码。",
   profile: "你的学习目标",
+  editGoals: "编辑学习目标",
+  reviewApplications: "审核申请",
   background: "你的背景",
   goal: "你想学习什么？",
   profileHint: "保存背景与目标，帮助选择起步课程。",

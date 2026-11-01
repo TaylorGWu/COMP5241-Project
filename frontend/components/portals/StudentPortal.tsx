@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
+import { PortalIcon } from "./PortalIcon";
 import {
   portalApi,
   studentCourseHref,
@@ -89,9 +90,19 @@ function StudentHomeContent({
         <section className="portal-resume">
           <h2>{c.continue}</h2>
           {resume ? (
-            <>
-              <h3>{resume.title}</h3>
-              <ProgressBar value={resume.completionPercent} />
+            <div className="portal-resume-course">
+              <span className="portal-course-mark">
+                <PortalIcon name="book" />
+              </span>
+              <div className="portal-resume-copy">
+                <h3>{resume.title}</h3>
+                <p className="portal-meta">
+                  {[resume.courseCode, resume.subject]
+                    .filter(Boolean)
+                    .join(" · ")}{" "}
+                  · {resume.chapterCount} {c.chapters}
+                </p>
+              </div>
               <Link
                 className="portal-button"
                 href={
@@ -100,9 +111,10 @@ function StudentHomeContent({
                     : studentCourseHref(resume.id)
                 }
               >
-                {c.continue}
+                {c.continue} <PortalIcon name="arrow" />
               </Link>
-            </>
+              <ProgressBar value={resume.completionPercent} />
+            </div>
           ) : (
             <p>{c.noResume}</p>
           )}
@@ -137,7 +149,9 @@ function StudentHomeContent({
             />
           </label>
           {visible.length ? (
-            <div className="portal-course-grid">
+            <div
+              className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
+            >
               {visible.map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}
@@ -153,30 +167,53 @@ function StudentHomeContent({
       <aside className="portal-sidebar">
         <section className="portal-panel">
           <h2>{c.profile}</h2>
-          <p>{c.profileHint}</p>
-          <form onSubmit={save}>
-            <label>
-              {c.background}
-              <textarea
-                maxLength={500}
-                value={background}
-                onChange={(event) => setBackground(event.target.value)}
-              />
-            </label>
-            <label>
-              {c.goal}
-              <textarea
-                maxLength={500}
-                value={goal}
-                onChange={(event) => setGoal(event.target.value)}
-              />
-            </label>
-            <button className="portal-button" disabled={profile.busy}>
-              {profile.busy ? c.saving : c.save}
-            </button>
-            <PortalError error={profile.error} />
-            {profile.saved ? <p role="status">{c.saved}</p> : null}
-          </form>
+          {data.profile.background || data.profile.goal ? (
+            <dl className="portal-goal-summary">
+              <div>
+                <dt>{c.background}</dt>
+                <dd>{data.profile.background || c.notProvided}</dd>
+              </div>
+              <div>
+                <dt>{c.goal}</dt>
+                <dd>{data.profile.goal || c.notProvided}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p>{c.profileHint}</p>
+          )}
+          <details
+            className="portal-goals-editor"
+            open={!data.profile.background && !data.profile.goal}
+          >
+            <summary>{c.editGoals}</summary>
+            <form onSubmit={save}>
+              <label>
+                {c.background}
+                <textarea
+                  maxLength={500}
+                  value={background}
+                  onChange={(event) => setBackground(event.target.value)}
+                />
+              </label>
+              <label>
+                {c.goal}
+                <textarea
+                  maxLength={500}
+                  value={goal}
+                  onChange={(event) => setGoal(event.target.value)}
+                />
+              </label>
+              <button className="portal-button" disabled={profile.busy}>
+                {profile.busy ? c.saving : c.save}
+              </button>
+            </form>
+          </details>
+          <PortalError error={profile.error} />
+          {profile.saved ? (
+            <p role="status" className="portal-save-feedback">
+              {c.saved}
+            </p>
+          ) : null}
         </section>
         <section className="portal-panel">
           <h2>{c.invite}</h2>
@@ -216,7 +253,7 @@ function CourseCard({ course }: { course: Course }) {
       <h3>
         <Link href={studentCourseHref(course.id)}>{course.title}</Link>
       </h3>
-      <p>{course.description}</p>
+      <p className="portal-course-description">{course.description}</p>
       <p className="portal-meta">
         {course.chapterCount} {c.chapters} · {course.durationMin} {c.minutes}
       </p>
@@ -224,7 +261,7 @@ function CourseCard({ course }: { course: Course }) {
         <ProgressBar value={course.completionPercent} />
       ) : null}
       <Link className="portal-text-link" href={studentCourseHref(course.id)}>
-        {course.enrolled ? c.continue : c.choose}
+        {course.enrolled ? c.continue : c.choose} <PortalIcon name="arrow" />
       </Link>
     </article>
   );

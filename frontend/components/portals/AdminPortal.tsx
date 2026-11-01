@@ -5,6 +5,7 @@ import { ApplicationQueue } from "@/components/AccountPages";
 import { useI18n } from "@/lib/i18n";
 import type { AccountRole } from "@/lib/auth";
 import { portalCopy } from "@/lib/portal-copy";
+import { PortalIcon } from "./PortalIcon";
 import {
   portalApi,
   replacePortalRecord,
@@ -45,6 +46,7 @@ export function AdminPortal() {
               aria-current={section === key ? "page" : undefined}
               onClick={() => setSection(key)}
             >
+              <PortalIcon name={key === "courses" ? "book" : key} />
               {c[key]}
             </button>
           ))}
@@ -86,41 +88,48 @@ function AdminOverview({ navigate }: { navigate: (section: Section) => void }) {
       {resource.loading ? (
         <PortalLoading />
       ) : resource.data ? (
-        <dl className="portal-overview-list">
-          {(
-            [
-              "users",
-              "courses",
-              "publishedCourses",
-              "pendingApplications",
-              "enrollments",
-            ] as const
-          ).map((key) => (
-            <div key={key}>
-              <dt>
-                {
+        <>
+          <dl className="portal-overview-list">
+            {(
+              ["users", "courses", "publishedCourses", "enrollments"] as const
+            ).map((key) => (
+              <div key={key}>
+                <dt>
                   {
-                    users: c.totalUsers,
-                    courses: c.totalCourses,
-                    publishedCourses: c.publishedCourses,
-                    pendingApplications: c.pendingApplications,
-                    enrollments: c.enrollments,
-                  }[key]
-                }
-              </dt>
-              <dd>{resource.data![key]}</dd>
-              {key === "pendingApplications" ? (
-                <button
-                  className="portal-text-link"
-                  type="button"
-                  onClick={() => navigate("applications")}
-                >
-                  {c.applications}
-                </button>
-              ) : null}
+                    {
+                      users: c.totalUsers,
+                      courses: c.totalCourses,
+                      publishedCourses: c.publishedCourses,
+                      pendingApplications: c.pendingApplications,
+                      enrollments: c.enrollments,
+                    }[key]
+                  }
+                </dt>
+                <dd>{resource.data![key]}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="portal-review-inbox">
+            <span className="portal-review-mark">
+              <PortalIcon name="applications" />
+            </span>
+            <div>
+              <h3>{c.applications}</h3>
+              <p>
+                {c.pendingApplications}:{" "}
+                <strong>{resource.data.pendingApplications}</strong>
+              </p>
             </div>
-          ))}
-        </dl>
+            <button
+              className="portal-button"
+              type="button"
+              onClick={() => navigate("applications")}
+            >
+              {c.reviewApplications}
+              <PortalIcon name="arrow" />
+            </button>
+          </div>
+        </>
       ) : null}
     </section>
   );
@@ -222,7 +231,7 @@ function UserRow({
     );
   };
   return (
-    <li>
+    <li className="portal-user-row">
       <div className="portal-row-summary">
         <div>
           <h3>{entry.name}</h3>
@@ -391,7 +400,7 @@ function CourseRow({
     );
   };
   return (
-    <li>
+    <li className="portal-course-row">
       <div className="portal-row-summary">
         <div>
           <h3>{entry.title}</h3>
