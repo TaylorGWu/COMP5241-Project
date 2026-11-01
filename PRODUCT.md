@@ -10,7 +10,7 @@ web
 
 Coursework is a COMP5241 team project for software-engineering mini-courses. Its intended learners include non-CS beginners and CS students preparing for software-development work with AI. Instructors prepare, review and publish learning materials. Administrators handle platform access; the current account increment gives them a teacher-application review queue.
 
-The runnable interface in this worktree centres on instructor preparation and the public account journey. A student account landing is present; the student learning portal is a separate integration module. Full administration, moderation and generation-audit operations are separate future modules.
+This worktree integrates instructor preparation with student learning and administrator operations. Students can discover explicitly published courses, enrol, read chapters and submit supported MCQs with saved feedback/progress. Administrators retain qualification review and can manage account access, suspend/restore courses and inspect read-only activity. This is an integrated local prototype, not a claim that the entire proposed LMS is complete.
 
 ## Product Purpose
 
@@ -48,7 +48,9 @@ Only administrator qualification approval grants access to teacher course tools.
 - Fixed-layout exports aim for content equivalence, not pixel-for-pixel reproduction of the web preview.
 - No general student chatbot, text-to-video generation, automatic publishing, real-time collaborative editing or arbitrary PowerPoint layout in the agreed scope.
 
-Open decisions: production host/domain and operational readiness, final product name, legal/privacy terms and retention policy, and the timing/details of student-portal and full-admin integration. Do not invent these facts in UI copy.
+Student delivery uses a frozen publication snapshot rather than the teacher's live draft. Background/goal recommendations use deterministic token matching, not machine learning. Completion counts reading and submitted supported MCQs; correctness is graded separately on the server. Unsupported free-text/code questions are not automatically marked. Administrator restoration removes a suspension but never publishes a draft.
+
+Open decisions: production host/domain and operational readiness, final product name, legal/privacy terms and retention policy. Do not invent these facts in UI copy.
 
 ## Brand Commitments
 
@@ -62,7 +64,7 @@ Open decisions: production host/domain and operational readiness, final product 
 - `docs/REQUIREMENTS_DESK_RESEARCH.md` and `docs/competitor_analysis/README.md` contain desk research and explicitly bounded hypotheses. Their internal workshop is not an external interview; they do not establish measured product effectiveness.
 - `docs/project_overivew.pdf` supplies the coursework objectives, deliverables and assessment context.
 - `docs/superpowers/specs/2026-10-22-public-entry-auth-design.md` records the approved public/account scope and teacher-qualification amendment. `docs/design/public-entry-interface.md` records its surface direction.
-- `frontend/components/PublicHome.tsx`, `AuthScreen.tsx` and `AccountPages.tsx` supply the implemented public example and account UI. Their existence does not establish a complete student LMS or full administrative console.
+- `frontend/components/PublicHome.tsx`, `AuthScreen.tsx` and `AccountPages.tsx` supply the public example, account UI and reused qualification review. `frontend/components/portals/` and `docs/design/student-admin-api.md` record the integrated learner/admin slice; `docs/design/student-admin-verification.md` distinguishes automated/internal checks from external user evidence.
 - `frontend/components/AuthScreen.module.css` records the revised form-first account interface. `frontend/public/images/learning-studio.provenance.md` records the generated decorative image and its prompt. The scene is illustrative; it does not document a named campus or establish an institutional affiliation.
 
 External interview/test outcomes, deployment status and commercial proof must be supported by their own evidence before being presented as facts.
