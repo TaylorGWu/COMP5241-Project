@@ -1,3 +1,3 @@
-import { AdminAccountPage } from "@/components/AccountPages";
+import { AdminPortal } from "@/components/portals/AdminPortal";
 import { AccountGate } from "@/components/AccountProvider";
-export default function Page() { return <AccountGate destination="/admin"><AdminAccountPage /></AccountGate>; }
+export default function Page() { return <AccountGate destination="/admin"><AdminPortal /></AccountGate>; }

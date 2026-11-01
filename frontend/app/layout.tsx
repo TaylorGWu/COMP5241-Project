@@ -19,6 +19,7 @@ import "./account-menu.css";
 import "./homepage.css";
 import "./profile-refinement.css";
 import "./teacher-workspace-refinement.css";
+import "./portals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
