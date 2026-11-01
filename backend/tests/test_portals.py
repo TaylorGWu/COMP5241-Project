@@ -161,6 +161,30 @@ def test_upgrade_seeds_only_existing_published_courses_and_preserves_backup(tmp_
         assert db.execute('SELECT count(*) FROM portal_publications').fetchone()[0] == 1
 
 
+def test_upgrade_skips_unlearnable_published_course_without_changing_it(tmp_path, monkeypatch):
+    from app.services.auth import AuthStore, _store_at
+    from app.services.sqlite_workspace import SQLiteCourseRepository
+
+    path = tmp_path / 'unlearnable-legacy.db'
+    repo = SQLiteCourseRepository(path)
+    course = repo.create_course(title='Legacy', description='', audience='Beginner', duration_min=45, language='en')
+    repo.update_chapter(course.id, course.chapter_ids[0], status='ready', package={'slideDeck': {'slides': [{'title': 'Missing ID'}]}})
+    repo.update_course(course.id, status='published')
+    with sqlite3.connect(path) as db:
+        original_payload = db.execute('SELECT payload_json FROM courses WHERE id=?', (course.id,)).fetchone()[0]
+
+    store = AuthStore(path)
+    with store.connection() as db:
+        assert db.execute('SELECT 1 FROM portal_publications WHERE course_id=?', (course.id,)).fetchone() is None
+        assert db.execute('SELECT payload_json FROM courses WHERE id=?', (course.id,)).fetchone()[0] == original_payload
+    assert repo.get_course(course.id).status == 'published'
+    monkeypatch.setattr(demo, 'TEACHER_WORKSPACE_DB', path)
+    _store_at.cache_clear()
+    with TestClient(app) as student:
+        signed_in(student, 'student@example.test', 'student')
+        assert student.get('/api/student/home').json()['courses'] == []
+
+
 def test_last_location_follows_latest_visit_and_removed_slides_do_not_count():
     with TestClient(app) as teacher, TestClient(app) as student:
         signed_in(teacher, 'teacher@example.test', 'instructor')

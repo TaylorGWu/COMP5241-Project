@@ -39,6 +39,8 @@ def migrate(store, *, initial_upgrade=False):
                         def get_chapter(self, ignored, chapter_id):
                             return chapters[chapter_id]
                     snapshot = build_snapshot(SnapshotRepository(), course)
+                    if not snapshot['chapters']:
+                        continue
                     db.execute('INSERT INTO portal_publications VALUES(?,?)', (course.id, json.dumps(snapshot, ensure_ascii=False)))
                 except (TypeError, ValueError, KeyError):
                     continue
