@@ -1,9 +1,23 @@
 """Freeze instructor-reviewed content for separate student delivery."""
 import json
+import re
 
 from fastapi import HTTPException
 
 from app.services.auth import get_auth_store
+
+
+def valid_asset_id(value):
+    return isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_-]+', value) is not None
+
+
+def deliverable_asset(asset):
+    if not isinstance(asset, dict) or not valid_asset_id(asset.get('id')) or asset.get('status') != 'ready':
+        return False
+    if asset.get('kind') == 'illustration':
+        return True
+    spec = asset.get('spec')
+    return asset.get('kind') == 'diagram' and isinstance(spec, dict) and isinstance(spec.get('code'), str) and bool(spec['code'].strip())
 
 
 def build_snapshot(repository, course):
@@ -24,7 +38,7 @@ def build_snapshot(repository, course):
         slides = [dict(slide) for slide in slides if isinstance(slide, dict) and isinstance(slide.get('id'), str) and slide['id']]
         for slide in slides:
             visuals = slide.get('visuals', [])
-            slide['visuals'] = [visual for visual in visuals if isinstance(visual, dict)] if isinstance(visuals, list) else []
+            slide['visuals'] = [visual for visual in visuals if isinstance(visual, dict) and valid_asset_id(visual.get('assetId'))] if isinstance(visuals, list) else []
         if not slides:
             continue
         question_set = package.get('questionSet')
@@ -62,6 +76,8 @@ def publish(repository, course_id, instructor_id):
         if not any(c.status == 'ready' and c.package is not None for c in chapters.values()):
             raise HTTPException(409, 'A course needs one ready chapter before publish')
         snapshot = build_snapshot(TransactionRepository(), course)
+        if not snapshot['chapters']:
+            raise HTTPException(409, 'A course needs one ready chapter with slides before publish')
         payload = json.loads(row['payload_json'])
         payload['status'] = 'published'
         db.execute('UPDATE courses SET payload_json=? WHERE id=?', (json.dumps(payload, ensure_ascii=False), course_id))

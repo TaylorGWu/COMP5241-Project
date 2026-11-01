@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.auth import current_user, get_auth_store
 from app.services import student_learning as learning
-from app.services.publication import available
+from app.services.publication import available, deliverable_asset, valid_asset_id
 
 router = APIRouter(prefix="/student", tags=["student"])
 
@@ -155,8 +155,8 @@ async def asset(course_id: str, chapter_id: str, asset_id: str, extension: str, 
     from app.services.mermaid_assets import MermaidRenderError, render_mermaid_png
     user = await student_user(request)
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
-    used = {v.get('assetId') for slide in chapter['slides'] for v in slide.get('visuals', [])}
-    item = next((a for a in chapter['assets'] if a.get('id') == asset_id and a.get('status') == 'ready' and asset_id in used), None)
+    used = {v.get('assetId') for slide in chapter['slides'] for v in slide.get('visuals', []) if isinstance(v, dict) and valid_asset_id(v.get('assetId'))}
+    item = next((a for a in chapter['assets'] if deliverable_asset(a) and a['id'] == asset_id and asset_id in used), None)
     if not item or extension not in ('svg', 'png'):
         raise HTTPException(404, 'Asset not found')
     if item.get('kind') == 'illustration' and extension == 'png':

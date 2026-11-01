@@ -198,3 +198,55 @@ def test_invalid_ready_chapter_does_not_break_other_published_chapters():
         assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
         assert student.post(f'/api/student/courses/{cid}/enroll', json={}).json()['chapters'][0]['id'] == second
         assert student.get(f'/api/student/courses/{cid}/chapters/{second}').json()['chapter']['slides'][0]['visuals'] == []
+
+
+def test_empty_publication_is_rejected_without_replacing_previous_snapshot():
+    with TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(teacher, 'teacher@example.test', 'instructor')
+        signed_in(student, 'student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Git'}).json()
+        cid, chapter_id = course['id'], course['chapterIds'][0]
+        chapter_path = f'/api/demo/courses/{cid}/chapters/{chapter_id}'
+        teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': []}}})
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 409
+        assert teacher.get(f'/api/demo/courses/{cid}').json()['status'] == 'draft'
+        assert student.get('/api/student/home').json()['courses'] == []
+        teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': [{'id': 's1', 'title': 'Original'}]}}})
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+        teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': []}}})
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 409
+        assert teacher.get(f'/api/demo/courses/{cid}').json()['status'] == 'published'
+        chapter = student.get(f'/api/student/courses/{cid}/chapters/{chapter_id}').json()['chapter']
+        assert chapter['slides'][0]['title'] == 'Original'
+
+
+def test_malformed_asset_metadata_is_unavailable_without_breaking_chapter():
+    with TestClient(app, raise_server_exceptions=False) as teacher, TestClient(app, raise_server_exceptions=False) as student:
+        signed_in(teacher, 'teacher@example.test', 'instructor')
+        signed_in(student, 'student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Git'}).json()
+        cid, chapter_id = course['id'], course['chapterIds'][0]
+        package = {'slideDeck': {'slides': [{'id': 's1', 'title': 'Read', 'visuals': [{'id': 'v1', 'assetId': 42}, {'id': 'v2', 'assetId': 'bad-spec'}]}]}, 'assets': [{'id': 42, 'kind': 'diagram', 'status': 'ready', 'spec': {'code': 'graph LR; A-->B'}}, {'id': 'bad-spec', 'kind': 'diagram', 'status': 'ready', 'spec': None}]}
+        teacher.patch(f'/api/demo/courses/{cid}/chapters/{chapter_id}', json={'status': 'ready', 'package': package})
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+        path = f'/api/student/courses/{cid}/chapters/{chapter_id}'
+        response = student.get(path)
+        assert response.status_code == 200
+        assert response.json()['chapter']['slides'][0]['visuals'] == []
+        assert student.get(path + '/assets/bad-spec.svg').status_code == 404
+
+
+def test_registered_student_can_sign_in_and_open_portal():
+    with TestClient(app) as client:
+        csrf = client.get('/api/auth/csrf').json()['csrfToken']
+        response = client.post('/api/auth/register', data={'name': 'Learner', 'email': 'register@example.test', 'password': PASSWORD, 'role': 'student'}, headers={'Origin': ORIGIN, 'X-CSRF-Token': csrf})
+        assert response.status_code == 201
+        assert client.get('/api/student/home').json()['courses'] == []
+        token = response.json()['csrfToken']
+        assert client.post('/api/auth/logout', headers={'Origin': ORIGIN, 'X-CSRF-Token': token}).status_code == 200
+        csrf = client.get('/api/auth/csrf').json()['csrfToken']
+        response = client.post('/api/auth/login', json={'email': 'register@example.test', 'password': PASSWORD}, headers={'Origin': ORIGIN, 'X-CSRF-Token': csrf})
+        assert response.status_code == 200
+        assert client.get('/api/student/home').status_code == 200

@@ -1,13 +1,12 @@
 """Account-linked enrolment, reading progress, and MCQ grading."""
 import hashlib
 import json
-import re
 import secrets
 import time
 
 from fastapi import HTTPException
 from app.services.auth import get_auth_store
-from app.services.publication import available
+from app.services.publication import available, deliverable_asset, valid_asset_id
 
 
 def verify_access(db, course_id, user_id, chapter=None):
@@ -81,22 +80,45 @@ def state(course_id, chapter, user_id):
     return dict(visitedSlideIds=visited, lastSlideId=visited[-1] if visited else None, completionPercent=round(done * 100 / total) if total else 0, completed=bool(total and done == total)), results
 
 
+def safe_status_groups(groups):
+    if not isinstance(groups, list):
+        return []
+    result = []
+    for group in groups:
+        if not isinstance(group, dict) or not isinstance(group.get('items', []), list):
+            continue
+        title = group.get('title') if isinstance(group.get('title'), str) else ''
+        items = []
+        for item in group.get('items', []):
+            if isinstance(item, dict):
+                items.append({key: item[key] for key in ('label', 'status') if isinstance(item.get(key), str)})
+        result.append({'title': title, 'items': items})
+    return result
+
+
+def safe_slide_content(source):
+    slide = {key: source[key] for key in ('id', 'layout', 'title', 'quizInstruction') if isinstance(source.get(key), str)}
+    if type(source.get('order')) is int:
+        slide['order'] = source['order']
+    bullets = source.get('bullets', [])
+    # Quiz slide bullets can themselves contain answers; omit them entirely.
+    if source.get('layout') != 'quiz':
+        slide['bullets'] = [item for item in bullets if isinstance(item, str)] if isinstance(bullets, list) else []
+    slide['statusGroups'] = safe_status_groups(source.get('statusGroups', []))
+    return slide
+
+
 def safe_chapter(course_id, chapter):
     slides = []
     for source in chapter['slides']:
-        # Quiz slide bullets can themselves contain answers; omit them entirely.
-        fields = ('id', 'order', 'layout', 'title', 'bullets', 'quizInstruction')
-        slide = {key: source[key] for key in fields if key in source and ((key == 'order' and type(source[key]) is int) or (key != 'order' and key != 'bullets' and isinstance(source[key], str)))}
-        slide['bullets'] = [item for item in source.get('bullets', []) if isinstance(item, str)] if isinstance(source.get('bullets', []), list) else []
-        groups = source.get('statusGroups', [])
-        slide['statusGroups'] = [{'title': group.get('title') if isinstance(group.get('title'), str) else '', 'items': [{key: item[key] for key in ('label', 'status') if isinstance(item.get(key), str)} for item in group.get('items', []) if isinstance(item, dict)]} for group in groups if isinstance(group, dict) and isinstance(group.get('items', []), list)] if isinstance(groups, list) else []
-        if source.get('layout') == 'quiz':
-            slide.pop('bullets', None)
+        slide = safe_slide_content(source)
         visuals = []
         for visual in source.get('visuals', []):
             asset_id = visual.get('assetId')
-            asset = next((a for a in chapter['assets'] if a.get('id') == asset_id and a.get('status') == 'ready' and a.get('kind') in ('diagram', 'illustration')), None)
-            if asset and re.fullmatch(r'[A-Za-z0-9_-]+', asset_id):
+            if not valid_asset_id(asset_id):
+                continue
+            asset = next((a for a in chapter['assets'] if deliverable_asset(a) and a['id'] == asset_id), None)
+            if asset:
                 extension = 'svg' if asset['kind'] == 'diagram' else 'png'
                 visuals.append({'id': visual.get('id') if isinstance(visual.get('id'), str) else '', 'kind': asset['kind'], 'altText': asset.get('altText') if isinstance(asset.get('altText'), str) else '', 'url': f"/api/student/courses/{course_id}/chapters/{chapter['id']}/assets/{asset_id}.{extension}"})
         slide['visuals'] = visuals

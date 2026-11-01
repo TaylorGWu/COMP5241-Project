@@ -83,7 +83,7 @@ async def test_course_blueprint_edits_and_publication_leave_an_audit_trail():
     await request(
         "PATCH",
         f"/api/demo/courses/{course_id}/chapters/{chapter_id}",
-        {"status": "ready", "package": {"slides": []}},
+        {"status": "ready", "package": {"slideDeck": {"slides": [{"id": "s1", "title": "Introduction"}]}}},
     )
     published = await request("POST", f"/api/demo/courses/{course_id}/publish")
     activity = await request("GET", f"/api/demo/courses/{course_id}/activity")
@@ -151,7 +151,7 @@ async def test_publish_requires_ready_chapter_then_can_be_withdrawn():
     chapter_id = course["chapterIds"][0]
 
     blocked = await request("POST", f"/api/demo/courses/{course['id']}/publish")
-    prepared = await request("PATCH", f"/api/demo/courses/{course['id']}/chapters/{chapter_id}", {"status": "ready", "package": {"slides": []}})
+    prepared = await request("PATCH", f"/api/demo/courses/{course['id']}/chapters/{chapter_id}", {"status": "ready", "package": {"slideDeck": {"slides": [{"id": "s1", "title": "Introduction"}]}}})
     published = await request("POST", f"/api/demo/courses/{course['id']}/publish")
     withdrawn = await request("POST", f"/api/demo/courses/{course['id']}/unpublish")
 
