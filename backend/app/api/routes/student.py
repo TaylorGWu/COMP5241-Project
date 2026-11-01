@@ -62,6 +62,7 @@ class Attempt(BaseModel):
     questionId: str = Field(min_length=1, max_length=128)
     optionId: str = Field(min_length=1, max_length=128)
     submissionId: str = Field(min_length=1, max_length=128)
+    questionRevision: str = Field(min_length=64, max_length=64, pattern='^[0-9a-f]{64}$')
 
 
 class Join(BaseModel):
@@ -128,7 +129,7 @@ async def chapter(course_id: str, chapter_id: str, request: Request):
     user = await student_user(request)
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
     progress, results = learning.state(course_id, chapter, user['id'])
-    return {'chapter': learning.safe_chapter(course_id, chapter), 'progress': progress, 'results': results}
+    return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results}
 
 
 @router.post('/courses/{course_id}/chapters/{chapter_id}/progress')
@@ -143,7 +144,7 @@ async def progress(course_id: str, chapter_id: str, request: Request, body: Visi
 async def attempt(course_id: str, chapter_id: str, request: Request, body: Attempt):
     user = await student_user(request)
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
-    result, progress = learning.attempt(course_id, chapter, user['id'], body.questionId, body.optionId, body.submissionId)
+    result, progress = learning.attempt(course_id, chapter, user['id'], body.questionId, body.optionId, body.submissionId, body.questionRevision)
     return {'result': result, 'progress': progress}
 
 

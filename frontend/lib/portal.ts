@@ -49,6 +49,7 @@ export type StudentSlide = Pick<
 export type Question = {
   id: string;
   stem: string;
+  revision: string;
   options: { id: string; text: string }[];
 };
 export type Result = {
@@ -162,7 +163,7 @@ export const portalApi = {
   attempt: (
     id: string,
     chapter: string,
-    body: { questionId: string; optionId: string; submissionId: string },
+    body: AttemptSubmission,
     signal?: AbortSignal,
   ) =>
     json<{ result: Result; progress: Progress }>(
@@ -265,17 +266,21 @@ export function studentRenderSlide(
 export type AttemptSubmission = {
   questionId: string;
   optionId: string;
+  questionRevision: string;
   submissionId: string;
 };
 export function prepareAttempt(
   previous: AttemptSubmission | null,
   questionId: string,
   optionId: string,
+  questionRevision: string,
   createId: () => string,
 ): AttemptSubmission {
-  return previous?.questionId === questionId && previous.optionId === optionId
+  return previous?.questionId === questionId &&
+    previous.optionId === optionId &&
+    previous.questionRevision === questionRevision
     ? previous
-    : { questionId, optionId, submissionId: createId() };
+    : { questionId, optionId, questionRevision, submissionId: createId() };
 }
 /** A response from an earlier visit may arrive after a saved attempt. Both are from this snapshot. */
 export function mergeProgress(current: Progress, next: Progress): Progress {

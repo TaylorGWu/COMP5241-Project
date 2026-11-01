@@ -117,7 +117,9 @@ function StudentHomeContent({
             </h3>
             <p>
               <strong>{c.why}: </strong>
-              {data.recommendation.reason}
+              {c.matchReason} {c.background}:{" "}
+              {data.profile.background || c.notProvided}; {c.goal}:{" "}
+              {data.profile.goal || c.notProvided}.
             </p>
           </section>
         ) : null}

@@ -1,5 +1,6 @@
 """Account-linked enrolment, reading progress, and MCQ grading."""
 import hashlib
+import hmac
 import json
 import secrets
 import time
@@ -47,11 +48,15 @@ def get_chapter(course_id, chapter_id, user_id):
 
 def mcqs(chapter):
     valid = []
+    counts = {}
     for q in chapter['questions']:
-        if not isinstance(q, dict) or q.get('type') != 'mcq' or not isinstance(q.get('id'), str) or not isinstance(q.get('stem'), str) or not isinstance(q.get('answer'), str) or not isinstance(q.get('explanation', ''), str):
+        if isinstance(q, dict) and isinstance(q.get('id'), str):
+            counts[q['id']] = counts.get(q['id'], 0) + 1
+    for q in chapter['questions']:
+        if not isinstance(q, dict) or q.get('type') != 'mcq' or not isinstance(q.get('id'), str) or not q['id'].strip() or counts[q['id']] != 1 or not isinstance(q.get('stem'), str) or not isinstance(q.get('answer'), str) or not isinstance(q.get('explanation', ''), str):
             continue
         options = q.get('options')
-        if not isinstance(options, list) or len(options) < 2 or any(not isinstance(o, dict) or not isinstance(o.get('id'), str) or not isinstance(o.get('text'), str) for o in options):
+        if not isinstance(options, list) or len(options) < 2 or any(not isinstance(o, dict) or not isinstance(o.get('id'), str) or not o['id'].strip() or not isinstance(o.get('text'), str) for o in options):
             continue
         ids = [o['id'] for o in options]
         if len(ids) == len(set(ids)) and q['answer'] in ids:
@@ -62,6 +67,11 @@ def mcqs(chapter):
 def question_hash(question):
     value = {k: question.get(k) for k in ('id', 'stem', 'options', 'answer', 'explanation')}
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+def question_revision(db, user_id, digest):
+    key = db.execute('SELECT password_hash FROM users WHERE id=?', (user_id,)).fetchone()['password_hash']
+    return hmac.new(key.encode(), digest.encode(), hashlib.sha256).hexdigest()
 
 
 def state(course_id, chapter, user_id):
@@ -108,7 +118,7 @@ def safe_slide_content(source):
     return slide
 
 
-def safe_chapter(course_id, chapter):
+def safe_chapter(course_id, chapter, user_id):
     slides = []
     for source in chapter['slides']:
         slide = safe_slide_content(source)
@@ -123,7 +133,8 @@ def safe_chapter(course_id, chapter):
                 visuals.append({'id': visual.get('id') if isinstance(visual.get('id'), str) else '', 'kind': asset['kind'], 'altText': asset.get('altText') if isinstance(asset.get('altText'), str) else '', 'url': f"/api/student/courses/{course_id}/chapters/{chapter['id']}/assets/{asset_id}.{extension}"})
         slide['visuals'] = visuals
         slides.append(slide)
-    questions = [{'id': q['id'], 'stem': q.get('stem', ''), 'options': [{'id': o['id'], 'text': o['text']} for o in q['options']]} for q in mcqs(chapter)]
+    with get_auth_store().connection() as db:
+        questions = [{'id': q['id'], 'stem': q.get('stem', ''), 'revision': question_revision(db, user_id, question_hash(q)), 'options': [{'id': o['id'], 'text': o['text']} for o in q['options']]} for q in mcqs(chapter)]
     return {'id': chapter['id'], 'title': chapter['title'], 'slides': slides, 'questions': questions, 'glossary': [{k: g[k] for k in ('term', 'plain') if isinstance(g.get(k), str)} for g in chapter['glossary'] if isinstance(g, dict)]}
 
 
@@ -136,22 +147,27 @@ def visit(course_id, chapter, user_id, slide_id):
         db.execute('INSERT INTO portal_visits VALUES(?,?,?,?,?) ON CONFLICT(course_id,user_id,chapter_id,slide_id) DO UPDATE SET visited_at=excluded.visited_at', (course_id, user_id, chapter['id'], slide_id, time.time()))
 
 
-def attempt(course_id, chapter, user_id, question_id, option_id, submission_id):
+def attempt(course_id, chapter, user_id, question_id, option_id, submission_id, revision):
     question = next((q for q in mcqs(chapter) if q['id'] == question_id), None)
-    if not question or option_id not in {o['id'] for o in question['options']}:
-        raise HTTPException(422, 'Unknown question or option')
     if not submission_id or len(submission_id) > 128:
         raise HTTPException(422, 'Invalid submission ID')
     with get_auth_store().connection() as db:
         db.execute('BEGIN IMMEDIATE')
         verify_access(db, course_id, user_id, chapter)
         previous = db.execute('SELECT * FROM portal_attempts WHERE user_id=? AND submission_id=?', (user_id, submission_id)).fetchone()
-        if previous and (previous['course_id'], previous['chapter_id'], previous['question_id'], previous['option_id'], previous['question_hash']) != (course_id, chapter['id'], question_id, option_id, question_hash(question)):
+        if previous and ((previous['course_id'], previous['chapter_id'], previous['question_id'], previous['option_id']) != (course_id, chapter['id'], question_id, option_id) or not hmac.compare_digest(revision, question_revision(db, user_id, previous['question_hash']))):
             raise HTTPException(409, 'Submission ID already used')
+        if not previous:
+            if not question:
+                raise HTTPException(422, 'Unknown question or option')
+            if not hmac.compare_digest(revision, question_revision(db, user_id, question_hash(question))):
+                raise HTTPException(409, 'Question changed; reload chapter')
+            if option_id not in {o['id'] for o in question['options']}:
+                raise HTTPException(422, 'Unknown question or option')
         if not previous:
             attempt_id = secrets.token_urlsafe(18)
             db.execute('INSERT INTO portal_attempts VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', (attempt_id, submission_id, course_id, user_id, chapter['id'], question_id, option_id, int(option_id == question['answer']), question['answer'], question.get('explanation', ''), time.time(), question_hash(question)))
         else:
             attempt_id = previous['id']
-    result = dict(questionId=question_id, selectedOptionId=option_id, correct=option_id == question['answer'], correctOptionId=question['answer'], explanation=question.get('explanation', ''), attemptId=attempt_id)
+    result = dict(questionId=question_id, selectedOptionId=option_id, correct=bool(previous['correct']) if previous else option_id == question['answer'], correctOptionId=previous['correct_option'] if previous else question['answer'], explanation=previous['explanation'] if previous else question.get('explanation', ''), attemptId=attempt_id)
     return result, state(course_id, chapter, user_id)[0]

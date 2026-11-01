@@ -404,7 +404,7 @@ function CourseRow({
           </p>
         </div>
         <span className="portal-status">
-          {entry.archived ? c.suspended : c.available}
+          {entry.archived ? c.suspended : c.notSuspended}
         </span>
       </div>
       {entry.moderationReason ? (

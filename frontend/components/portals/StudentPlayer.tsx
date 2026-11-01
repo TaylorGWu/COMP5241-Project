@@ -54,6 +54,7 @@ export function StudentPlayer({
           initial={resource.data}
           courseId={courseId}
           chapterId={chapterId}
+          reload={resource.reload}
         />
       ) : null}
     </PortalShell>
@@ -63,10 +64,12 @@ function Lesson({
   initial,
   courseId,
   chapterId,
+  reload,
 }: {
   initial: ChapterDetail;
   courseId: string;
   chapterId: string;
+  reload: () => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -211,6 +214,7 @@ function Lesson({
                   result={data.results[question.id]}
                   courseId={courseId}
                   chapterId={chapterId}
+                  reload={reload}
                   accept={(result) =>
                     setData((current) => ({
                       ...current,
@@ -308,12 +312,14 @@ function Practice({
   courseId,
   chapterId,
   accept,
+  reload,
 }: {
   question: Question;
   result?: Result;
   courseId: string;
   chapterId: string;
   accept: (result: Awaited<ReturnType<typeof portalApi.attempt>>) => void;
+  reload: () => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -329,6 +335,7 @@ function Practice({
       submission.current,
       question.id,
       choice,
+      question.revision,
       () => crypto.randomUUID(),
     );
     const payload = submission.current;
@@ -393,7 +400,18 @@ function Practice({
           {write.busy ? c.saving : c.check}
         </button>
       )}
-      <PortalError error={write.error} />
+      <PortalError
+        error={
+          write.error === "Question changed; reload chapter"
+            ? c.questionChanged
+            : write.error
+        }
+        retry={
+          write.error === "Question changed; reload chapter"
+            ? reload
+            : undefined
+        }
+      />
     </form>
   );
 }

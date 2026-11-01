@@ -3,10 +3,17 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.api.routes import demo
 from app.services.auth import get_auth_store
+from app.services.student_learning import mcqs
 import sqlite3
 
 ORIGIN = 'http://localhost:3000'
 PASSWORD = 'a long example password'
+
+
+def test_malformed_mcq_identifiers_are_excluded_without_losing_valid_questions():
+    base = {'type': 'mcq', 'stem': 'Question', 'options': [{'id': 'A', 'text': 'a'}, {'id': 'B', 'text': 'b'}], 'answer': 'A'}
+    questions = [base | {'id': ''}, base | {'id': 'dup'}, base | {'id': 'dup'}, base | {'id': 'bad', 'options': [{'id': '', 'text': 'a'}, {'id': 'A', 'text': 'b'}]}, base | {'id': 'good'}]
+    assert [q['id'] for q in mcqs({'questions': questions})] == ['good']
 
 
 def signed_in(client, email, role):
@@ -24,6 +31,38 @@ def signed_in(client, email, role):
 def test_student_home_requires_an_authenticated_session():
     with TestClient(app) as client:
         assert client.get('/api/student/home').status_code == 401
+
+
+def test_stale_question_revision_is_rejected_before_first_submission():
+    with TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(teacher, 'revision-teacher@example.test', 'instructor')
+        signed_in(student, 'revision-student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Revision'}).json()
+        cid, chapter_id = course['id'], course['chapterIds'][0]
+        path = f'/api/demo/courses/{cid}/chapters/{chapter_id}'
+        url = f'/api/student/courses/{cid}/chapters/{chapter_id}'
+        question = {'id': 'q1', 'type': 'mcq', 'stem': 'Original?', 'options': [{'id': 'A', 'text': 'First'}, {'id': 'B', 'text': 'Second'}], 'answer': 'A'}
+        package = {'slideDeck': {'slides': [{'id': 's1', 'layout': 'bullets', 'title': 'Slide'}]}, 'questionSet': {'questions': [question]}}
+        assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+        old = student.get(url).json()['chapter']['questions'][0]['revision']
+        question['stem'] = 'Changed?'
+        assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        payload = {'questionId': 'q1', 'optionId': 'A', 'submissionId': 'first', 'questionRevision': old}
+        assert student.post(url + '/attempts', json=payload).status_code == 409
+        assert student.get(url).json()['results'] == {}
+        question['options'][0]['id'] = 'C'
+        question['answer'] = 'C'
+        assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(url + '/attempts', json=payload).status_code == 409
+        payload['optionId'] = 'C'
+        payload['questionRevision'] = student.get(url).json()['chapter']['questions'][0]['revision']
+        first = student.post(url + '/attempts', json=payload)
+        assert first.status_code == 200
+        assert student.post(url + '/attempts', json=payload).json()['result']['attemptId'] == first.json()['result']['attemptId']
 
 
 def test_student_mutations_require_csrf_and_disallow_foreign_roles():
@@ -58,20 +97,21 @@ def test_published_course_enrollment_learning_and_analytics():
         chapter_url = f'/api/student/courses/{course_id}/chapters/{chapter_id}'
         chapter = student.get(chapter_url)
         assert chapter.status_code == 200
+        revision = chapter.json()['chapter']['questions'][0]['revision']
         assert 'private notes' not in chapter.text
         assert 'answer' not in chapter.text
         assert student.post(chapter_url + '/progress', json={'slideId': 's1'}).status_code == 200
         assert student.post(chapter_url + '/progress', json={'slideId': 'foreign'}).status_code == 404
-        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'foreign', 'submissionId': 'invalid'}).status_code == 422
-        result = student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1'})
+        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'foreign', 'submissionId': 'invalid', 'questionRevision': revision}).status_code == 422
+        result = student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision})
         assert result.status_code == 200
         assert result.json()['result']['correct'] is False
         assert result.json()['result']['correctOptionId'] == 'A'
         assert result.json()['progress']['completed'] is True
-        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1'}).json()['result']['attemptId'] == result.json()['result']['attemptId']
-        retry = student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'A', 'submissionId': 'submission-2'})
+        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision}).json()['result']['attemptId'] == result.json()['result']['attemptId']
+        retry = student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'A', 'submissionId': 'submission-2', 'questionRevision': revision})
         assert retry.json()['result']['correct'] is True
-        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1'}).json()['result']['attemptId'] == result.json()['result']['attemptId']
+        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision}).json()['result']['attemptId'] == result.json()['result']['attemptId']
         from app.services.auth import _store_at
         _store_at.cache_clear()
         demo.reload_course_workspace()
@@ -89,7 +129,8 @@ def test_published_course_enrollment_learning_and_analytics():
         assert changed['chapter']['questions'][0]['stem'] == 'A changed question?'
         assert changed['results'] == {}
         assert changed['progress']['completed'] is False
-        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'A', 'submissionId': 'submission-1'}).status_code == 409
+        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'A', 'submissionId': 'submission-1', 'questionRevision': revision}).status_code == 409
+        assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision}).json()['result']['attemptId'] == result.json()['result']['attemptId']
 
 
 def test_admin_suspends_and_restores_course_and_protects_accounts():

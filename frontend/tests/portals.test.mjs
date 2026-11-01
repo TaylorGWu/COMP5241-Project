@@ -81,21 +81,24 @@ test("student rendering supplies only safe content and useful quiz guidance", ()
 test("ambiguous failed submissions reuse an ID until choice or explicit retry changes", () => {
   let generated = 0;
   const id = () => `submission-${++generated}`;
-  const first = prepareAttempt(null, "q", "B", id);
+  const first = prepareAttempt(null, "q", "B", "rev1", id);
   assert.deepEqual(first, {
     questionId: "q",
     optionId: "B",
+    questionRevision: "rev1",
     submissionId: "submission-1",
   });
-  assert.equal(prepareAttempt(first, "q", "B", id), first);
-  assert.deepEqual(prepareAttempt(first, "q", "A", id), {
+  assert.equal(prepareAttempt(first, "q", "B", "rev1", id), first);
+  assert.deepEqual(prepareAttempt(first, "q", "A", "rev1", id), {
     questionId: "q",
     optionId: "A",
+    questionRevision: "rev1",
     submissionId: "submission-2",
   });
-  assert.deepEqual(prepareAttempt(null, "q", "B", id), {
+  assert.deepEqual(prepareAttempt(first, "q", "B", "rev2", id), {
     questionId: "q",
     optionId: "B",
+    questionRevision: "rev2",
     submissionId: "submission-3",
   });
 });
@@ -141,7 +144,12 @@ test("portal requests use student contracts and authenticated JSON mutations", a
     await portalApi.attempt(
       "c/1",
       "ch 2",
-      { questionId: "q", optionId: "B", submissionId: "unique" },
+      {
+        questionId: "q",
+        optionId: "B",
+        submissionId: "unique",
+        questionRevision: "rev1",
+      },
       signal,
     );
     await portalApi.user("u/1", { active: false }, signal);
@@ -162,6 +170,7 @@ test("portal requests use student contracts and authenticated JSON mutations", a
       questionId: "q",
       optionId: "B",
       submissionId: "unique",
+      questionRevision: "rev1",
     });
     assert.equal(calls[4].init.method, "PATCH");
     assert.deepEqual(JSON.parse(calls[5].init.body), {
