@@ -1,6 +1,6 @@
 ---
 name: Coursework
-description: The existing navy and blue visual system for focused teaching and account workflows.
+description: Warm ivory and dark actions for the homepage and operating screens, with semantic teaching and review colours preserved.
 colors:
   ink: "#172033"
   body: "#536176"
@@ -256,17 +256,23 @@ User refinement later on 2026-10-26: omit the duplicate photo from the Profile
 identity rail. Keep name/email there; retain the account-menu avatar and the
 photo upload/editor preview. Removing the display never removes the saved photo.
 
-Homepage override approved 2026-10-26: `homepage.css` replaces the earlier
-photographic hero with the code-native six-scene walkthrough beside the headline.
-Use Manrope for homepage body and display, Noto only for Chinese glyphs. Display
-60px/1 (48px tablet/mobile, 36px at 320px); body20px/28 desktop and16px/24 mobile;
-overview/FAQ30px/36 desktop and24px/32 mobile. Section gutters32px desktop/16px
-mobile, related gaps8/12/16/24px, major gaps32/48/64px. Floating header64px tall,
-16px radius, preserved avatar/dashboard for signed-in accounts. The approved
-landing-page-design concept permits a subtle neutral text gradient on the hero
-heading only; flat themed backgrounds everywhere else. Sample UI stays readable
-at rest; existing pause/replay and reduced-motion behavior remain. Profile,
-application, login and editing surfaces retain their previous tokens.
+Homepage and operating-screen override approved 2026-11-05: warm ivory canvas,
+solid near-black type/actions, white surfaces and sage selected navigation.
+The homepage has an unboxed header and centred introduction above the live
+six-scene walkthrough. Operating screens keep compact titles and task layouts.
+`frontend/app/workspace-theme.css` is imported after component styles and skins
+teacher course library/create/detail pages plus student/admin `.portal` pages.
+The chapter editor shell now uses the same palette and primary actions. Slide
+content and thumbnails restore their lesson tokens at `.slide-body`, so interface
+changes cannot recolour teaching material. Semantic review colours and chart
+category distinctions remain. Language, dark mode, keyboard
+focus and reduced-motion behaviour are preserved. The full token table, file
+list, scope and teammate merge checklist are in
+`docs/design/ui-style-guide.md`; use that guide when integrating modules.
+
+The final ZIP review and selective three-portal integration workflow is recorded
+in root `collaborate.md`. Preserve the local baseline before importing teammate
+code, and carry this visual system into the integrated version.
 
 - Do reuse semantic theme variables and keep the refined homepage in one consistent light or dark theme.
 - Do distinguish approved, pending and revision states with visible text as well as color.

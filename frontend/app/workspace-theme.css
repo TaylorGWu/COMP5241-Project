@@ -1,0 +1,205 @@
+/* Shared operating-screen skin. See docs/design/ui-style-guide.md.
+   The chapter shell shares the app palette; .slide-body restores lesson tokens
+   so interface refinements cannot recolour teaching content or thumbnails. */
+:root {
+  --lesson-ink: var(--color-ink);
+  --lesson-body: var(--color-body);
+  --lesson-muted: var(--color-muted);
+  --lesson-canvas: var(--color-canvas);
+  --lesson-surface: var(--color-surface);
+  --lesson-soft: var(--color-soft);
+  --lesson-line: var(--color-line);
+  --ui-selection-bg: #e6e9df;
+  --ui-selection-text: #38462c;
+}
+[data-theme="dark"] {
+  --ui-selection-bg: #343f2b;
+  --ui-selection-text: #dce8cd;
+}
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+  --color-canvas: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-soft: #efeee8;
+  --color-line: #deded5;
+  --color-ink: #242424;
+  --color-body: #555555;
+  --color-muted: #686868;
+  --workspace-action: #242424;
+  --workspace-action-text: #ffffff;
+  --workspace-action-hover: #404040;
+  --workspace-selected: var(--ui-selection-bg);
+  --workspace-selected-text: var(--ui-selection-text);
+  --workspace-cjk: var(--font-public-sc, "PingFang SC");
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-public-display), var(--workspace-cjk), sans-serif;
+  font-weight: 450;
+}
+:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(h1, h2, h3) {
+  letter-spacing: -.02em;
+  font-weight: 600;
+}
+html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+  --workspace-cjk: var(--font-public-tc, "PingFang TC");
+}
+[data-theme="dark"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+  --color-canvas: #181818;
+  --color-surface: #242424;
+  --color-soft: #2b2b2b;
+  --color-line: #414141;
+  --color-ink: #f2f2f2;
+  --color-body: #bdbdbd;
+  --color-muted: #adadad;
+  --workspace-action: #f2f2f2;
+  --workspace-action-text: #242424;
+  --workspace-action-hover: #dedede;
+}
+:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 4px;
+}
+:is(.course-library-page, .course-create-page, .course-detail, .portal) ::selection {
+  background: var(--workspace-selected);
+  color: var(--workspace-selected-text);
+}
+:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(input, textarea) {
+  caret-color: var(--color-ink);
+}
+:is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue),
+:is(.course-library-page, .course-create-page, .course-detail, .portal) .public-button,
+.portal .portal-button:not(.portal-button--secondary) {
+  color: var(--workspace-action-text);
+  background: var(--workspace-action);
+  border-color: var(--workspace-action);
+  border-radius: 8px;
+  transition: background-color 200ms cubic-bezier(.22,1,.36,1);
+}
+:is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue):hover:not(:disabled),
+:is(.course-library-page, .course-create-page, .course-detail, .portal) .public-button:hover:not(:disabled),
+.portal .portal-button:not(.portal-button--secondary):hover:not(:disabled) {
+  color: var(--workspace-action-text);
+  background: var(--workspace-action-hover);
+  border-color: var(--workspace-action-hover);
+}
+:is(.course-library-page, .course-create-page, .course-detail) .teacher-nav,
+.portal .public-header {
+  min-height: 80px;
+  background: transparent;
+  border-bottom-color: var(--color-line);
+}
+.portal .public-brand { font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
+.portal .public-brand > span:first-child { width: 40px; height: 40px; border-radius: 8px; }
+.portal .public-brand .brand-period { color: inherit; }
+.chapter-workspace-page .studio-topbar {
+  background: var(--color-surface);
+  border-color: var(--color-line);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.chapter-workspace-page .studio-topbar__inner > span:first-child > span:first-child {
+  background: var(--workspace-action);
+  color: var(--workspace-action-text);
+}
+.chapter-workspace-page .studio-material-tabs {
+  background: var(--color-soft);
+  box-shadow: none;
+}
+.chapter-workspace-page :is(.studio-review-dock, .studio-outline__body) {
+  border-color: var(--color-line);
+}
+.chapter-workspace-page :is(button.bg-blue, .slide-actions__add):not(:disabled) {
+  background: var(--workspace-action);
+  border-color: var(--workspace-action);
+  color: var(--workspace-action-text);
+}
+.chapter-workspace-page :is(button.bg-blue, .slide-actions__add):hover:not(:disabled) {
+  background: var(--workspace-action-hover);
+  border-color: var(--workspace-action-hover);
+}
+.chapter-workspace-page .slide-actions__add:disabled {
+  background: var(--color-soft);
+  border-color: var(--color-line);
+  color: var(--color-muted);
+}
+.chapter-workspace-page [data-slide-carousel] > article {
+  border-color: var(--color-line);
+  box-shadow: none;
+}
+/* Root aliases resolve before the shell overrides its palette. This boundary
+   covers both full-size slides and thumbnails, without changing semantic hues. */
+.chapter-workspace-page .slide-body {
+  --color-ink: var(--lesson-ink);
+  --color-body: var(--lesson-body);
+  --color-muted: var(--lesson-muted);
+  --color-canvas: var(--lesson-canvas);
+  --color-surface: var(--lesson-surface);
+  --color-soft: var(--lesson-soft);
+  --color-line: var(--lesson-line);
+  color: var(--color-ink);
+  font-weight: 400;
+}
+:is(.course-library-page, .course-create-page, .course-detail) .teacher-nav > a > span:first-child {
+  background: var(--workspace-action);
+  color: var(--workspace-action-text);
+  border-radius: 8px;
+}
+/* Match the incumbent navigation's specificity, not just its class name.
+   These controls are UI chrome; no slide/content colour tokens are replaced. */
+.teacher-nav nav a.teacher-nav__link[aria-current="page"],
+.teacher-nav nav a.teacher-nav__link:hover,
+.account-menu .account-menu-links a[aria-current="page"],
+.account-menu .account-menu-links a:hover,
+.teacher-profile-page .teacher-profile-aside nav a[aria-current="location"],
+.teacher-profile-page .teacher-profile-aside nav a:hover,
+[role="group"] > button[aria-pressed="true"],
+.chapter-workspace-page .studio-slide-index[aria-pressed="true"],
+.chapter-workspace-page .studio-outline button[aria-current="page"],
+.chapter-workspace-page [data-workspace-tab][aria-current="page"] {
+  color: var(--ui-selection-text);
+  background: var(--ui-selection-bg);
+}
+.account-menu .account-menu-trigger:hover,
+.account-menu .account-menu-trigger[aria-expanded="true"] {
+  background: var(--ui-selection-bg);
+  border-color: var(--ui-selection-text);
+}
+.chapter-workspace-page .studio-slide-index[aria-pressed="true"] .studio-real-thumbnail {
+  border-color: var(--ui-selection-text);
+  box-shadow: none;
+}
+.course-library-page .course-catalogue-toolbar { background: transparent; padding: 0; border: 0; }
+.course-library-page .course-catalogue-search { background: var(--color-surface); }
+.course-library-page .course-library-card { min-height: 264px; box-shadow: none; transition: border-color 200ms cubic-bezier(.22,1,.36,1); }
+.course-library-page .course-library-card:hover { transform: none; border-color: var(--workspace-selected-text); }
+.course-library-page .course-library-card__continue { color: var(--color-ink); }
+.portal .portal-section-nav { gap: 8px; }
+.portal .portal-section-nav button[aria-current],
+.portal .portal-outline button[aria-current],
+.course-detail .course-menu__item.is-active {
+  color: var(--workspace-selected-text);
+  background: var(--workspace-selected);
+  border-color: transparent;
+}
+.portal .portal-section-nav button:hover:not(:disabled) { border-color: transparent; }
+.portal .portal-title { margin: 24px 0 32px; }
+.portal .portal-course-mark { background: var(--workspace-selected); color: var(--workspace-selected-text); }
+.portal .portal-metric-action { color: var(--color-ink); }
+.portal .portal-metric:hover:not(:disabled) { border-color: var(--workspace-selected-text); background: var(--color-surface); }
+.portal .portal-review-inbox { background: var(--workspace-selected); }
+.portal .portal-review-inbox p { color: var(--workspace-selected-text); }
+/* Chart categories remain distinct from brand/selection colours. */
+.portal .portal-series--student { --series: #57794e; }
+.portal .portal-series--instructor { --series: #597bb2; }
+.portal .portal-series--admin { --series: #9c8151; }
+.portal .portal-enrollment-track > span { background: #57794e; }
+[data-theme="dark"] .portal .portal-series--student { --series: #a2c491; }
+[data-theme="dark"] .portal .portal-series--instructor { --series: #94afe2; }
+[data-theme="dark"] .portal .portal-series--admin { --series: #d1b57e; }
+@media (max-width: 480px) {
+  .portal .public-brand { font-size: 20px; gap: 8px; }
+  .portal .public-brand > span:first-child { width: 32px; height: 32px; }
+  .portal .portal-title { margin: 16px 0 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.course-library-page, .course-create-page, .course-detail, .portal) :is(button, a) { transition: none; }
+}

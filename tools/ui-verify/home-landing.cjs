@@ -23,9 +23,12 @@ const out = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'coursework-la
       assert.equal(await page.locator('.public-hero .public-hero-visual').count(),0,'The product walkthrough replaces the decorative photo');
       const font=await page.locator('h1').evaluate(e=>getComputedStyle(e).fontFamily);
       assert.equal(await page.locator('.public-hero-copy > p').evaluate(e=>getComputedStyle(e).fontFamily),font,'One homepage typeface');
+      const primary=page.locator('.public-hero-copy a[href="/register/instructor"]');
+      assert.equal(await primary.count(),1,'Visitors can start a course from the hero');
       if(width===1440){
         const copy=await page.locator('.public-hero-copy').boundingBox();const demo=await page.locator('.public-hero .workflow-section').boundingBox();
-        assert.ok(demo.x>copy.x+copy.width,'Desktop walkthrough sits beside headline');
+        assert.ok(demo.y>=copy.y+copy.height,'Product walkthrough follows the complete introduction');
+        assert.ok(Math.abs(copy.x+copy.width/2-width/2)<4,'Introduction stays centred above the walkthrough');
       }
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'No horizontal overflow');
       await page.locator('[data-demo-step="2"]').click();

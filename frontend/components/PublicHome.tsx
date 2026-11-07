@@ -18,7 +18,9 @@ export function PublicHome() {
     <PublicHeader />
     <section className="public-hero" id="home-main" aria-labelledby="home-title">
       <div className="public-hero-copy"><h1 id="home-title">{c.headline.map((line, index) => <span key={line}>{line}{index < c.headline.length - 1 ? " " : null}</span>)}</h1>
-        <p>{c.body}</p><div className="home-assurance"><Check /><span>{c.assurance}</span></div>
+        <p>{c.body}</p>
+        <Link className="public-button home-primary-action" href={user ? roleDestination(user) : "/register/instructor"}>{user ? (locale === "en" ? "Open workspace" : locale === "zh-HK" ? "進入後台" : "进入后台") : c.create}<Arrow /></Link>
+        <div className="home-assurance"><Check /><span>{c.assurance}</span></div>
       </div>
       <CourseWorkflowDemo hero />
     </section>
