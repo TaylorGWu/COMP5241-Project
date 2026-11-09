@@ -265,6 +265,11 @@ html[lang="zh-HK"] .portal {
 .portal-resume-course .portal-progress {
   grid-column: 1 / -1;
 }
+.portal-resume-why {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  line-height: 20px;
+}
 .portal-resume-copy {
   display: grid;
   gap: 8px;

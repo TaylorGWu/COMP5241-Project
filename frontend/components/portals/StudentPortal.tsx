@@ -134,6 +134,12 @@ function StudentHomeContent({
                 {c.continue} <PortalIcon name="arrow" />
               </Link>
               <ProgressBar value={resume.completionPercent} />
+              {data.recommendation?.reasonCode === "resume" ? (
+                <p className="portal-resume-why">
+                  <strong>{c.why}: </strong>
+                  {c.reasonResume}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p>{c.noResume}</p>
@@ -199,14 +205,14 @@ function StudentHomeContent({
                 <dt>{c.goal}</dt>
                 <dd>{data.profile.goal || c.notProvided}</dd>
               </div>
-              {data.profile.weeklyMinutes ? (
-                <div>
-                  <dt>{c.weeklyMinutes}</dt>
-                  <dd>
-                    {data.profile.weeklyMinutes} {c.minutes}
-                  </dd>
-                </div>
-              ) : null}
+              <div>
+                <dt>{c.weeklyMinutes}</dt>
+                <dd>
+                  {data.profile.weeklyMinutes
+                    ? `${data.profile.weeklyMinutes} ${c.minutes}`
+                    : c.notProvided}
+                </dd>
+              </div>
             </dl>
           ) : (
             <p>{c.profileHint}</p>

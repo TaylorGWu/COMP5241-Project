@@ -90,6 +90,8 @@ function chapterPayload(reviewSlideId) {
       await page.goto(base + '/student');
       await page.getByRole('heading', { name:'Continue learning' }).waitFor();
       assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 0, 'A resume must not be offered twice');
+      // The reason stays visible even when the next step is "keep going".
+      await page.getByText(/Keep going/).first().waitFor();
       assert.equal(await page.getByText('Software engineering').count() >= 1, true, 'The resumed course is still reachable');
       await context.close();
       console.log('PASS resume reason uses the single resume card');
