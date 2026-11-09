@@ -947,6 +947,9 @@ html[lang="zh-HK"] .portal {
 }
 .portal-outline .portal-stage--thumb {
   width: 100%;
+  /* A thumbnail, not a second reading surface: the teacher's index keeps the same
+     small page and gives the width to the title. */
+  max-width: 128px;
   border-radius: 4px;
   border: 1px solid var(--line);
 }
