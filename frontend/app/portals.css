@@ -285,9 +285,6 @@ html[lang="zh-HK"] .portal {
   color: var(--workspace-selected-text, var(--color-ink));
   border-bottom-color: var(--workspace-selected-text, var(--color-ink));
 }
-.portal-resume-meta {
-  grid-column: 1 / -1;
-}
 .portal-student-home {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 304px;
@@ -333,11 +330,6 @@ html[lang="zh-HK"] .portal {
 }
 .portal-resume-course .portal-progress {
   grid-column: 1 / -1;
-}
-.portal-resume-why {
-  grid-column: 1 / -1;
-  font-size: 14px;
-  line-height: 20px;
 }
 .portal-resume-copy {
   display: grid;
@@ -466,6 +458,13 @@ html[lang="zh-HK"] .portal {
 }
 .portal-course-grid--single {
   grid-template-columns: minmax(0, 1fr);
+}
+/* The next-step explanation belongs on the card it explains. */
+.portal-course-reason {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink);
 }
 .portal-course {
   display: flex;

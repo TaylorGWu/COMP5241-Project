@@ -146,68 +146,45 @@ function StudentHomeContent({
         <div className="portal-main-column">
           {tab === "learning" ? (
             <>
-              <section className="portal-resume">
-                <h2>{c.continue}</h2>
-                {resume ? (
-                  <div className="portal-resume-course">
-                    <span className="portal-course-mark">
-                      <PortalIcon name="book" />
-                    </span>
-                    <div className="portal-resume-copy">
-                      <h3>{resume.title}</h3>
-                      <p className="portal-meta">
-                        {[resume.courseCode, resume.subject]
-                          .filter(Boolean)
-                          .join(" · ")}{" "}
-                        · {resume.chapterCount} {c.chapters}
-                      </p>
-                    </div>
-                    <Link
-                      className="portal-button"
-                      href={
-                        resume.lastChapterId
-                          ? studentChapterHref(resume.id, resume.lastChapterId)
-                          : studentCourseHref(resume.id)
-                      }
-                    >
-                      {c.continue} <PortalIcon name="arrow" />
-                    </Link>
-                    <ProgressBar value={resume.completionPercent} />
-                    <p className="portal-meta portal-resume-meta">
-                      {resume.visitedSlides}/{resume.totalSlides}{" "}
-                      {c.pagesRead} · {resume.answeredQuestions}/
-                      {resume.totalQuestions} {c.questionsAnswered}
-                    </p>
-                    {resume.studyDays > 0 && resume.lastStudiedAt ? (
-                      <p className="portal-meta portal-resume-meta">
-                        {resume.studyDays} {c.studyDays} · {c.lastStudied}{" "}
-                        {relativeTime(
-                          resume.lastStudiedAt,
-                          Date.now() / 1000,
-                          locale,
-                        )}
-                      </p>
-                    ) : null}
-                    {data.recommendation?.reasonCode === "resume" ? (
-                      <p className="portal-resume-why">
-                        <strong>{c.why}: </strong>
-                        {c.reasonResume}
-                      </p>
-                    ) : null}
+              {enrolled.length ? (
+                <section>
+                  <div className="portal-section-heading">
+                    <h2>{c.myCourses}</h2>
+                    <span>{enrolled.length}</span>
                   </div>
-                ) : (
-                  <>
-                    <p>{c.noResume}</p>
-                    <button
-                      type="button"
-                      className="portal-button portal-button--secondary"
-                      onClick={() => setTab("courses")}
-                    >
-                      {c.browseCourses} <PortalIcon name="arrow" />
-                    </button>
-                  </>
-                )}
-              </section>
+                  {/* One list: the course the learner should open next is marked
+                      on its card instead of being lifted out of the list. */}
+                  <div
+                    className={`portal-course-grid${enrolled.length === 1 ? " portal-course-grid--single" : ""}`}
+                  >
+                    {enrolled.map((course) => (
+                      <CourseCard
+                        key={course.id}
+                        course={course}
+                        query=""
+                        reason={
+                          data.recommendation?.reasonCode === "resume" &&
+                          data.recommendation.courseId === course.id
+                            ? c.reasonResume
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : (
+                <section className="portal-resume">
+                  <h2>{c.continue}</h2>
+                  <p>{c.noResume}</p>
+                  <button
+                    type="button"
+                    className="portal-button portal-button--secondary"
+                    onClick={() => setTab("courses")}
+                  >
+                    {c.browseCourses} <PortalIcon name="arrow" />
+                  </button>
+                </section>
+              )}
               {recommendation &&
               data.recommendation &&
               data.recommendation.reasonCode !== "resume" ? (
@@ -222,21 +199,6 @@ function StudentHomeContent({
                     <strong>{c.why}: </strong>
                     {reason}
                   </p>
-                </section>
-              ) : null}
-              {others.length ? (
-                <section>
-                  <div className="portal-section-heading">
-                    <h2>{c.otherEnrolled}</h2>
-                    <span>{others.length}</span>
-                  </div>
-                  <div
-                    className={`portal-course-grid${others.length === 1 ? " portal-course-grid--single" : ""}`}
-                  >
-                    {others.map((course) => (
-                      <CourseCard key={course.id} course={course} query="" />
-                    ))}
-                  </div>
                 </section>
               ) : null}
             </>
@@ -366,7 +328,16 @@ function StudentHomeContent({
     </>
   );
 }
-function CourseCard({ course, query }: { course: Course; query: string }) {
+function CourseCard({
+  course,
+  query,
+  reason,
+}: {
+  course: Course;
+  query: string;
+  /** Why this course is the next step, shown only for the recommended one. */
+  reason?: string;
+}) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   return (
@@ -391,9 +362,10 @@ function CourseCard({ course, query }: { course: Course; query: string }) {
       </p>
       {course.enrolled ? (
         <p className="portal-meta">
-          {course.visitedSlides}/{course.totalSlides} {c.pagesRead} ·{" "}
-          {course.answeredQuestions}/{course.totalQuestions}{" "}
-          {c.questionsAnswered}
+          {course.visitedSlides}/{course.totalSlides} {c.pagesRead}
+          {course.totalQuestions
+            ? ` · ${course.answeredQuestions}/${course.totalQuestions} ${c.questionsAnswered}`
+            : ""}
         </p>
       ) : null}
       {course.enrolled && course.studyDays > 0 && course.lastStudiedAt ? (
@@ -404,6 +376,12 @@ function CourseCard({ course, query }: { course: Course; query: string }) {
       ) : null}
       {course.enrolled ? (
         <ProgressBar value={course.completionPercent} />
+      ) : null}
+      {reason ? (
+        <p className="portal-course-reason">
+          <strong>{c.why}: </strong>
+          {reason}
+        </p>
       ) : null}
       <Link className="portal-text-link" href={studentCourseHref(course.id)}>
         {course.enrolled ? c.continue : c.choose} <PortalIcon name="arrow" />
