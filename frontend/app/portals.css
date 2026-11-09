@@ -887,7 +887,12 @@ html[lang="zh-HK"] .portal {
   min-width: 0;
   position: sticky;
   top: 24px;
-  max-height: calc(100vh - 48px);
+  /* Capped to roughly the height of the column beside it: a taller rail used to
+     stretch the grid row and leave a blank block under the slide. */
+  max-height: clamp(360px, calc(100vh - 340px), 640px);
+  /* Its list scrolls inside; without paint containment the overflowing entries keep
+     counting towards the document height, so the page scrolls into blank space. */
+  contain: paint;
 }
 .portal-outline ol {
   min-height: 0;
