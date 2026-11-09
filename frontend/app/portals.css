@@ -245,40 +245,40 @@ html[lang="zh-HK"] .portal {
   }
 }
 /* Two destinations on one page: the learner's own courses, and the catalogue. */
-/* The catalogue toolbar mirrors the teacher library: search, then attribute
-   filters, on one row above the results. */
-.portal-catalogue-toolbar {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto auto;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 24px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+/* The catalogue's controls share the tab band: tabs on the left, the filters for
+   the list on the right, so the band never reads as empty on either tab. */
+.portal-catalogue-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
 }
-.portal-catalogue-toolbar .portal-search {
-  max-width: none;
+.portal .portal-band-summary {
+  margin: 0 0 0 auto;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 20px;
+}
+.portal .portal-search--band {
+  display: flex;
+  flex: 0 0 340px;
+  align-items: center;
+  min-width: 120px;
+  max-width: 100%;
   margin: 0;
 }
-.portal-filter {
-  display: grid;
-  gap: 6px;
+.portal .portal-filter {
+  display: flex;
   min-width: 0;
 }
-.portal-filter > span {
-  color: var(--body);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 650;
-}
 .portal-filter select {
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 32px 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--canvas);
+  background: var(--surface);
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -288,30 +288,34 @@ html[lang="zh-HK"] .portal {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
-@media (max-width: 720px) {
-  .portal-catalogue-toolbar {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 900px) {
+  .portal-catalogue-filters {
+    flex-wrap: wrap;
+    margin-left: 0;
+    width: 100%;
+  }
+  .portal .portal-search--band {
+    flex: 1 1 100%;
+  }
+  .portal .portal-filter {
+    flex: 1 1 140px;
+  }
+  .portal-filter select {
+    width: 100%;
   }
 }
 .portal-tabs-row {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  /* Bottom-aligned so the active tab's underline sits on the band's border. */
+  align-items: flex-end;
+  gap: 8px 16px;
   margin: 8px 0 24px;
   border-bottom: 1px solid var(--color-line);
 }
 .portal-tabs {
   display: flex;
   gap: 4px;
-}
-/* A catalogue filter belongs beside the tabs, not on its own line. */
-.portal .portal-search--compact {
-  max-width: 300px;
-  width: 100%;
-  margin: 0 0 8px auto;
-}
-.portal .portal-search--compact input {
-  min-height: 40px;
 }
 .portal .portal-tabs button {
   min-height: 44px;

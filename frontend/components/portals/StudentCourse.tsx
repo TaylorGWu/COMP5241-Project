@@ -54,7 +54,8 @@ export function StudentCourse({ courseId }: { courseId: string }) {
             </p>
             <div className="portal-facts">
               <span>
-                {data.course.chapterCount} {c.chapters}
+                {data.course.chapterCount}{" "}
+                {data.course.chapterCount === 1 ? c.chapter : c.chapters}
               </span>
               <span>
                 {data.course.durationMin} {c.minutes}
@@ -73,7 +74,8 @@ export function StudentCourse({ courseId }: { courseId: string }) {
               ) : null}
               {data.enrolled && data.course.studyDays > 0 ? (
                 <span>
-                  {data.course.studyDays} {c.studyDays}
+                  {data.course.studyDays}{" "}
+                  {data.course.studyDays === 1 ? c.studyDay : c.studyDays}
                 </span>
               ) : null}
             </div>
