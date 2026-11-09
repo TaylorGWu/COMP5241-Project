@@ -8,6 +8,7 @@ const paths = {
   activity: "M22 12a10 10 0 1 1-3-7.14M22 3v6h-6m-4-3v6l4 2",
   chevron: "m6 9 6 6 6-6",
   check: "m5 12 4 4L19 7",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm5-2 4 4",
 } as const;
 
 export function PortalIcon({ name }: { name: keyof typeof paths }) {

@@ -132,53 +132,6 @@ function StudentHomeContent({
             {c.courses}
           </button>
         </nav>
-        {tab === "courses" ? (
-          <div className="portal-catalogue-filters">
-            <label className="portal-search portal-search--band">
-              <span className="sr-only">{c.search}</span>
-              <input
-                type="search"
-                placeholder={c.searchCatalogue}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            <label className="portal-filter">
-              <span className="sr-only">{c.level}</span>
-              <select
-                aria-label={c.level}
-                value={level}
-                onChange={(event) => setLevel(event.target.value)}
-              >
-                <option value="all">{c.allLevels}</option>
-                {levels.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="portal-filter">
-              <span className="sr-only">{c.subject}</span>
-              <select
-                aria-label={c.subject}
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-              >
-                <option value="all">{c.allSubjects}</option>
-                {subjects.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : (
-          <p className="portal-band-summary">
-            {enrolled.length} {enrolled.length === 1 ? c.course : c.courses}
-          </p>
-        )}
       </div>
       <div className="portal-student-home">
         <div className="portal-main-column">
@@ -189,6 +142,10 @@ function StudentHomeContent({
                   <div className="portal-section-heading">
                     <h2>{c.myCourses}</h2>
                   </div>
+                  <p className="portal-results">
+                    {enrolled.length}{" "}
+                    {enrolled.length === 1 ? c.course : c.courses}
+                  </p>
                   {/* One list: the course the learner should open next is marked
                       on its card instead of being lifted out of the list. */}
                   <div
@@ -241,6 +198,52 @@ function StudentHomeContent({
             </>
           ) : (
             <section>
+              {/* Same shape as the teacher library: a bordered toolbar with the
+                  search on the left and the two attributes on the right. */}
+              <div className="portal-catalogue-toolbar">
+                <label className="portal-search portal-search--toolbar">
+                  <PortalIcon name="search" />
+                  <span className="sr-only">{c.search}</span>
+                  <input
+                    type="search"
+                    placeholder={c.searchCatalogue}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+                <label className="portal-filter">
+                  <span>{c.level}</span>
+                  <select
+                    value={level}
+                    onChange={(event) => setLevel(event.target.value)}
+                  >
+                    <option value="all">{c.allLevels}</option>
+                    {levels.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="portal-filter">
+                  <span>{c.subject}</span>
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                  >
+                    <option value="all">{c.allSubjects}</option>
+                    {subjects.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="portal-results">
+                {visible.length}{" "}
+                {visible.length === 1 ? c.course : c.courses}
+              </p>
               {visible.length ? (
                 <div
                   className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}

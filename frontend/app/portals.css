@@ -279,40 +279,69 @@ html[lang="zh-HK"] .portal {
   }
 }
 /* Two destinations on one page: the learner's own courses, and the catalogue. */
-/* The catalogue's controls share the tab band: tabs on the left, the filters for
-   the list on the right, so the band never reads as empty on either tab. */
-.portal-catalogue-filters {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin-left: auto;
+/* Same shape as the teacher library: one bordered toolbar above the results,
+   search on the left, the two attributes on the right, each with a label. */
+.portal-catalogue-toolbar {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
 }
-.portal .portal-band-summary {
-  margin: 0 0 0 auto;
-  color: var(--body);
-  font-size: 14px;
-  line-height: 20px;
-}
-.portal .portal-search--band {
+.portal .portal-search--toolbar {
   display: flex;
-  flex: 0 0 340px;
   align-items: center;
-  min-width: 120px;
-  max-width: 100%;
+  gap: 10px;
+  max-width: none;
   margin: 0;
 }
-.portal .portal-filter {
-  display: flex;
+.portal-search--toolbar .portal-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--body);
+}
+.portal .portal-search--toolbar input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  outline: 0;
+}
+.portal .portal-search--toolbar input:focus {
+  outline: 0;
+}
+.portal .portal-search--toolbar:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.portal-filter {
+  display: grid;
+  gap: 6px;
   min-width: 0;
 }
+.portal-filter > span {
+  color: var(--body);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 650;
+}
 .portal-filter select {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 32px 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--canvas);
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -322,17 +351,20 @@ html[lang="zh-HK"] .portal {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
+/* The count is a label, not a sentence, so it stays lowercase in English. */
+.portal-results {
+  margin: 0 0 16px;
+  text-transform: lowercase;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 20px;
+}
 @media (max-width: 900px) {
-  .portal-catalogue-filters {
-    flex-wrap: wrap;
-    margin-left: 0;
-    width: 100%;
+  .portal-catalogue-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .portal .portal-search--band {
-    flex: 1 1 100%;
-  }
-  .portal .portal-filter {
-    flex: 1 1 140px;
+  .portal-search--toolbar {
+    grid-column: 1 / -1;
   }
   .portal-filter select {
     width: 100%;
@@ -344,28 +376,26 @@ html[lang="zh-HK"] .portal {
   /* Bottom-aligned so the active tab's underline sits on the band's border. */
   align-items: flex-end;
   gap: 8px 16px;
-  margin: 8px 0 24px;
-  border-bottom: 1px solid var(--color-line);
+  margin: 8px 0 8px;
 }
 .portal-tabs {
   display: flex;
   gap: 4px;
 }
 .portal .portal-tabs button {
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--color-body);
   font-size: 14px;
   font-weight: 600;
 }
 .portal .portal-tabs button:hover:not(:disabled) {
-  background: transparent;
-  border-bottom-color: var(--color-line);
-  color: var(--color-ink);
+  background: var(--blue-soft);
+  border-color: transparent;
+  color: var(--blue-deep);
 }
 .portal .portal-tabs button[aria-current] {
   color: var(--workspace-selected-text, var(--color-ink));
