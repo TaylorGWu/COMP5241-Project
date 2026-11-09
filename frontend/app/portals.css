@@ -922,6 +922,13 @@ html[lang="zh-HK"] .portal {
   display: grid;
   gap: 40px;
 }
+/* Three views of one chapter, so the tab row sits with the content it switches. */
+.portal-tabs--reading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: -16px;
+}
 /* Below the stage breakpoint the slide is read, not projected: it reflows to the
    column so the type stays legible on a phone. */
 .portal .portal-slide {

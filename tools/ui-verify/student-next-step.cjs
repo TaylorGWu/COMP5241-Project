@@ -124,10 +124,14 @@ function chapterPayload(reviewSlideId) {
       await page.goto(base + '/student/courses/sample/chapters/one');
       await page.getByRole('heading', { name:'Example chapter' }).waitFor();
       assert.equal(await page.getByText('2 / 2').count(), 1, 'Starts on the last slide the learner saw');
+      // Practice is a view of its own, so open it before reading the result.
+      await page.locator('.portal-tabs--reading button', { hasText:'Practice' }).click();
       const review = page.getByRole('button', { name:'Review the related page' });
       await review.waitFor();
       await review.click();
+      // Reviewing a page switches back to the slides view.
       await page.getByText('1 / 2').waitFor();
+      assert.equal(await page.locator('.portal-tabs--reading button[aria-current]').innerText(), 'Slides', 'Review returns to the slides');
       assert.equal(await page.getByText('1 / 2').count(), 1, 'Review jumps to the teaching slide');
       // A correct answer offers no review link.
       assert.deepEqual(errors, []);
@@ -155,6 +159,9 @@ function chapterPayload(reviewSlideId) {
       });
       await page.goto(base + '/student/courses/sample/chapters/one');
       await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      assert.equal(await page.locator('.portal-question').count(), 0, 'Practice is its own view, not stacked under the slide');
+      await page.locator('.portal-tabs--reading button', { hasText:'Practice' }).click();
+      await page.waitForTimeout(200);
       assert.equal(await page.locator('.portal-question').count(), 3, 'All questions stay listed');
       assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Only one question is expanded');
       assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'true', 'The first unanswered question opens');
@@ -163,17 +170,18 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Opening one closes the other');
       assert.equal(await page.locator('.portal-question-toggle').nth(2).getAttribute('aria-expanded'), 'true');
       assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'false');
-      // Practice reads under the slide it belongs to; the rail is for help.
+      // Practice fills the reading column; the rail keeps the tutor.
       const layout = await page.evaluate(() => {
         const reading = document.querySelector('.portal-reading').getBoundingClientRect();
         const practice = document.querySelector('.portal-practice').getBoundingClientRect();
         const tutor = document.querySelector('.portal-tutor').getBoundingClientRect();
         return {
-          underSlide: practice.left >= reading.left - 1 && practice.right <= reading.right + 1 && practice.top > reading.top + 40,
+          inColumn: practice.left >= reading.left - 1 && practice.right <= reading.right + 1,
+          belowTabs: practice.top > reading.top + 40,
           tutorBeside: tutor.left >= reading.right - 1,
         };
       });
-      assert.ok(layout.underSlide, 'Practice sits under the slide at 1440px');
+      assert.ok(layout.inColumn && layout.belowTabs, 'Practice fills the reading column under the tabs');
       assert.ok(layout.tutorBeside, 'The tutor is the rail at 1440px');
       assert.deepEqual(errors, []);
       await context.close();

@@ -233,6 +233,7 @@ function Lesson({
     );
     if (target < 0) return;
     setIndex(target);
+    setView("slides");
     readingRef.current?.scrollIntoView();
     readingRef.current?.focus();
   };
@@ -268,6 +269,9 @@ function Lesson({
   }, [courseId, chapterId, slide, c.progressFailed, retry]);
   // One question at a time, kept on screen with its answer: the learner can see
   // what the answer was grounded in without leaving the slide.
+  // Slides, practice and the glossary are three views of one chapter, not one
+  // long page: the teacher's chapter does the same with its material tabs.
+  const [view, setView] = useState<"slides" | "practice" | "glossary">("slides");
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState<
     { id: string; question: string; answer?: string }[]
@@ -368,6 +372,32 @@ function Lesson({
           </div>
         </aside>
         <div className="portal-reading" ref={readingRef} tabIndex={-1}>
+          <nav className="portal-tabs portal-tabs--reading" aria-label={c.outline}>
+            <button
+              type="button"
+              aria-current={view === "slides" ? "page" : undefined}
+              onClick={() => setView("slides")}
+            >
+              {c.slides}
+            </button>
+            <button
+              type="button"
+              aria-current={view === "practice" ? "page" : undefined}
+              onClick={() => setView("practice")}
+            >
+              {c.practice}
+            </button>
+            {data.chapter.glossary.length ? (
+              <button
+                type="button"
+                aria-current={view === "glossary" ? "page" : undefined}
+                onClick={() => setView("glossary")}
+              >
+                {c.glossary}
+              </button>
+            ) : null}
+          </nav>
+          {view === "slides" ? (
           <section aria-label={c.outline}>
             {safeSlide ? (
               <>
@@ -407,7 +437,8 @@ function Lesson({
               <p className="portal-empty">{c.noSlides}</p>
             )}
           </section>
-          {data.chapter.glossary.length ? (
+          ) : null}
+          {view === "glossary" && data.chapter.glossary.length ? (
             <section id="portal-glossary" className="portal-glossary">
               <h2>{c.glossary}</h2>
               <dl>
@@ -420,6 +451,7 @@ function Lesson({
               </dl>
             </section>
           ) : null}
+        {view === "practice" ? (
         <section id="portal-practice" className="portal-practice">
           <h2>{c.practice}</h2>
           <p>{c.practiceHint}</p>
@@ -459,6 +491,7 @@ function Lesson({
             <p>{c.noQuestions}</p>
           )}
         </section>
+        ) : null}
           {data.previousChapter || data.nextChapter ? (
             <nav
               className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
