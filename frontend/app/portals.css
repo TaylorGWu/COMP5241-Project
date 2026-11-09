@@ -113,6 +113,37 @@ html[lang="zh-HK"] .portal {
   background: var(--blue-deep);
   color: var(--surface);
 }
+.portal .portal-button--quiet {
+  min-height: 36px;
+  padding: 6px 12px;
+  gap: 6px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.portal .portal-button--quiet:hover:not(:disabled) {
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.portal .portal-button--quiet .portal-icon {
+  width: 16px;
+  height: 16px;
+}
+.portal .portal-button--back .portal-icon {
+  transform: rotate(90deg);
+}
+/* A card's action is the way into the course, so it looks like a button. */
+.portal .portal-card-action {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
 .portal .portal-button--secondary {
   color: var(--ink);
   background: var(--surface);
@@ -191,6 +222,10 @@ html[lang="zh-HK"] .portal {
 .portal-title-head .portal-text-link {
   flex: 0 0 auto;
   min-height: 32px;
+  white-space: nowrap;
+}
+.portal-title-head .portal-button {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 @media (max-width: 480px) {
@@ -433,11 +468,29 @@ html[lang="zh-HK"] .portal {
   overflow-wrap: anywhere;
 }
 .portal-goals-editor summary {
-  color: var(--blue);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
   font-size: 14px;
   font-weight: 600;
+  list-style: none;
   cursor: pointer;
-  padding: 8px 0;
+}
+.portal-goals-editor summary::-webkit-details-marker {
+  display: none;
+}
+.portal-goals-editor summary::before {
+  content: "▸";
+  font-size: 12px;
+}
+.portal-goals-editor[open] summary::before {
+  content: "▾";
 }
 .portal-goals-editor form {
   margin-top: 16px;
@@ -773,6 +826,11 @@ html[lang="zh-HK"] .portal {
 }
 .portal-outline .portal-stage--thumb {
   max-width: 148px;
+}
+.portal-outline__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .portal-outline__label {
   display: grid;

@@ -437,7 +437,10 @@ function CourseCard({
           {reason}
         </p>
       ) : null}
-      <Link className="portal-text-link" href={studentCourseHref(course.id)}>
+      <Link
+        className="portal-button portal-button--secondary portal-card-action"
+        href={studentCourseHref(course.id)}
+      >
         {course.enrolled ? c.continue : c.choose} <PortalIcon name="arrow" />
       </Link>
     </article>

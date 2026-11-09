@@ -67,7 +67,7 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
 }
 :is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue),
 :is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) .public-button,
-.portal .portal-button:not(.portal-button--secondary) {
+.portal .portal-button:not(.portal-button--secondary):not(.portal-button--quiet) {
   color: var(--workspace-action-text);
   background: var(--workspace-action);
   border-color: var(--workspace-action);
@@ -76,7 +76,7 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
 }
 :is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue):hover:not(:disabled),
 :is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) .public-button:hover:not(:disabled),
-.portal .portal-button:not(.portal-button--secondary):hover:not(:disabled) {
+.portal .portal-button:not(.portal-button--secondary):not(.portal-button--quiet):hover:not(:disabled) {
   color: var(--workspace-action-text);
   background: var(--workspace-action-hover);
   border-color: var(--workspace-action-hover);

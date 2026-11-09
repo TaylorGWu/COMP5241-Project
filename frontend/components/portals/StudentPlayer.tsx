@@ -262,8 +262,11 @@ function Lesson({
       <header className="portal-title">
         <div className="portal-title-head">
           <h1>{data.chapter.title}</h1>
-          <Link href={studentCourseHref(courseId)} className="portal-text-link">
-            {c.courseBack}
+          <Link
+            href={studentCourseHref(courseId)}
+            className="portal-button portal-button--quiet portal-button--back"
+          >
+            <PortalIcon name="chevron" /> {c.courseBack}
           </Link>
         </div>
         {/* Bar and save state travel together, so a taller title cannot strand
@@ -311,14 +314,22 @@ function Lesson({
               </li>
             ))}
           </ol>
-          <a className="portal-text-link" href="#portal-practice">
-            {c.practice}
-          </a>
-          {data.chapter.glossary.length ? (
-            <a className="portal-text-link" href="#portal-glossary">
-              {c.glossary}
+          <div className="portal-outline__actions">
+            <a
+              className="portal-button portal-button--quiet"
+              href="#portal-practice"
+            >
+              {c.practice}
             </a>
-          ) : null}
+            {data.chapter.glossary.length ? (
+              <a
+                className="portal-button portal-button--quiet"
+                href="#portal-glossary"
+              >
+                {c.glossary}
+              </a>
+            ) : null}
+          </div>
         </aside>
         <div className="portal-reading" ref={readingRef} tabIndex={-1}>
           <section aria-label={c.outline}>

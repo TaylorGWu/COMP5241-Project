@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
+import { PortalIcon } from "./PortalIcon";
 import {
   portalApi,
   relativeTime,
@@ -40,8 +41,11 @@ export function StudentCourse({ courseId }: { courseId: string }) {
           <header className="portal-title">
             <div className="portal-title-head">
               <h1>{data.course.title}</h1>
-              <Link className="portal-text-link" href="/student">
-                {c.back}
+              <Link
+                className="portal-button portal-button--quiet portal-button--back"
+                href="/student"
+              >
+                <PortalIcon name="chevron" /> {c.back}
               </Link>
             </div>
             <p>{data.course.description}</p>
