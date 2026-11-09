@@ -318,12 +318,7 @@ function Lesson({
             ))}
           </ol>
           <div className="portal-outline__actions">
-            <a
-              className="portal-button portal-button--quiet"
-              href="#portal-practice"
-            >
-              {c.practice}
-            </a>
+            {/* No jump to the practice panel: it is on screen beside the slide. */}
             {data.chapter.glossary.length ? (
               <a
                 className="portal-button portal-button--quiet"
