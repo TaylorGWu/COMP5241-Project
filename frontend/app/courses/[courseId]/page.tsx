@@ -11,8 +11,15 @@ import { chapterHref } from "@/lib/routes";
 
 type Tab = "curriculum" | "students" | "insights" | "activity" | "settings";
 
-const chapterTone = (status: TeacherChapter["status"]) =>
-  status === "ready" ? "green" : status === "failed" ? "amber" : status === "generating" ? "blue" : "neutral";
+// Chapters carry no review state: a badge only reports what is happening (working,
+// failed) and what exists (materials, none). Draft/published belongs to the course.
+const chapterBadge = (chapter: TeacherChapter) => {
+  const slides = chapter.package?.slideDeck?.slides?.length ?? 0;
+  if (chapter.status === "generating") return { tone: "blue" as const, label: "Generating…" };
+  if (chapter.status === "failed") return { tone: "amber" as const, label: "Failed" };
+  if (slides) return { tone: "green" as const, label: `${slides} ${slides === 1 ? "slide" : "slides"}` };
+  return { tone: "neutral" as const, label: "No materials yet" };
+};
 const coverageTone = (status: CourseCoverage["outcomes"][number]["status"]) =>
   status === "covered" ? "green" : status === "missing" ? "amber" : "blue";
 
@@ -168,8 +175,7 @@ export default function CourseDetailPage() {
               const summary = chapter.summary || slides[0]?.title || (chapter.package
                 ? "Teaching materials available to review and edit."
                 : "Add a teaching brief to build this chapter.");
-              const status = chapter.status === "empty" ? "Not started"
-                : chapter.status.charAt(0).toUpperCase() + chapter.status.slice(1);
+              const badge = chapterBadge(chapter);
               return <li key={chapter.id} className="chapter-entry">
                 <span className="chapter-entry__index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
                 <div className="chapter-entry__body">
@@ -183,7 +189,7 @@ export default function CourseDetailPage() {
                     </div>
                   </div>
                   <div className="chapter-entry__foot">
-                    <div className="chapter-entry__facts"><Badge tone={chapterTone(chapter.status)}>{status}</Badge><span>{slides.length ? `${slides.length} ${slides.length === 1 ? "slide" : "slides"}` : chapter.package ? "Materials available" : "No materials yet"}</span></div>
+                    <div className="chapter-entry__facts"><Badge tone={badge.tone}>{badge.label}</Badge><span>{slides.length ? "Ready to publish with the course" : chapter.package ? "Materials available" : "Add materials to include it"}</span></div>
                     <div className="chapter-entry__actions">
                       <details className="chapter-actions">
                         <summary aria-label={`Manage ${chapter.title}`}>Manage</summary>

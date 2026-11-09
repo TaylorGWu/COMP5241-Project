@@ -145,7 +145,8 @@ class TeacherCourseService:
         chapter = self.repository.get_chapter(course_id, chapter_id)
         before = {"package": deepcopy(chapter.package)}
         package = deepcopy(version.after.get("package"))
-        self.repository.update_chapter(course_id, chapter_id, package=package, status="ready" if package is not None else "empty")
+        # A chapter has no review state of its own: having a package is the fact.
+        self.repository.update_chapter(course_id, chapter_id, package=package)
         return self.record_version(course_id, chapter_id, kind="rollback", reason=f"Restored {version_id}", changed_fields=["package"], before=before, after={"package": package})
 
     def import_students(self, course_id: str, rows: list[dict[str, Any]]) -> dict[str, Any]:

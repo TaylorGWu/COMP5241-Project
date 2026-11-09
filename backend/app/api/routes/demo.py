@@ -1807,10 +1807,9 @@ async def change_chapter_slides(course_id: str, chapter_id: str, body: SlideStru
                  "lessonPlan": candidate.lesson_plan.model_dump(by_alias=True) if candidate.lesson_plan else None},
         note=f"Teacher {body.action} slide {body.anchor_id or '(empty deck)'}")
     _save_active_chapter_package()
-    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="draft")
     COURSE_WORKSPACE.record_version(course_id, chapter_id, kind="manual-edit", reason=patch.reason,
-        changed_fields=["slideDeck", "lessonPlan"], before={"package": before, "status": chapter.status},
-        after={"package": _package_json(package), "status": "draft"})
+        changed_fields=["slideDeck", "lessonPlan"], before={"package": before},
+        after={"package": _package_json(package)})
     return {"patch": _patch_json(STATE.store.get(patch.id)), "package": _package_json(package), "selected_slide_id": selected}
 
 

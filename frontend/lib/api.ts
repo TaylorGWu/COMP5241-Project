@@ -318,7 +318,8 @@ export type TeacherChapter = {
   title: string;
   summary: string;
   order: number;
-  status: "empty" | "generating" | "draft" | "ready" | "failed";
+  /** Generation progress only - a chapter has no draft/published state of its own. */
+  status: "empty" | "generating" | "failed";
   package?: CoursePackage | null;
 };
 
