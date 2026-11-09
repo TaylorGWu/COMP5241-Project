@@ -501,3 +501,40 @@ def test_next_step_ignores_function_words():
                                   'weeklyMinutes': 60})
     assert reason['reasonCode'] == 'time', reason
     assert reason['courseId'] == 'se'
+
+
+def test_course_summary_reports_study_days_and_last_activity():
+    # Derived facts only: how many days carried activity and when it last
+    # happened. No duration is claimed because the timestamps cannot measure it.
+    import time as clock
+    with TestClient(app) as teacher, TestClient(app) as student:
+        teacher_account = signed_in(teacher, 'activity-teacher@example.test', 'instructor')
+        student_account = signed_in(student, 'activity-student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Activity course', 'durationMin': 20}).json()
+        course_id, chapter_id = course['id'], course['chapterIds'][0]
+        package = {'slideDeck': {'slides': [
+            {'id': 's1', 'order': 1, 'layout': 'bullets', 'title': 'One', 'bullets': ['a']},
+            {'id': 's2', 'order': 2, 'layout': 'bullets', 'title': 'Two', 'bullets': ['b']}]},
+            'questionSet': {'questions': []}}
+        assert teacher.patch(f'/api/demo/courses/{course_id}/chapters/{chapter_id}',
+                             json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{course_id}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{course_id}/enroll', json={}).status_code == 200
+        assert student.post(f'/api/student/courses/{course_id}/chapters/{chapter_id}/progress',
+                            json={'slideId': 's1'}).status_code == 200
+
+        summary = student.get(f'/api/student/courses/{course_id}').json()['course']
+        assert summary['studyDays'] == 1
+        assert abs(clock.time() - summary['lastStudiedAt']) < 120
+
+        # A visit three days ago is a second study day, but not the latest one.
+        from app.services.auth import get_auth_store
+        with get_auth_store().connection() as db:
+            db.execute('INSERT INTO portal_visits VALUES(?,?,?,?,?)',
+                       (course_id, student_account['id'], chapter_id, 's2', clock.time() - 3 * 86400))
+        summary = student.get(f'/api/student/courses/{course_id}').json()['course']
+        assert summary['studyDays'] == 2
+        assert abs(clock.time() - summary['lastStudiedAt']) < 120
+
+        # An unenrolled learner gets no derived activity at all.
+        assert student.get('/api/student/home').json()['courses'][0]['studyDays'] == 2

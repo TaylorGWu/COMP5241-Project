@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   studentChapterHref,
+  relativeTime,
   progressPercent,
   resumeChapter,
   optionText,
@@ -248,4 +249,17 @@ test("every locale explains each recommendation reason and the time budget", () 
     (code) => copy[`reason${code[0].toUpperCase()}${code.slice(1)}`],
   );
   assert.equal(new Set(mapped).size, codes.length);
+});
+
+test("last-activity reads naturally in every locale and never says \"in\"", () => {
+  const now = 1_760_000_000;
+  const twoHoursAgo = now - 2 * 3600;
+  assert.equal(relativeTime(twoHoursAgo, now, "en"), "2 hours ago");
+  assert.match(relativeTime(twoHoursAgo, now, "zh-HK"), /2.*小時前/);
+  assert.match(relativeTime(twoHoursAgo, now, "zh-CN"), /2.*小时前/);
+  // Larger gaps use weeks and months rather than a silly day count.
+  assert.equal(relativeTime(now - 10 * 86400, now, "en"), "last week");
+  assert.match(relativeTime(now - 40 * 86400, now, "en"), /last month/);
+  // A clock skew must not produce a future statement.
+  assert.equal(relativeTime(now + 30, now, "en"), "now");
 });

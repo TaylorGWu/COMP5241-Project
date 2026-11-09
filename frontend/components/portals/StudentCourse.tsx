@@ -3,7 +3,12 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
-import { portalApi, resumeChapter, studentChapterHref } from "@/lib/portal";
+import {
+  portalApi,
+  relativeTime,
+  resumeChapter,
+  studentChapterHref,
+} from "@/lib/portal";
 import {
   PortalShell,
   PortalError,
@@ -49,6 +54,18 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 {data.course.visitedSlides}/{data.course.totalSlides}{" "}
                 {c.pagesRead} · {data.course.answeredQuestions}/
                 {data.course.totalQuestions} {c.questionsAnswered}
+              </p>
+            ) : null}
+            {data.enrolled &&
+            data.course.studyDays > 0 &&
+            data.course.lastStudiedAt ? (
+              <p className="portal-meta">
+                {data.course.studyDays} {c.studyDays} · {c.lastStudied}{" "}
+                {relativeTime(
+                  data.course.lastStudiedAt,
+                  Date.now() / 1000,
+                  locale,
+                )}
               </p>
             ) : null}
           </header>

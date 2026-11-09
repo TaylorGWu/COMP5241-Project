@@ -19,6 +19,8 @@ export type Course = {
   totalQuestions: number;
   answeredQuestions: number;
   correctAnswers: number;
+  studyDays: number;
+  lastStudiedAt: number | null;
 };
 export type ChapterSummary = {
   id: string;
@@ -104,6 +106,28 @@ export type AdminCourse = {
   chapterCount: number;
   enrollmentCount: number;
 };
+/**
+ * Turn a past timestamp into "2 hours ago" in the reader's language.
+ *
+ * Derived facts only: the API reports the last activity time and how many days
+ * carried activity, never a duration, because sparse timestamps cannot measure
+ * time spent without inventing a number.
+ */
+export function relativeTime(
+  pastSeconds: number,
+  nowSeconds: number,
+  locale: string,
+): string {
+  const diff = Math.max(0, Math.round(nowSeconds - pastSeconds));
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (diff < 60) return format.format(-diff, "second");
+  if (diff < 3600) return format.format(-Math.floor(diff / 60), "minute");
+  if (diff < 86400) return format.format(-Math.floor(diff / 3600), "hour");
+  if (diff < 604800) return format.format(-Math.floor(diff / 86400), "day");
+  if (diff < 2629800) return format.format(-Math.floor(diff / 604800), "week");
+  if (diff < 31557600) return format.format(-Math.floor(diff / 2629800), "month");
+  return format.format(-Math.floor(diff / 31557600), "year");
+}
 export function replacePortalRecord<T extends { id: string }>(
   records: T[],
   updated: T,

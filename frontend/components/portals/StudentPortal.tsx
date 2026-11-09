@@ -7,6 +7,7 @@ import { portalCopy } from "@/lib/portal-copy";
 import { PortalIcon } from "./PortalIcon";
 import {
   portalApi,
+  relativeTime,
   studentCourseHref,
   studentChapterHref,
   type StudentHome,
@@ -314,6 +315,12 @@ function CourseCard({ course }: { course: Course }) {
           {course.visitedSlides}/{course.totalSlides} {c.pagesRead} ·{" "}
           {course.answeredQuestions}/{course.totalQuestions}{" "}
           {c.questionsAnswered}
+        </p>
+      ) : null}
+      {course.enrolled && course.studyDays > 0 && course.lastStudiedAt ? (
+        <p className="portal-meta">
+          {course.studyDays} {c.studyDays} · {c.lastStudied}{" "}
+          {relativeTime(course.lastStudiedAt, Date.now() / 1000, locale)}
         </p>
       ) : null}
       {course.enrolled ? (

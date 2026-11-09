@@ -74,6 +74,27 @@ def question_revision(db, user_id, digest):
     return hmac.new(key.encode(), digest.encode(), hashlib.sha256).hexdigest()
 
 
+def study_activity(course_id, user_id):
+    """Honest engagement facts: how many days this learner worked on a course,
+    and when they last did. Deliberately not a duration - the timestamps are too
+    sparse to measure time without inventing a number."""
+    with get_auth_store().connection() as db:
+        row = db.execute(
+            """
+            SELECT COUNT(DISTINCT day) AS days, MAX(at) AS last
+            FROM (
+                SELECT visited_at AS at, date(visited_at,'unixepoch','localtime') AS day
+                  FROM portal_visits WHERE course_id=? AND user_id=?
+                UNION ALL
+                SELECT created_at, date(created_at,'unixepoch','localtime')
+                  FROM portal_attempts WHERE course_id=? AND user_id=?
+            )
+            """,
+            (course_id, user_id, course_id, user_id),
+        ).fetchone()
+    return (row['days'] or 0, row['last'])
+
+
 def chapter_neighbours(course_id, chapter_id):
     """Previous and next learnable chapter in the published snapshot.
 

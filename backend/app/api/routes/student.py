@@ -132,6 +132,7 @@ def course_summary(snapshot, user_id):
     pairs = [learning.state(snapshot['id'], chapter, user_id) for chapter in chapters] if is_enrolled else []
     states = [progress for progress, _ in pairs]
     answers = [results for _, results in pairs]
+    days, last_studied = learning.study_activity(snapshot['id'], user_id) if is_enrolled else (0, None)
     last = (None, None)
     if is_enrolled:
         valid = {(chapter['id'], slide['id']) for chapter in chapters for slide in chapter['slides']}
@@ -149,6 +150,8 @@ def course_summary(snapshot, user_id):
         'totalQuestions': sum(len(learning.mcqs(chapter)) for chapter in chapters),
         'answeredQuestions': sum(len(chapter_answers) for chapter_answers in answers),
         'correctAnswers': sum(1 for chapter_answers in answers for item in chapter_answers.values() if item['correct']),
+        'studyDays': days,
+        'lastStudiedAt': last_studied,
     }
 
 

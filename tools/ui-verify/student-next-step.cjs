@@ -11,7 +11,7 @@ const out = fs.mkdtempSync(path.join(os.tmpdir(), 'coursework-student-next-step-
 
 const slideOne = { id:'s1', order:1, layout:'bullets', title:'Branches isolate work', bullets:['A branch keeps work separate'], quizInstruction:'', statusGroups:[], visuals:[] };
 const slideTwo = { id:'s2', order:2, layout:'bullets', title:'Check yourself', bullets:['Which answer fits?'], quizInstruction:'', statusGroups:[], visuals:[] };
-const course = { id:'sample', title:'Software engineering', description:'Requirements, design and testing.', courseCode:'COMP5241', subject:'Computing', level:'Beginner', durationMin:45, chapterCount:1, chapterIds:['one'], status:'published', enrolled:true, completionPercent:20, lastChapterId:'one', lastSlideId:'s2', totalSlides:2, visitedSlides:2, totalQuestions:4, answeredQuestions:2, correctAnswers:1 };
+const course = { id:'sample', title:'Software engineering', description:'Requirements, design and testing.', courseCode:'COMP5241', subject:'Computing', level:'Beginner', durationMin:45, chapterCount:1, chapterIds:['one'], status:'published', enrolled:true, completionPercent:20, lastChapterId:'one', lastSlideId:'s2', totalSlides:2, visitedSlides:2, totalQuestions:4, answeredQuestions:2, correctAnswers:1, studyDays:6, lastStudiedAt:Math.floor(Date.now()/1000)-7200 };
 const question = { id:'q1', stem:'Why create a branch?', revision:'a'.repeat(64), options:[{id:'A',text:'Isolate work'},{id:'B',text:'Delete history'}] };
 
 function chapterPayload(reviewSlideId) {
@@ -68,6 +68,9 @@ function chapterPayload(reviewSlideId) {
       // Reading and answering are reported separately rather than blended away.
       await page.getByText(/2\/2 pages read/).first().waitFor();
       await page.getByText(/2\/4 questions answered/).first().waitFor();
+      // Derived activity: days plus a relative time, never a made-up duration.
+      await page.getByText(/6 study days/).first().waitFor();
+      await page.getByText(/Last studied/).first().waitFor();
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS goal reason, weekly budget, single next-step entry');
