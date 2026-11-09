@@ -460,6 +460,15 @@ html[lang="zh-HK"] .portal {
   color: var(--blue-deep);
 }
 /* The selected tab is the teacher nav's soft-filled pill, not an underline. */
+/* A pointer click must not leave a focus ring behind: the selected pill is the
+   only thing that should look selected. Keyboard focus still gets a ring. */
+.portal .portal-tabs button:focus {
+  outline: none;
+}
+.portal .portal-tabs button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 .portal .portal-tabs button[aria-current] {
   background: var(--blue-soft);
   color: var(--blue-deep);
