@@ -2549,3 +2549,15 @@ body:has(.portal) {
   font-size: 14px;
   padding: 8px 10px;
 }
+
+/* The course's primary action sits with its facts, in the header's right column. */
+.portal .portal-title > .portal-course-cta {
+  grid-column: 2;
+  margin-top: 14px;
+  justify-self: start;
+}
+@media (max-width: 900px) {
+  .portal .portal-title > .portal-course-cta {
+    grid-column: 1;
+  }
+}

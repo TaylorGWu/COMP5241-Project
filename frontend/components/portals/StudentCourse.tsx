@@ -36,14 +36,6 @@ export function StudentCourse({ courseId }: { courseId: string }) {
       title={data?.course.title}
       action={
         <>
-          {data?.enrolled && next ? (
-            <Link
-              className="portal-button portal-button--primary"
-              href={studentChapterHref(data.course.id, next)}
-            >
-              {data.course.completionPercent ? c.continue : c.start}
-            </Link>
-          ) : null}
           <Link
             className="portal-button portal-button--quiet portal-button--back"
             href="/student"
@@ -114,6 +106,16 @@ export function StudentCourse({ courseId }: { courseId: string }) {
             {data.enrolled && data.chapters.length ? (
               <div className="portal-course-progress">
                 <ProgressBar value={data.course.completionPercent} />
+              </div>
+            ) : null}
+            {data.enrolled && next ? (
+              <div className="portal-course-cta">
+                <Link
+                  className="portal-button portal-button--primary"
+                  href={studentChapterHref(courseId, next)}
+                >
+                  {data.course.completionPercent ? c.continue : c.start}
+                </Link>
               </div>
             ) : null}
           </header>
