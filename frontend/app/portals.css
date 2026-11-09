@@ -774,10 +774,6 @@ html[lang="zh-HK"] .portal {
   color: var(--blue-deep);
   text-decoration: none;
 }
-.portal-chapter-list > li h3 a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 /* The title's link covers the row, so a click anywhere opens the chapter. */
 .portal-chapter-list > li h3 a::after {
   content: "";
