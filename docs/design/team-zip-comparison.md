@@ -124,3 +124,46 @@ cd frontend && node --experimental-strip-types --test tests/portals.test.mjs
 ```
 
 UI 脚本在 `tools/ui-verify/`，需要已启动的前端和 Playwright。
+
+## 6. 整合执行结果（2026-11-09）
+
+分支 `codex/team-final-integration`，未推送远程。
+
+引入内容：
+1. 学生端推荐改为 `resume`/`goal`/`time`/`start` 理由码，界面按语言渲染；续学只在原有
+   「继续学习」卡片出现一次，不重复入口。
+2. `portal_profiles` 新增 `weekly_minutes`（v4 迁移：先备份、幂等，可重复执行）。
+3. 答错返回 `reviewSlideId`，指向同一学习目标的教学页（排除 `check_understanding`），
+   播放器可跳转并把焦点移到阅读区。
+4. `public-copy.ts` 的学生文案改为描述已上线门户，不再说「学习端仍在开发」。
+
+未引入：组员包的 AI 审计日志、独立 `admin_governance`、学生/管理员组件与 CSS、
+`demo.py`、`services/auth.py`、`routes/auth.py`、`layout.tsx`、`homepage.css`、
+`PublicHome.tsx`、`AccountPages.tsx`。
+
+测试结果：
+
+| 项目 | 结果 |
+| --- | --- |
+| 后端 `pytest` | 472 passed（整合前 469，新增 3：理由码、回看页选择、v3→v4 迁移保留资料且幂等） |
+| 前端 `tsc --noEmit` | 通过 |
+| `tests/portals.test.mjs` | 13 passed（新增 1：三语言理由文案与时长标签齐全） |
+| 首页 `home-landing.cjs` | 12/12（三语言 × 1440/768/390/320，减少动态效果） |
+| 工作区 `workspace-theme.cjs` | 9/9（教师/学生/管理员 × 1440/390/320） |
+| `export-target.cjs` / `account-menu.cjs` | 通过 |
+| 新增 `student-next-step.cjs` | 3/3（理由文案、单一入口、答错回看跳转） |
+| 真实接口三端联动（独立数据库副本） | 35/35 |
+
+真实数据库只执行了 v4 迁移：版本 1–4，`portal_profiles` 增加 `weekly_minutes`，
+课程 7、用户 5、章节 15、学习记录与作答均保留，迁移前自动生成
+`teacher-workspace.db.pre-portal-*.bak`，另有人工备份
+`teacher-workspace.pre-integration-20261109-131841.db`。破坏性流程在
+`.zip-review/verify/verify.db` 副本上执行，未改动正式数据。
+
+已知问题：
+- `slide-actions.cjs` 在本机间歇性失败（4 次中 3 次通过），与本次改动无关：
+  章节编辑器不引用本次修改的任何文件。记录为脚本自身的时序问题。
+- `npm run lint` 有 5 个 error、4 个 warning，全部位于未改动的文件
+  （`ReviewConnector.tsx`、`SlideAnimationPreview.tsx`、`lib/theme.tsx` 等），属既有问题。
+- AI 生成审计仍是缺口（见 §2.3）。
+
