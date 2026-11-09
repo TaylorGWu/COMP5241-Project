@@ -224,45 +224,6 @@ function Lesson({
               <p className="portal-empty">{c.noSlides}</p>
             )}
           </section>
-          <section id="portal-practice" className="portal-practice">
-            <h2>{c.practice}</h2>
-            <p>{c.practiceHint}</p>
-            {data.chapter.questions.length ? (
-              data.chapter.questions.map((question, questionIndex) => (
-                <Practice
-                  key={question.id}
-                  question={question}
-                  index={questionIndex}
-                  open={openQuestion === question.id}
-                  onToggle={() =>
-                    setOpenQuestion(
-                      openQuestion === question.id ? null : question.id,
-                    )
-                  }
-                  result={data.results[question.id]}
-                  courseId={courseId}
-                  chapterId={chapterId}
-                  reload={reload}
-                  onReviewSlide={reviewSlide}
-                  accept={(result) =>
-                    setData((current) => ({
-                      ...current,
-                      progress: mergeProgress(
-                        current.progress,
-                        result.progress,
-                      ),
-                      results: {
-                        ...current.results,
-                        [question.id]: result.result,
-                      },
-                    }))
-                  }
-                />
-              ))
-            ) : (
-              <p>{c.noQuestions}</p>
-            )}
-          </section>
           {data.chapter.glossary.length ? (
             <section id="portal-glossary" className="portal-glossary">
               <h2>{c.glossary}</h2>
@@ -277,6 +238,45 @@ function Lesson({
             </section>
           ) : null}
         </div>
+        <section id="portal-practice" className="portal-practice">
+          <h2>{c.practice}</h2>
+          <p>{c.practiceHint}</p>
+          {data.chapter.questions.length ? (
+            data.chapter.questions.map((question, questionIndex) => (
+              <Practice
+                key={question.id}
+                question={question}
+                index={questionIndex}
+                open={openQuestion === question.id}
+                onToggle={() =>
+                  setOpenQuestion(
+                    openQuestion === question.id ? null : question.id,
+                  )
+                }
+                result={data.results[question.id]}
+                courseId={courseId}
+                chapterId={chapterId}
+                reload={reload}
+                onReviewSlide={reviewSlide}
+                accept={(result) =>
+                  setData((current) => ({
+                    ...current,
+                    progress: mergeProgress(
+                      current.progress,
+                      result.progress,
+                    ),
+                    results: {
+                      ...current.results,
+                      [question.id]: result.result,
+                    },
+                  }))
+                }
+              />
+            ))
+          ) : (
+            <p>{c.noQuestions}</p>
+          )}
+        </section>
       </div>
     </>
   );

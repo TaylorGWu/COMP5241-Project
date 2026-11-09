@@ -489,11 +489,42 @@ html[lang="zh-HK"] .portal {
   background: var(--green-soft);
   color: var(--green);
 }
+/* The reader is a wide teaching surface, but stretched text is not. Up to this
+   width the slide and practice share one measure; past it the practice becomes
+   its own rail so the extra width carries content instead of blank margin. */
+.portal-shell:has(.portal-player) {
+  max-width: 1560px;
+}
 .portal-player {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 40px;
   align-items: start;
+  max-width: 1224px;
+  margin-inline: auto;
+}
+.portal-outline {
+  grid-column: 1;
+  grid-row: 1;
+}
+.portal-reading {
+  grid-column: 2;
+  grid-row: 1;
+}
+.portal-practice {
+  grid-column: 2;
+  grid-row: 2;
+  align-content: start;
+}
+@media (min-width: 1360px) {
+  .portal-player {
+    grid-template-columns: 220px minmax(0, 1fr) clamp(340px, 24vw, 420px);
+    max-width: none;
+  }
+  .portal-practice {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 .portal-outline {
   display: grid;
@@ -539,7 +570,6 @@ html[lang="zh-HK"] .portal {
 }
 .portal-reading {
   min-width: 0;
-  max-width: 880px;
   display: grid;
   gap: 40px;
 }
@@ -666,6 +696,39 @@ html[lang="zh-HK"] .portal {
 }
 .portal-question[data-open] .portal-question-toggle .portal-icon {
   transform: rotate(180deg);
+}
+
+/* The practice list sits in a rail on wide screens and full width on phones;
+   either way a narrow list puts the outcome under the question so the stem keeps
+   a readable measure. */
+.portal-practice {
+  container-type: inline-size;
+}
+@container (max-width: 460px) {
+  .portal .portal-question-toggle {
+    grid-template-columns: 24px minmax(0, 1fr) 20px;
+    align-items: start;
+  }
+  .portal-question-index {
+    grid-column: 1;
+    grid-row: 1;
+    line-height: 24px;
+  }
+  .portal-question-stem {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .portal-question-state {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 4px;
+  }
+  .portal-question-toggle .portal-icon {
+    grid-column: 3;
+    grid-row: 1;
+    margin-top: 3px;
+  }
 }
 .portal-question form {
   margin-top: 14px;
@@ -1234,6 +1297,18 @@ html[lang="zh-HK"] .portal {
   .portal-admin {
     grid-template-columns: minmax(0, 1fr);
   }
+  .portal-outline {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .portal-reading {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .portal-practice {
+    grid-column: 1;
+    grid-row: 3;
+  }
   .portal-section-nav {
     display: flex;
     flex-wrap: wrap;
@@ -1312,32 +1387,6 @@ html[lang="zh-HK"] .portal {
   }
   .portal .portal-slide {
     padding: 24px 20px;
-  }
-  /* Narrow rows: the status moves under the question so it keeps a readable
-     measure instead of being squeezed beside the chip. */
-  .portal .portal-question-toggle {
-    grid-template-columns: 24px minmax(0, 1fr) 20px;
-    align-items: start;
-  }
-  .portal-question-index {
-    grid-column: 1;
-    grid-row: 1;
-    line-height: 24px;
-  }
-  .portal-question-stem {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .portal-question-state {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-    margin-top: 4px;
-  }
-  .portal-question-toggle .portal-icon {
-    grid-column: 3;
-    grid-row: 1;
-    margin-top: 3px;
   }
   .portal-shell {
     padding: 16px 16px 64px;

@@ -138,6 +138,14 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Opening one closes the other');
       assert.equal(await page.locator('.portal-question-toggle').nth(2).getAttribute('aria-expanded'), 'true');
       assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'false');
+      // A wide viewport puts practice in its own rail instead of stretching the
+      // slide into the spare width.
+      const rail = await page.evaluate(() => {
+        const reading = document.querySelector('.portal-reading').getBoundingClientRect();
+        const practice = document.querySelector('.portal-practice').getBoundingClientRect();
+        return { beside: practice.left >= reading.right - 1, aligned: Math.abs(practice.top - reading.top) < 40 };
+      });
+      assert.ok(rail.beside && rail.aligned, 'Practice forms a rail beside the slide at 1440px');
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS practice list expands one question at a time');
