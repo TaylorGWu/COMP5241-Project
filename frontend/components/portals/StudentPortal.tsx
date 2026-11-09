@@ -32,11 +32,7 @@ export function StudentPortal() {
   return (
     <PortalShell
       // The menu is navigation: one line that jumps to the goals panel on the page.
-      menuExtra={
-        <Link className="account-menu-goals" href="/student/profile">
-          {c.profile}
-        </Link>
-      }
+      menuExtra={undefined}
     >
       <PortalError error={resource.error} retry={resource.reload} />
       {resource.loading && !resource.data ? (

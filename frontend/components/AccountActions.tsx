@@ -72,6 +72,11 @@ function AccountMenu({ user, menuExtra }: { user: Account; menuExtra?: ReactNode
     {open ? <div id={panelId} role="group" aria-labelledby={triggerId} className="account-menu-panel" data-account-menu-panel>
       <div className="account-menu-summary"><strong className="account-menu-name">{user.name}</strong><span>{user.email}</span></div>
       {menuExtra}
+      {user.role === "student" ? (
+        <Link className="account-menu-goals" href="/student/profile" onClick={close}>
+          Your learning goals
+        </Link>
+      ) : null}
       <div className="account-menu-links">
         <Link href={destination} onClick={close} aria-current={pathname === destination ? "page" : undefined}>{user.role === "instructor" && user.status !== "approved" ? teacherProfileCopy(locale).qualification : c.workspace}</Link>
         {user.role === "instructor" ? <Link href="/profile" onClick={close} aria-current={pathname === "/profile" ? "page" : undefined}>{teacherProfileCopy(locale).title}</Link> : null}
