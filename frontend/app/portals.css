@@ -164,10 +164,15 @@ html[lang="zh-HK"] .portal {
 }
 .portal-title {
   display: grid;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+/* Only the reader header pairs a progress bar with a save state on one row;
+   every other header is a simple stack, so its lines cannot drift apart. */
+.portal-title:has(> p[role="status"]) {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px 24px;
   align-items: center;
-  margin: 16px 0 24px;
 }
 .portal-title > h1 {
   grid-column: 1 / -1;

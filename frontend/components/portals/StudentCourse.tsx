@@ -52,8 +52,10 @@ export function StudentCourse({ courseId }: { courseId: string }) {
             {data.enrolled ? (
               <p className="portal-meta">
                 {data.course.visitedSlides}/{data.course.totalSlides}{" "}
-                {c.pagesRead} · {data.course.answeredQuestions}/
-                {data.course.totalQuestions} {c.questionsAnswered}
+                {c.pagesRead}
+                {data.course.totalQuestions
+                  ? ` · ${data.course.answeredQuestions}/${data.course.totalQuestions} ${c.questionsAnswered}`
+                  : ""}
               </p>
             ) : null}
             {data.enrolled &&
@@ -90,8 +92,10 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                           )}
                         </h3>
                         <p>
-                          {chapter.slideCount} {c.outline} ·{" "}
-                          {chapter.questionCount} {c.practice}
+                          {chapter.slideCount} {c.pages}
+                          {chapter.questionCount
+                            ? ` · ${chapter.questionCount} ${c.practiceQuestions}`
+                            : ""}
                         </p>
                         <span
                           className={
@@ -102,7 +106,9 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                         >
                           {chapter.completed
                             ? c.complete
-                            : `${chapter.completionPercent}%`}
+                            : chapter.completionPercent
+                              ? `${chapter.completionPercent}%`
+                              : c.notStarted}
                         </span>
                       </div>
                     </li>
@@ -113,7 +119,7 @@ export function StudentCourse({ courseId }: { courseId: string }) {
               )}
             </section>
             <aside className="portal-panel">
-              <h2>{c.progress}</h2>
+              <h2>{c.yourProgress}</h2>
               {data.enrolled ? (
                 <>
                   <ProgressBar value={data.course.completionPercent} />
