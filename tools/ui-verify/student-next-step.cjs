@@ -73,10 +73,10 @@ function chapterPayload(reviewSlideId) {
       await page.getByText(/Last studied/).first().waitFor();
       // The page separates what I am learning from the catalogue.
       assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'My learning');
-      assert.equal(await page.locator('.portal-search').count(), 0, 'Search belongs to the catalogue tab');
+      assert.equal(await page.locator('.course-catalogue-search').count(), 0, 'Search belongs to the catalogue tab');
       await page.getByRole('button', { name:'Courses', exact:true }).click();
       await page.waitForTimeout(200);
-      assert.equal(await page.locator('.portal-search').count(), 1, 'The catalogue tab is searchable');
+      assert.equal(await page.locator('.course-catalogue-search').count(), 1, 'The catalogue tab is searchable');
       assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'Courses');
       assert.deepEqual(errors, []);
       await context.close();
@@ -237,18 +237,18 @@ function chapterPayload(reviewSlideId) {
       // Nothing joined yet, so the catalogue is the sensible first tab.
       await page.getByRole('heading', { name:'Courses', exact:true }).waitFor();
       assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'Courses');
-      assert.equal(await page.locator('.portal-search').count(), 1, 'Five courses are worth filtering');
-      await page.locator('.portal-search input').fill('Course 3');
+      assert.equal(await page.locator('.course-catalogue-search').count(), 1, 'Five courses are worth filtering');
+      await page.locator('.course-catalogue-search input').fill('Course 3');
       await page.waitForTimeout(200);
       assert.equal(await page.locator('.portal-course').count(), 1, 'The filter narrows the list');
-      await page.locator('.portal-search input').fill('neural');
+      await page.locator('.course-catalogue-search input').fill('neural');
       await page.waitForTimeout(200);
       assert.equal(await page.locator('.portal-course').count(), 1, 'A chapter title is searchable');
       assert.ok((await page.locator('.portal-course').innerText()).includes('Neural networks'),
         'The matching chapter is named, so the hit is not unexplained');
-      await page.locator('.portal-search input').fill('');
+      await page.locator('.course-catalogue-search input').fill('');
       await page.waitForTimeout(200);
-      const filters = page.locator('.portal-filter select');
+      const filters = page.locator('.course-catalogue-filter select');
       assert.equal(await filters.count(), 2, 'Level and subject filter the catalogue');
       await filters.nth(1).selectOption('Design');
       await page.waitForTimeout(200);

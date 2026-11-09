@@ -341,64 +341,73 @@ html[lang="zh-HK"] .portal {
   }
 }
 /* Two destinations on one page: the learner's own courses, and the catalogue. */
-/* Same shape as the teacher library: one bordered toolbar above the results,
-   search on the left, the two attributes on the right, each with a label. */
-.portal-catalogue-toolbar {
+/* The teacher library's toolbar, reused rather than rebuilt: the same class names
+   carry the same look here, with the portal's own tokens. */
+.portal .course-catalogue-toolbar {
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) auto auto;
-  gap: 16px;
+  grid-template-columns: minmax(200px, 1fr) auto;
   align-items: end;
+  gap: 16px;
   margin-bottom: 12px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
 }
-.portal .portal-search--toolbar {
+.portal .course-catalogue-search {
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: none;
+  min-height: 44px;
   margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
 }
-.portal-search--toolbar .portal-icon {
+.portal .course-catalogue-search:focus-within {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.portal .course-catalogue-search .portal-icon {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
   color: var(--body);
 }
-.portal .portal-search--toolbar input {
+.portal .course-catalogue-search input {
   width: 100%;
-  min-height: 44px;
-  padding: 0;
+  min-width: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  padding: 0;
   color: var(--ink);
   font: inherit;
   font-size: 14px;
   outline: 0;
 }
-.portal .portal-search--toolbar input:focus {
-  outline: 0;
+.portal .course-catalogue-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0;
 }
-.portal .portal-search--toolbar:focus-within {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-  border-radius: 6px;
-}
-.portal-filter {
+.portal .course-catalogue-filter {
   display: grid;
   gap: 6px;
-  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.portal-filter > span {
+.portal .course-catalogue-filter > span {
   color: var(--body);
   font-size: 12px;
   line-height: 16px;
   font-weight: 650;
 }
-.portal-filter select {
+.portal .course-catalogue-filter select {
   min-height: 44px;
   padding: 0 32px 0 12px;
   border: 1px solid var(--line);
@@ -408,27 +417,26 @@ html[lang="zh-HK"] .portal {
   font: inherit;
   font-size: 14px;
 }
-.portal-filter select:focus-visible {
+.portal .course-catalogue-filter select:focus-visible {
   border-color: var(--blue);
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
-/* The count is a label, not a sentence, so it stays lowercase in English. */
-.portal-results {
-  margin: 0 0 16px;
-  text-transform: lowercase;
+.portal .course-catalogue-results {
+  padding: 0 0 12px;
+}
+.portal .course-catalogue-results p {
+  margin: 0;
   color: var(--body);
   font-size: 14px;
   line-height: 20px;
+  text-transform: lowercase;
 }
 @media (max-width: 900px) {
-  .portal-catalogue-toolbar {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  .portal .course-catalogue-toolbar {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .portal-search--toolbar {
-    grid-column: 1 / -1;
-  }
-  .portal-filter select {
+  .portal .course-catalogue-filter select {
     width: 100%;
   }
 }
