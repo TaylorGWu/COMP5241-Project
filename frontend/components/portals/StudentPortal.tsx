@@ -113,22 +113,37 @@ function StudentHomeContent({
         <h1>{tab === "learning" ? c.learning : c.courses}</h1>
       </header>
       {/* Two destinations: what this learner is taking, and what they could take. */}
-      <nav className="portal-tabs" aria-label={c.learning}>
-        <button
-          type="button"
-          aria-current={tab === "learning" ? "page" : undefined}
-          onClick={() => setTab("learning")}
-        >
-          {c.learning}
-        </button>
-        <button
-          type="button"
-          aria-current={tab === "courses" ? "page" : undefined}
-          onClick={() => setTab("courses")}
-        >
-          {c.courses}
-        </button>
-      </nav>
+      {/* Tabs and the catalogue filter share one row so the header is not a
+          mostly empty band. */}
+      <div className="portal-tabs-row">
+        <nav className="portal-tabs" aria-label={c.learning}>
+          <button
+            type="button"
+            aria-current={tab === "learning" ? "page" : undefined}
+            onClick={() => setTab("learning")}
+          >
+            {c.learning}
+          </button>
+          <button
+            type="button"
+            aria-current={tab === "courses" ? "page" : undefined}
+            onClick={() => setTab("courses")}
+          >
+            {c.courses}
+          </button>
+        </nav>
+        {tab === "courses" && data.courses.length ? (
+          <label className="portal-search portal-search--compact">
+            <span className="sr-only">{c.search}</span>
+            <input
+              type="search"
+              placeholder={c.search}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+        ) : null}
+      </div>
       <div className="portal-student-home">
         <div className="portal-main-column">
           {tab === "learning" ? (
@@ -229,20 +244,6 @@ function StudentHomeContent({
             </>
           ) : (
             <section>
-              <div className="portal-section-heading">
-                <h2>{c.catalogueTitle}</h2>
-                <span>{visible.length}</span>
-              </div>
-              {data.courses.length ? (
-                <label className="portal-search">
-                  {c.search}
-                  <input
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
-              ) : null}
               {visible.length ? (
                 <div
                   className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
