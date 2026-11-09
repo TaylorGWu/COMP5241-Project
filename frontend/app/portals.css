@@ -31,6 +31,12 @@ html[lang="zh-HK"] .portal {
 }
 /* The portal paints the canvas; if it is shorter than the window the body's own
    background shows as a band under the page. */
+/* The global stylesheet paints the body a cool grey; on a portal page that shows
+   through wherever the page is shorter than the window. */
+html:has(.portal),
+body:has(.portal) {
+  background: var(--canvas, #f7f6f2) !important;
+}
 .portal {
   min-height: 100vh;
   min-height: 100dvh;
