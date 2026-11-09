@@ -71,8 +71,13 @@ function chapterPayload(reviewSlideId) {
       // Derived activity: days plus a relative time, never a made-up duration.
       await page.getByText(/6 study days/).first().waitFor();
       await page.getByText(/Last studied/).first().waitFor();
-      // The catalogue is always searchable now.
-      assert.equal(await page.locator('.portal-search').count(), 1, 'The catalogue is searchable');
+      // The page separates what I am learning from the catalogue.
+      assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'My learning');
+      assert.equal(await page.locator('.portal-search').count(), 0, 'Search belongs to the catalogue tab');
+      await page.getByRole('button', { name:'Courses', exact:true }).click();
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-search').count(), 1, 'The catalogue tab is searchable');
+      assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'Courses');
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS goal reason, weekly budget, single next-step entry');
@@ -216,7 +221,9 @@ function chapterPayload(reviewSlideId) {
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student');
-      await page.getByRole('heading', { name:'My learning' }).waitFor();
+      // Nothing joined yet, so the catalogue is the sensible first tab.
+      await page.getByRole('heading', { name:'Courses', exact:true }).waitFor();
+      assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'Courses');
       assert.equal(await page.locator('.portal-search').count(), 1, 'Five courses are worth filtering');
       await page.locator('.portal-search input').fill('Course 3');
       await page.waitForTimeout(200);
