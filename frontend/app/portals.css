@@ -914,8 +914,36 @@ html[lang="zh-HK"] .portal {
 }
 /* Practice reads under the slide it belongs to; the rail is for help. */
 /* The tutor panel: a card with the page it reads, the exchanges, and one field. */
-.portal-tutor {
+/* Progress and the tutor share the right rail, in that order. */
+.portal-side {
   grid-column: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.portal-progress-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.portal-progress-card h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.portal-progress-card > p {
+  margin: 0;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 18px;
+}
+.portal-tutor {
   display: grid;
   align-content: start;
   gap: 14px;
@@ -1032,7 +1060,7 @@ html[lang="zh-HK"] .portal {
     grid-template-columns: 196px minmax(0, 1fr) clamp(240px, 17vw, 320px);
     max-width: none;
   }
-  .portal-tutor {
+  .portal-side {
     grid-column: 3;
     grid-row: 1;
   }

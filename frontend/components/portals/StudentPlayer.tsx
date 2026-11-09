@@ -344,25 +344,9 @@ function Lesson({
   const figure = slide ? studentSlideFigure(slide) : undefined;
   return (
     <>
-      <header className="portal-title">
-        <div className="portal-title-head">
-          <h1>{data.chapter.title}</h1>
-        </div>
-        {/* Bar and save state travel together, so a taller title cannot strand
-            the label below the fold of the header row. */}
-        <div className="portal-title-status">
-          <ProgressBar value={data.progress.completionPercent} />
-          <p role="status">
-            {saving
-              ? c.savingProgress
-              : progressError
-                ? ""
-                : data.progress.completed
-                  ? c.finished
-                  : c.saved}
-          </p>
-        </div>
-      </header>
+      {/* No page heading: the breadcrumb names the course and the slide carries its
+          own title, so a third copy only pushed the page down. The progress readout
+          moved into the rail beside the tutor. */}
       <PortalError error={progressError} retry={() => setRetry((n) => n + 1)} />
       <div className="portal-player">
         <aside className="portal-outline" ref={railRef}>
@@ -578,6 +562,20 @@ function Lesson({
         </section>
         ) : null}
         </div>
+        <div className="portal-side">
+          <section className="portal-progress-card">
+            <h2>{c.progress}</h2>
+            <ProgressBar value={data.progress.completionPercent} />
+            <p role="status">
+              {saving
+                ? c.savingProgress
+                : progressError
+                  ? ""
+                  : data.progress.completed
+                    ? c.finished
+                    : c.saved}
+            </p>
+          </section>
         <aside className="portal-tutor">
           <h2>{c.tutor}</h2>
           {/* Only the page itself: the hints, the grounding label and the
@@ -633,6 +631,7 @@ function Lesson({
             <p className="portal-tutor__key">{c.tutorEnterHint}</p>
           </form>
         </aside>
+        </div>
       </div>
     </>
   );

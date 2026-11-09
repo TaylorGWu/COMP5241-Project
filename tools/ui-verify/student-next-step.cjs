@@ -122,7 +122,8 @@ function chapterPayload(reviewSlideId) {
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student/courses/sample/chapters/one');
-      await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      // The chapter page has no page heading; the slide's own title is the marker.
+      await page.locator('.portal-stage:not(.portal-stage--thumb)').waitFor();
       assert.equal(await page.getByText('2 / 2').count(), 1, 'Starts on the last slide the learner saw');
       // Practice is a view of its own, so open it before reading the result.
       await page.locator('.portal-tabs--reading button', { hasText:'Practice' }).click();
@@ -158,7 +159,8 @@ function chapterPayload(reviewSlideId) {
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student/courses/sample/chapters/one');
-      await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      // The chapter page has no page heading; the slide's own title is the marker.
+      await page.locator('.portal-stage:not(.portal-stage--thumb)').waitFor();
       assert.equal(await page.locator('.portal-question').count(), 0, 'Practice is its own view, not stacked under the slide');
       await page.locator('.portal-tabs--reading button', { hasText:'Practice' }).click();
       await page.waitForTimeout(200);
@@ -208,7 +210,8 @@ function chapterPayload(reviewSlideId) {
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student/courses/sample/chapters/one');
-      await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      // The chapter page has no page heading; the slide's own title is the marker.
+      await page.locator('.portal-stage:not(.portal-stage--thumb)').waitFor();
       const next = page.locator('a[href="/student/courses/sample/chapters/two"]');
       assert.equal(await next.count(), 1, 'The footer links to the next chapter');
       assert.ok((await next.innerText()).includes('Next chapter'), 'The link is labelled');
