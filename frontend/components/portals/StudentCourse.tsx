@@ -45,26 +45,43 @@ export function StudentCourse({ courseId }: { courseId: string }) {
               </Link>
             </div>
             <p>{data.course.description}</p>
-            <p className="portal-meta">
+            <p className="portal-tags">
               {[data.course.courseCode, data.course.subject, data.course.level]
                 .filter(Boolean)
-                .join(" · ")}{" "}
-              · {data.course.durationMin} {c.minutes}
+                .map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
             </p>
-            {data.enrolled ? (
-              <p className="portal-meta">
-                {data.course.visitedSlides}/{data.course.totalSlides}{" "}
-                {c.pagesRead}
-                {data.course.totalQuestions
-                  ? ` · ${data.course.answeredQuestions}/${data.course.totalQuestions} ${c.questionsAnswered}`
-                  : ""}
-              </p>
-            ) : null}
+            <div className="portal-facts">
+              <span>
+                {data.course.chapterCount} {c.chapters}
+              </span>
+              <span>
+                {data.course.durationMin} {c.minutes}
+              </span>
+              {data.enrolled ? (
+                <span>
+                  {data.course.visitedSlides}/{data.course.totalSlides}{" "}
+                  {c.pagesRead}
+                </span>
+              ) : null}
+              {data.enrolled && data.course.totalQuestions ? (
+                <span>
+                  {data.course.answeredQuestions}/{data.course.totalQuestions}{" "}
+                  {c.questionsAnswered}
+                </span>
+              ) : null}
+              {data.enrolled && data.course.studyDays > 0 ? (
+                <span>
+                  {data.course.studyDays} {c.studyDays}
+                </span>
+              ) : null}
+            </div>
             {data.enrolled &&
             data.course.studyDays > 0 &&
             data.course.lastStudiedAt ? (
               <p className="portal-meta">
-                {data.course.studyDays} {c.studyDays} · {c.lastStudied}{" "}
+                {c.lastStudied}{" "}
                 {relativeTime(
                   data.course.lastStudiedAt,
                   Date.now() / 1000,

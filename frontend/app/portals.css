@@ -459,6 +459,43 @@ html[lang="zh-HK"] .portal {
 .portal-course-grid--single {
   grid-template-columns: minmax(0, 1fr);
 }
+/* Course attributes as chips, matching the teacher catalogue's reading of
+   metadata - but one step larger, since these cards are the main student view. */
+.portal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.portal-tags span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.portal-tags span + span {
+  background: var(--soft);
+  color: var(--body);
+}
+.portal-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.portal-facts span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--body);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 550;
+}
 /* The next-step explanation belongs on the card it explains. */
 .portal-course-reason {
   margin: 0;

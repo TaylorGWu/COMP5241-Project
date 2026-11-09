@@ -342,10 +342,12 @@ function CourseCard({
   const c = portalCopy(locale);
   return (
     <article className="portal-course">
-      <p className="portal-meta">
+      <p className="portal-tags">
         {[course.courseCode, course.subject, course.level]
           .filter(Boolean)
-          .join(" · ")}
+          .map((label) => (
+            <span key={label}>{label}</span>
+          ))}
       </p>
       <h3>
         <Link href={studentCourseHref(course.id)}>{course.title}</Link>
@@ -357,20 +359,33 @@ function CourseCard({
           {matchingChapterTitles(course, query).join(" · ")}
         </p>
       ) : null}
-      <p className="portal-meta">
-        {course.chapterCount} {c.chapters} · {course.durationMin} {c.minutes}
-      </p>
-      {course.enrolled ? (
-        <p className="portal-meta">
-          {course.visitedSlides}/{course.totalSlides} {c.pagesRead}
-          {course.totalQuestions
-            ? ` · ${course.answeredQuestions}/${course.totalQuestions} ${c.questionsAnswered}`
-            : ""}
-        </p>
-      ) : null}
+      <div className="portal-facts">
+        <span>
+          {course.chapterCount} {c.chapters}
+        </span>
+        <span>
+          {course.durationMin} {c.minutes}
+        </span>
+        {course.enrolled ? (
+          <span>
+            {course.visitedSlides}/{course.totalSlides} {c.pagesRead}
+          </span>
+        ) : null}
+        {course.enrolled && course.totalQuestions ? (
+          <span>
+            {course.answeredQuestions}/{course.totalQuestions}{" "}
+            {c.questionsAnswered}
+          </span>
+        ) : null}
+        {course.enrolled && course.studyDays > 0 ? (
+          <span>
+            {course.studyDays} {c.studyDays}
+          </span>
+        ) : null}
+      </div>
       {course.enrolled && course.studyDays > 0 && course.lastStudiedAt ? (
         <p className="portal-meta">
-          {course.studyDays} {c.studyDays} · {c.lastStudied}{" "}
+          {c.lastStudied}{" "}
           {relativeTime(course.lastStudiedAt, Date.now() / 1000, locale)}
         </p>
       ) : null}
