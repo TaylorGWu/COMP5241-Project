@@ -245,6 +245,54 @@ html[lang="zh-HK"] .portal {
   }
 }
 /* Two destinations on one page: the learner's own courses, and the catalogue. */
+/* The catalogue toolbar mirrors the teacher library: search, then attribute
+   filters, on one row above the results. */
+.portal-catalogue-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.portal-catalogue-toolbar .portal-search {
+  max-width: none;
+  margin: 0;
+}
+.portal-filter {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.portal-filter > span {
+  color: var(--body);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 650;
+}
+.portal-filter select {
+  min-height: 44px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.portal-filter select:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+@media (max-width: 720px) {
+  .portal-catalogue-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .portal-tabs-row {
   display: flex;
   align-items: center;

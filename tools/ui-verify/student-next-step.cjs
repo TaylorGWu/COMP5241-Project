@@ -213,6 +213,7 @@ function chapterPayload(reviewSlideId) {
       const page = await context.newPage();
       const user = { id:'u1', name:'Learner', email:'learner@example.test', role:'student', status:'active', active:true, createdAt:1700000000 };
       const many = [1,2,3,4,5].map(n => ({...course, id:`c${n}`, title:`Course ${n}`, enrolled:false,
+        subject: n % 2 ? 'Computing' : 'Design', level: n > 3 ? 'Advanced' : 'Beginner',
         description:`Description ${n}`, chapterTitles:n === 3 ? ['Neural networks'] : ['Basics']}));
       await page.route('**/api/**', route => {
         const api = new URL(route.request().url()).pathname;
@@ -233,8 +234,22 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await page.locator('.portal-course').count(), 1, 'A chapter title is searchable');
       assert.ok((await page.locator('.portal-course').innerText()).includes('Neural networks'),
         'The matching chapter is named, so the hit is not unexplained');
+      await page.locator('.portal-search input').fill('');
+      await page.waitForTimeout(200);
+      const filters = page.locator('.portal-filter select');
+      assert.equal(await filters.count(), 2, 'Level and subject filter the catalogue');
+      await filters.nth(1).selectOption('Design');
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-course').count(), 2, 'Subject narrows the list');
+      await filters.nth(0).selectOption('Advanced');
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-course').count(), 1, 'Level narrows it again');
+      await filters.nth(1).selectOption('all');
+      await filters.nth(0).selectOption('all');
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-course').count(), 5, 'Clearing both restores the list');
       await context.close();
-      console.log('PASS course filter appears only when the catalogue is large enough');
+      console.log('PASS catalogue search and attribute filters narrow the list');
     }
 
     console.log('Student next-step, weekly budget and review link passed.');

@@ -51,6 +51,8 @@ function StudentHomeContent({
   const c = portalCopy(locale);
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [level, setLevel] = useState("all");
+  const [subject, setSubject] = useState("all");
   const [tab, setTab] = useState<"learning" | "courses">(() =>
     data.courses.some((course) => course.enrolled) ? "learning" : "courses",
   );
@@ -66,13 +68,6 @@ function StudentHomeContent({
   const recommendation = data.courses.find(
     (course) => course.id === data.recommendation?.courseId,
   );
-  // One next step, one entry point: a resume is shown in the resume card only.
-  const resume =
-    (data.recommendation?.reasonCode === "resume" ? recommendation : undefined) ??
-    enrolled.find((course) => course.completionPercent < 100) ??
-    enrolled[0];
-  // The hero already shows the course it resumes, so the list holds the rest.
-  const others = enrolled.filter((course) => course.id !== resume?.id);
   const reasons: Record<NextStepReason, string> = {
     resume: c.reasonResume,
     goal: c.reasonGoal,
@@ -82,8 +77,15 @@ function StudentHomeContent({
   const reason = data.recommendation
     ? reasons[data.recommendation.reasonCode]
     : "";
-  const visible = data.courses.filter((course) =>
-    courseMatchesQuery(course, search),
+  const levels = [...new Set(data.courses.map((course) => course.level))].sort();
+  const subjects = [
+    ...new Set(data.courses.map((course) => course.subject)),
+  ].sort();
+  const visible = data.courses.filter(
+    (course) =>
+      courseMatchesQuery(course, search) &&
+      (level === "all" || course.level === level) &&
+      (subject === "all" || course.subject === subject),
   );
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -130,17 +132,6 @@ function StudentHomeContent({
             {c.courses}
           </button>
         </nav>
-        {tab === "courses" && data.courses.length ? (
-          <label className="portal-search portal-search--compact">
-            <span className="sr-only">{c.search}</span>
-            <input
-              type="search"
-              placeholder={c.search}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-        ) : null}
       </div>
       <div className="portal-student-home">
         <div className="portal-main-column">
@@ -204,6 +195,47 @@ function StudentHomeContent({
             </>
           ) : (
             <section>
+              {/* Same toolbar shape as the teacher catalogue: search, then the
+                  two attributes the courses are actually grouped by. */}
+              <div className="portal-catalogue-toolbar">
+                <label className="portal-search">
+                  <span className="sr-only">{c.search}</span>
+                  <input
+                    type="search"
+                    placeholder={c.searchCatalogue}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+                <label className="portal-filter">
+                  <span>{c.level}</span>
+                  <select
+                    value={level}
+                    onChange={(event) => setLevel(event.target.value)}
+                  >
+                    <option value="all">{c.allLevels}</option>
+                    {levels.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="portal-filter">
+                  <span>{c.subject}</span>
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                  >
+                    <option value="all">{c.allSubjects}</option>
+                    {subjects.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               {visible.length ? (
                 <div
                   className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
