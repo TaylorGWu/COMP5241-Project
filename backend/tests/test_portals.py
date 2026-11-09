@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -540,3 +542,31 @@ def test_course_summary_reports_study_days_and_last_activity():
 
         # An unenrolled learner gets no derived activity at all.
         assert student.get('/api/student/home').json()['courses'][0]['studyDays'] == 2
+
+
+def test_migration_delivers_a_published_course_that_had_no_snapshot():
+    # A published course without a snapshot is invisible to students. Repairing it
+    # at migration time is what stops that class of course from silently vanishing.
+    from app.services import portal_store
+    from app.services.auth import get_auth_store
+
+    with TestClient(app) as teacher:
+        signed_in(teacher, 'repair-teacher@example.test', 'instructor')
+        course = teacher.post('/api/demo/courses', json={'title': 'Repair me', 'durationMin': 20}).json()
+        course_id, chapter_id = course['id'], course['chapterIds'][0]
+        package = {'slideDeck': {'slides': [{'id': 's1', 'order': 1, 'layout': 'bullets', 'title': 'One', 'bullets': ['a']}]},
+                   'questionSet': {'questions': []}}
+        assert teacher.patch(f'/api/demo/courses/{course_id}/chapters/{chapter_id}',
+                             json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{course_id}/publish').status_code == 200
+
+        store = get_auth_store()
+        with store.connection() as db:
+            db.execute('DELETE FROM portal_publications WHERE course_id=?', (course_id,))
+            db.execute('DELETE FROM auth_schema_versions WHERE version=5')
+        assert portal_store.migrate(store) is None
+        with store.connection() as db:
+            row = db.execute('SELECT snapshot FROM portal_publications WHERE course_id=?', (course_id,)).fetchone()
+            assert row is not None, 'The published course is delivered again'
+            assert json.loads(row['snapshot'])['chapters'][0]['id'] == chapter_id
+            assert db.execute('SELECT 1 FROM auth_schema_versions WHERE version=5').fetchone()
