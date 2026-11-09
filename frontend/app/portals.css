@@ -959,6 +959,11 @@ body:has(.portal) {
   border-radius: 8px;
   transition: background-color .16s ease;
 }
+/* A rule between chapters, so two rows never run together. */
+.portal-chapter-list > li + li {
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
 .portal-chapter-list > li:hover {
   background: var(--soft);
 }
