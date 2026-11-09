@@ -486,3 +486,18 @@ def test_course_summary_reports_pages_and_answers_separately():
     assert (summary['totalSlides'], summary['totalQuestions']) == (2, 1)
     assert (summary['visitedSlides'], summary['answeredQuestions'], summary['correctAnswers']) == (0, 0, 0)
     assert summary['enrolled'] is False
+
+
+def test_next_step_ignores_function_words():
+    # Recommending a course because both texts contain "and" is not a reason.
+    from app.api.routes.student import next_step
+
+    course = {'id': 'se', 'title': 'Software Engineering and Development',
+              'description': 'Apply methods across requirements, design and testing.',
+              'courseCode': 'COMP5241', 'subject': 'Software Engineering',
+              'durationMin': 45, 'enrolled': False, 'completionPercent': 0}
+    reason = next_step([course], {'background': 'Computer science student with basic Python experience.',
+                                  'goal': 'Understand artificial intelligence concepts and search.',
+                                  'weeklyMinutes': 60})
+    assert reason['reasonCode'] == 'time', reason
+    assert reason['courseId'] == 'se'

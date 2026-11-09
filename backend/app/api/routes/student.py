@@ -18,8 +18,21 @@ async def student_user(request: Request) -> dict:
     return user
 
 
+# Matching on function words produced nonsense reasons ("both contain 'and'"),
+# so the overlap only counts content words.
+_STOPWORDS = {
+    'and', 'the', 'with', 'for', 'that', 'from', 'into', 'of', 'to', 'in', 'on', 'at',
+    'by', 'or', 'as', 'is', 'are', 'be', 'it', 'this', 'these', 'those', 'you', 'your',
+    'my', 'me', 'we', 'our', 'they', 'their', 'can', 'will', 'would', 'should', 'about',
+    'across', 'after', 'before', 'between', 'each', 'more', 'most', 'other', 'some',
+    'such', 'than', 'then', 'there', 'when', 'where', 'which', 'while', 'how', 'what',
+    'why', 'who', 'apply', 'use', 'using', 'learn', 'learning',
+}
+
+
 def _tokens(text):
-    return {word for word in re.findall(r'\w+', text.casefold()) if len(word) > 1}
+    return {word for word in re.findall(r'\w+', text.casefold())
+            if len(word) > 1 and word not in _STOPWORDS}
 
 
 def next_step(courses, profile):
