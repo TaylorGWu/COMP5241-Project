@@ -355,23 +355,26 @@ function Lesson({
                   onClick={() => setIndex(i)}
                   aria-current={i === index ? "step" : undefined}
                 >
-                  <span className="portal-outline__number">
-                    {String(i + 1).padStart(2, "0")}
+                  {/* Like the teacher's deck index: the number above the page,
+                      the page, then its title underneath - not three things in
+                      one row inside a narrow rail. */}
+                  <span className="portal-outline__head">
+                    <span className="portal-outline__number">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    {data.progress.visitedSlideIds.includes(entry.id) ? (
+                      <span className="portal-outline__done">
+                        <PortalIcon name="check" />
+                        <span className="sr-only">{c.complete}</span>
+                      </span>
+                    ) : null}
                   </span>
-                  {/* The rail shows the same slide the stage shows, so the list
-                      and the canvas can never disagree. */}
                   <ScaledSlide
                     slide={studentRenderSlide(entry, c.quizGuide)}
                     diagramUrl={studentSlideFigure(entry)}
                     thumbnail
                   />
                   <span className="portal-outline__title">{entry.title}</span>
-                  {data.progress.visitedSlideIds.includes(entry.id) ? (
-                    <span className="portal-outline__done">
-                      <PortalIcon name="check" />
-                      <span className="sr-only">{c.complete}</span>
-                    </span>
-                  ) : null}
                 </button>
               </li>
             ))}

@@ -875,12 +875,12 @@ html[lang="zh-HK"] .portal {
     grid-row: 1;
   }
 }
+/* Stacked entries make the rail taller than the viewport, so it scrolls with the
+   page instead of pinning itself and hiding its lower half. */
 .portal-outline {
   display: grid;
   gap: 16px;
   min-width: 0;
-  position: sticky;
-  top: 24px;
 }
 .portal-outline h2 {
   font-size: 18px;
@@ -896,19 +896,24 @@ html[lang="zh-HK"] .portal {
 /* Each entry is one row: number, the slide itself, then its title - the same
    index the teacher gets, so the list and the canvas cannot disagree. */
 .portal-outline button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px;
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 400;
 }
+.portal-outline__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .portal-outline__number {
-  flex: 0 0 auto;
   color: var(--body);
   font-size: 11px;
   line-height: 16px;
@@ -916,13 +921,11 @@ html[lang="zh-HK"] .portal {
   opacity: 0.75;
 }
 .portal-outline .portal-stage--thumb {
-  width: 76px;
-  flex: 0 0 auto;
+  width: 100%;
   border-radius: 4px;
   border: 1px solid var(--line);
 }
 .portal-outline__title {
-  flex: 1 1 auto;
   min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -932,7 +935,6 @@ html[lang="zh-HK"] .portal {
   line-height: 1.35;
 }
 .portal-outline__done {
-  flex: 0 0 auto;
   display: inline-flex;
   color: var(--green);
 }
