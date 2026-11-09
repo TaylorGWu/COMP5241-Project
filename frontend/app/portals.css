@@ -731,11 +731,28 @@ html[lang="zh-HK"] .portal {
    description, then a ruled footer. It also uses the teacher's card class, so the
    surface, radius and shadow come from one definition. */
 .portal .portal-course {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
   padding: 24px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+/* The whole card answers the pointer and opens the course, as in the library. */
+.portal .portal-course:hover {
+  border-color: color-mix(in srgb, var(--line) 55%, var(--ink));
+  box-shadow: 0 8px 24px rgb(23 32 51 / 0.07);
+}
+.portal .portal-course:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.portal-course h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
 }
 .portal-course__head {
   display: flex;
