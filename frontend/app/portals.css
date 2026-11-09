@@ -164,14 +164,36 @@ html[lang="zh-HK"] .portal {
 }
 .portal-title {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  align-items: center;
   margin: 16px 0 24px;
+}
+.portal-title > h1 {
+  grid-column: 1 / -1;
 }
 .portal-title > p {
   max-width: 75ch;
 }
 .portal-title .portal-progress {
+  grid-column: 1;
   max-width: 480px;
+}
+/* Save state sits beside the bar instead of starting a third stacked line. */
+.portal-title > p[role="status"] {
+  grid-column: 2;
+  justify-self: end;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--body);
+}
+/* Only the reader header carries a save state, so only it needs to line up with
+   the reading column rather than the full workspace width. */
+.portal-title:has(> p[role="status"]) {
+  max-width: 880px;
+}
+.portal-title:has(> p[role="status"]) .portal-progress {
+  max-width: none;
 }
 .portal-student-home {
   display: grid;
@@ -470,13 +492,15 @@ html[lang="zh-HK"] .portal {
 .portal-player {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  gap: 24px;
+  gap: 32px;
   align-items: start;
 }
 .portal-outline {
   display: grid;
   gap: 16px;
   min-width: 0;
+  position: sticky;
+  top: 24px;
 }
 .portal-outline h2 {
   font-size: 18px;
@@ -487,7 +511,7 @@ html[lang="zh-HK"] .portal {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 .portal-outline button {
   display: grid;
@@ -495,10 +519,12 @@ html[lang="zh-HK"] .portal {
   align-items: start;
   text-align: left;
   width: 100%;
-  gap: 8px;
+  gap: 4px 8px;
+  padding: 8px 10px;
   background: transparent;
   border-color: transparent;
   font-weight: 400;
+  line-height: 22px;
 }
 .portal-outline button[aria-current] {
   color: var(--blue);
@@ -507,17 +533,21 @@ html[lang="zh-HK"] .portal {
 }
 .portal-outline button small {
   grid-column: 2;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 16px;
   color: var(--green);
 }
 .portal-reading {
   min-width: 0;
+  max-width: 880px;
   display: grid;
-  gap: 48px;
+  gap: 40px;
 }
 .portal .portal-slide {
-  padding: 32px;
-  min-height: 440px;
+  display: grid;
+  align-content: center;
+  padding: 32px 36px;
+  min-height: 400px;
   height: auto;
   aspect-ratio: auto;
   overflow: visible;
@@ -530,10 +560,11 @@ html[lang="zh-HK"] .portal {
 .portal .portal-slide > div {
   height: auto;
 }
+/* The slide headline stays below the page title so the page keeps a hierarchy. */
 .portal .portal-slide h3 {
-  font-size: 30px;
-  line-height: 36px;
-  margin-bottom: 24px;
+  font-size: 24px;
+  line-height: 32px;
+  margin-bottom: 20px;
 }
 .portal-reading figure {
   margin: 24px 0;
@@ -558,7 +589,7 @@ html[lang="zh-HK"] .portal {
 }
 .portal-practice {
   display: grid;
-  gap: 24px;
+  gap: 16px;
   scroll-margin-top: 24px;
 }
 .portal-practice > p {
@@ -567,7 +598,7 @@ html[lang="zh-HK"] .portal {
 .portal-question {
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px 24px;
   background: var(--surface);
 }
 .portal-question fieldset {
@@ -576,18 +607,19 @@ html[lang="zh-HK"] .portal {
   margin: 0;
   border: 0;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 .portal-question legend {
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  padding: 0;
   overflow-wrap: anywhere;
 }
 .portal .portal-option {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   font-size: 16px;
@@ -603,10 +635,16 @@ html[lang="zh-HK"] .portal {
   background: var(--blue-soft);
   border-color: var(--blue);
 }
+/* Once a question is answered the options are disabled; dropping the borders on
+   the ones the learner did not pick lets the chosen answer and the feedback
+   carry the state instead of four competing boxes. */
+.portal-question:has(.portal-answer) .portal-option:not(:has(input:checked)) {
+  border-color: transparent;
+}
 .portal-answer {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 14px 16px;
   border-radius: 8px;
   background: var(--amber-soft);
   color: var(--amber);
@@ -614,12 +652,19 @@ html[lang="zh-HK"] .portal {
 .portal-answer p {
   color: inherit;
 }
+.portal-answer small {
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.85;
+}
 .portal-answer.is-correct {
   background: var(--green-soft);
   color: var(--green);
 }
 .portal-answer button {
   width: fit-content;
+  min-height: 36px;
+  margin-top: 4px;
 }
 .portal-glossary dl {
   margin: 24px 0 0;
@@ -1127,12 +1172,38 @@ html[lang="zh-HK"] .portal {
     position: static;
     padding: 0;
   }
+  /* The full outline used to sit between the reader and the lesson. On phones it
+     becomes one horizontally scrollable strip so the slide is the next thing. */
+  .portal-outline {
+    position: static;
+  }
   .portal-outline ol {
     display: flex;
-    flex-wrap: wrap;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
   }
   .portal-outline li {
-    flex: 1 1 200px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+  .portal-outline button {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    max-width: 260px;
+  }
+  .portal-outline button > span:nth-child(2) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .portal-outline button small {
+    grid-column: 3;
+    grid-row: 1;
+    white-space: nowrap;
   }
   .portal-sidebar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1158,6 +1229,20 @@ html[lang="zh-HK"] .portal {
 @media (max-width: 480px) {
   .portal .public-header {
     padding-inline: 16px;
+  }
+  .portal h1 {
+    font-size: 26px;
+    line-height: 32px;
+  }
+  .portal-title {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .portal-title > p[role="status"] {
+    grid-column: 1;
+    justify-self: start;
+  }
+  .portal .portal-slide {
+    padding: 24px 20px;
   }
   .portal-shell {
     padding: 16px 16px 64px;
