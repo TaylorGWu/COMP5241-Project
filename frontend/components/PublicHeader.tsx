@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { useI18n } from "@/lib/i18n";
 import { publicCopy } from "@/lib/public-copy";
@@ -9,7 +10,14 @@ import { AccountActions } from "@/components/AccountActions";
 import { roleDestination } from "@/lib/auth";
 import { homepageCopy } from "@/lib/homepage-copy";
 
-export function PublicHeader({ simple = false }: { simple?: boolean }) {
+export function PublicHeader({
+  simple = false,
+  action,
+}: {
+  simple?: boolean;
+  /** Page-level control, shown in the bar just before the account menu. */
+  action?: ReactNode;
+}) {
   const { locale } = useI18n();
   const copy = publicCopy(locale);
   const { user } = useAccount();
@@ -20,6 +28,7 @@ export function PublicHeader({ simple = false }: { simple?: boolean }) {
     <nav aria-label="Main navigation">
       {home ? <Link href="#home-workflow" className="public-text-link home-how-link">{homepageCopy(locale).how}</Link> : null}
       {(!simple || pathname === "/profile") && user ? <Link href={roleDestination(user)} className="public-text-link" data-workspace-entry>{copy.dashboard}</Link> : null}
+      {action}
       {user ? <AccountActions /> : <><Link href={simple && pathname === "/login" ? "/" : "/login"} className="public-text-link">{simple && pathname === "/login" ? copy.home : copy.login}</Link>{!simple ? <Link href={home ? "/register/instructor" : "/register"} className="public-button public-button--small">{home ? homepageCopy(locale).create : copy.start}</Link> : null}</>}
     </nav>
   </header>;

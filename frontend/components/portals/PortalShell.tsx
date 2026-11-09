@@ -16,9 +16,12 @@ import { progressPercent } from "@/lib/portal";
 export function PortalShell({
   admin = false,
   children,
+  action,
 }: {
   admin?: boolean;
   children: ReactNode;
+  /** Page-level control placed in the top bar, like the teacher workspace. */
+  action?: ReactNode;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -28,7 +31,7 @@ export function PortalShell({
         <a href="#portal-content" className="portal-skip">
           {c.skip}
         </a>
-        <PublicHeader simple />
+        <PublicHeader simple action={action} />
         <main id="portal-content" className="portal-shell">
           {children}
         </main>

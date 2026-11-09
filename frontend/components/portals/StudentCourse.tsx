@@ -32,7 +32,16 @@ export function StudentCourse({ courseId }: { courseId: string }) {
     ? resumeChapter(data.chapters, data.course.lastChapterId)
     : null;
   return (
-    <PortalShell>
+    <PortalShell
+      action={
+        <Link
+          className="portal-button portal-button--quiet portal-button--back"
+          href="/student"
+        >
+          <PortalIcon name="chevron" /> {c.back}
+        </Link>
+      }
+    >
       <PortalError error={resource.error} retry={resource.reload} />
       {resource.loading ? (
         <PortalLoading />
@@ -41,12 +50,6 @@ export function StudentCourse({ courseId }: { courseId: string }) {
           <header className="portal-title">
             <div className="portal-title-head">
               <h1>{data.course.title}</h1>
-              <Link
-                className="portal-button portal-button--quiet portal-button--back"
-                href="/student"
-              >
-                <PortalIcon name="chevron" /> {c.back}
-              </Link>
             </div>
             <p>{data.course.description}</p>
             <p className="portal-tags">

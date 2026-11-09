@@ -162,8 +162,19 @@ export function StudentPlayer({
     [courseId, chapterId],
   );
   const resource = usePortalResource(load);
+  const { locale } = useI18n();
+  const copy = portalCopy(locale);
   return (
-    <PortalShell>
+    <PortalShell
+      action={
+        <Link
+          href={studentCourseHref(courseId)}
+          className="portal-button portal-button--quiet portal-button--back"
+        >
+          <PortalIcon name="chevron" /> {copy.courseBack}
+        </Link>
+      }
+    >
       <PortalError error={resource.error} retry={resource.reload} />
       {resource.loading ? (
         <PortalLoading />
@@ -262,12 +273,6 @@ function Lesson({
       <header className="portal-title">
         <div className="portal-title-head">
           <h1>{data.chapter.title}</h1>
-          <Link
-            href={studentCourseHref(courseId)}
-            className="portal-button portal-button--quiet portal-button--back"
-          >
-            <PortalIcon name="chevron" /> {c.courseBack}
-          </Link>
         </div>
         {/* Bar and save state travel together, so a taller title cannot strand
             the label below the fold of the header row. */}

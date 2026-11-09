@@ -227,10 +227,6 @@ html[lang="zh-HK"] .portal {
   min-height: 32px;
   white-space: nowrap;
 }
-.portal-title-head .portal-button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
 @media (max-width: 480px) {
   .portal-title-head {
     flex-wrap: wrap;
