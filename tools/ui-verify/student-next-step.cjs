@@ -50,11 +50,11 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await reason.count(), 1, 'The reason code is rendered as copy, not a rebuilt sentence');
       assert.equal(await page.getByText(/Your background:/).count(), 0, 'The old templated reason paragraph is gone');
       // Weekly budget is visible in the saved profile summary.
-      // The goals now live in the account menu; open it to read the budget.
+      // The goals have their own page, reached from the account menu.
       await page.locator('.account-actions button').first().click();
-      await page.locator('.account-menu-goals-panel > summary').click();
-      assert.equal(await page.getByText('60 min').count() >= 1, true, 'The weekly time budget is shown');
-      // Opening the panel reveals the editor; the summary sits above the fields.
+      await page.locator('.account-menu-goals').click();
+      await page.waitForURL('**/student/profile');
+      await page.locator('.portal-profile h1').waitFor();
       const budget = page.getByLabel('Weekly study budget');
       assert.equal(await budget.inputValue(), '60', 'The budget input is prefilled from the server');
       // Saving confirms beside the button and then clears itself, rather than
@@ -65,6 +65,9 @@ function chapterPayload(reviewSlideId) {
       assert.ok((await said.innerText()).includes('Saved'), 'The confirmation is announced');
       await page.waitForTimeout(2900);
       assert.equal(await said.count(), 0, 'The confirmation clears itself');
+      // The rest of this block is about the home screen.
+      await page.goto(base + '/student');
+      await page.locator('.portal-tabs').waitFor();
       // A goal recommendation must not also appear as the resume card.
       assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 1);
       // Reading and answering are reported separately rather than blended away.

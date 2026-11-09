@@ -14,9 +14,12 @@ import { PortalIcon } from "./PortalIcon";
 export function GoalsPanel({
   profile,
   reload,
+  alwaysOpen = false,
 }: {
   profile: StudentHome["profile"];
   reload: () => void;
+  /** On the profile page the panel is the page, so it starts open. */
+  alwaysOpen?: boolean;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -47,7 +50,10 @@ export function GoalsPanel({
     profile.background || profile.goal || profile.weeklyMinutes > 0;
 
   return (
-    <details className="account-menu-goals-panel">
+    <details
+      className={`account-menu-goals-panel${alwaysOpen ? " account-menu-goals-panel--page" : ""}`}
+      open={alwaysOpen || undefined}
+    >
       <summary>{c.profile}</summary>
       <div className="account-menu-goals-body">
         {filled ? (

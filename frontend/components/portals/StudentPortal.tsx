@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
 import { PortalIcon } from "./PortalIcon";
-import { GoalsPanel } from "./GoalsPanel";
 import {
   portalApi,
   relativeTime,
@@ -34,9 +33,9 @@ export function StudentPortal() {
     <PortalShell
       // The menu is navigation: one line that jumps to the goals panel on the page.
       menuExtra={
-        resource.data?.profile ? (
-          <GoalsPanel profile={resource.data.profile} reload={resource.reload} />
-        ) : null
+        <Link className="account-menu-goals" href="/student/profile">
+          {c.profile}
+        </Link>
       }
     >
       <PortalError error={resource.error} retry={resource.reload} />
