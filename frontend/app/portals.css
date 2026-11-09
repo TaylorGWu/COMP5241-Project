@@ -743,7 +743,7 @@ html[lang="zh-HK"] .portal {
   min-height: 30px;
   padding: 4px 10px;
   border-radius: 6px;
-  background: var(--soft);
+  background: var(--surface);
   color: var(--body);
   font-size: 14px;
   line-height: 20px;
