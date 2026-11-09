@@ -476,20 +476,24 @@ function Lesson({
                 <div className="portal-slide-controls">
                   <button
                     type="button"
+                    className="portal-stage-arrow portal-stage-arrow--prev"
+                    aria-label={c.previous}
                     disabled={index === 0}
                     onClick={() => setIndex((i) => i - 1)}
                   >
-                    {c.previous}
+                    <PortalIcon name="chevron" />
                   </button>
                   <span>
                     {index + 1} / {data.chapter.slides.length}
                   </span>
                   <button
                     type="button"
+                    className="portal-stage-arrow portal-stage-arrow--next"
+                    aria-label={c.next}
                     disabled={index >= data.chapter.slides.length - 1}
                     onClick={() => setIndex((i) => i + 1)}
                   >
-                    {c.next}
+                    <PortalIcon name="chevron" />
                   </button>
                 </div>
               </>
