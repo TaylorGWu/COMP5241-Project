@@ -132,6 +132,12 @@ function StudentHomeContent({
             {c.courses}
           </button>
         </nav>
+        {/* The count rides with the tabs, as the teacher library's line does. */}
+        <p className="portal-tabs-count">
+          {tab === "learning"
+            ? `${enrolled.length} ${enrolled.length === 1 ? c.course : c.courses}`
+            : `${visible.length} ${visible.length === 1 ? c.course : c.courses}`}
+        </p>
       </div>
       <div className="portal-student-home">
         <div className="portal-main-column">
@@ -139,15 +145,6 @@ function StudentHomeContent({
             <>
               {enrolled.length ? (
                 <section>
-                  <div className="portal-section-heading">
-                    <h2>{c.myCourses}</h2>
-                  </div>
-                  <div className="course-catalogue-results">
-                    <p>
-                      {enrolled.length}{" "}
-                      {enrolled.length === 1 ? c.course : c.courses}
-                    </p>
-                  </div>
                   {/* One list: the course the learner should open next is marked
                       on its card instead of being lifted out of the list. */}
                   <div
@@ -245,11 +242,6 @@ function StudentHomeContent({
                     </select>
                   </label>
                 </div>
-              </div>
-              <div className="course-catalogue-results">
-                <p>
-                  {visible.length} {visible.length === 1 ? c.course : c.courses}
-                </p>
               </div>
               {visible.length ? (
                 <div

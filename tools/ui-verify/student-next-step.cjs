@@ -98,7 +98,8 @@ function chapterPayload(reviewSlideId) {
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student');
-      await page.getByRole('heading', { name:'My courses' }).waitFor();
+      // The list is named by its tab and counted beside it; there is no heading.
+      await page.getByText('1 course', { exact:true }).first().waitFor();
       assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 0, 'A resume must not be offered twice');
       // The reason stays visible even when the next step is "keep going".
       await page.getByText(/Keep going/).first().waitFor();

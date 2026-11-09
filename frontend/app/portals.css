@@ -349,10 +349,10 @@ html[lang="zh-HK"] .portal {
   align-items: end;
   gap: 16px;
   margin-bottom: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .portal .course-catalogue-search {
   display: flex;
@@ -363,7 +363,7 @@ html[lang="zh-HK"] .portal {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--canvas);
+  background: var(--surface);
 }
 .portal .course-catalogue-search:focus-within {
   border-color: var(--blue);
@@ -407,12 +407,20 @@ html[lang="zh-HK"] .portal {
   line-height: 16px;
   font-weight: 650;
 }
+/* `appearance: none` is what removes the native macOS control. */
 .portal .course-catalogue-filter select {
+  appearance: none;
+  -webkit-appearance: none;
   min-height: 44px;
-  padding: 0 32px 0 12px;
+  min-width: 148px;
+  padding: 0 34px 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--canvas);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -421,6 +429,14 @@ html[lang="zh-HK"] .portal {
   border-color: var(--blue);
   outline: 2px solid var(--blue);
   outline-offset: 2px;
+}
+@media (max-width: 900px) {
+  .portal .course-catalogue-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .portal .course-catalogue-filter select {
+    width: 100%;
+  }
 }
 .portal .course-catalogue-results {
   padding: 0 0 12px;
@@ -439,6 +455,13 @@ html[lang="zh-HK"] .portal {
   .portal .course-catalogue-filter select {
     width: 100%;
   }
+}
+.portal .portal-tabs-count {
+  margin: 0 0 0 auto;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 20px;
+  text-transform: lowercase;
 }
 .portal-tabs-row {
   display: flex;
