@@ -500,9 +500,20 @@ function Lesson({
           <h2>{c.tutor}</h2>
           <p className="portal-tutor__hint">{c.tutorHint}</p>
           <p className="portal-tutor__grounded">
-            <strong>{c.tutorGrounded}: </strong>
-            {slide?.title ?? "—"}
+            <strong>{c.tutorGrounded}:</strong>
           </p>
+          {/* The page the answer is grounded in, shown rather than named: the
+              learner can see exactly what the tutor is reading. */}
+          {safeSlide ? (
+            <div className="portal-tutor__slide">
+              <ScaledSlide
+                slide={safeSlide}
+                diagramUrl={figure}
+                thumbnail
+              />
+            </div>
+          ) : null}
+          <p className="portal-tutor__slide-title">{slide?.title ?? "—"}</p>
           {(data.objectives ?? []).length ? (
             <ul className="portal-tutor__objectives">
               {(data.objectives ?? []).map((objective) => (

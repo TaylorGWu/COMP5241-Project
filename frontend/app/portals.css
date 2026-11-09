@@ -1024,6 +1024,19 @@ html[lang="zh-HK"] .portal {
 .portal-tutor__grounded strong {
   color: var(--ink);
 }
+.portal-tutor__slide {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.portal-tutor__slide-title {
+  margin: -4px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
 .portal-tutor__objectives {
   margin: 0;
   padding-left: 18px;
