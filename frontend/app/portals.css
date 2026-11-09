@@ -882,7 +882,7 @@ html[lang="zh-HK"] .portal {
    heading and the glossary link stay put while the slides move under the pointer. */
 .portal-outline {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 16px;
   min-width: 0;
   position: sticky;

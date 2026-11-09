@@ -346,8 +346,9 @@ function Lesson({
       <PortalError error={progressError} retry={() => setRetry((n) => n + 1)} />
       <div className="portal-player">
         <aside className="portal-outline">
-          <h2>{c.outline}</h2>
-          <ol>
+          {/* No visible heading: the list is self-evident and the label below keeps
+              it announced. */}
+          <ol aria-label={c.outline}>
             {data.chapter.slides.map((entry, i) => (
               <li key={entry.id}>
                 <button
