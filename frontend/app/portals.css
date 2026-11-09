@@ -41,10 +41,10 @@ html[lang="zh-HK"] .portal {
   overflow-wrap: anywhere;
 }
 :where(.portal) :where(h1) {
-  font-size: 30px;
-  line-height: 36px;
+  font-size: clamp(1.75rem, 2.7vw, 2.35rem);
+  line-height: 1.16;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 :where(.portal) :where(h2) {
@@ -102,12 +102,15 @@ html[lang="zh-HK"] .portal {
   align-items: center;
   justify-content: center;
   width: fit-content;
+  min-height: 38px;
+  padding: 0 16px;
   background: var(--blue);
   color: var(--surface);
   border-color: var(--blue);
   text-decoration: none;
   gap: 8px;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
 }
 .portal .portal-button:hover:not(:disabled) {
   background: var(--blue-deep);
@@ -384,12 +387,12 @@ html[lang="zh-HK"] .portal {
 }
 .portal .portal-tabs button {
   min-height: 38px;
-  padding: 6px 14px;
+  padding: 0.55rem 0.8rem;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: var(--color-body);
-  font-size: 14px;
+  font-size: 0.86rem;
   font-weight: 600;
 }
 .portal .portal-tabs button:hover:not(:disabled) {
@@ -397,9 +400,11 @@ html[lang="zh-HK"] .portal {
   border-color: transparent;
   color: var(--blue-deep);
 }
+/* The selected tab is the teacher nav's soft-filled pill, not an underline. */
 .portal .portal-tabs button[aria-current] {
-  color: var(--workspace-selected-text, var(--color-ink));
-  border-bottom-color: var(--workspace-selected-text, var(--color-ink));
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+  border-color: transparent;
 }
 .portal-student-home {
   display: grid;
@@ -644,7 +649,8 @@ html[lang="zh-HK"] .portal {
   padding: 24px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  /* Same surface, radius and title scale as the teacher's library card. */
+  border-radius: 14px;
   min-width: 0;
 }
 .portal-course > .portal-text-link {
@@ -657,8 +663,10 @@ html[lang="zh-HK"] .portal {
   padding-top: 8px;
 }
 .portal-course h3 {
-  font-size: 20px;
-  line-height: 28px;
+  font-size: clamp(1.2rem, 1.65vw, 1.48rem);
+  line-height: 1.16;
+  font-weight: 690;
+  letter-spacing: -0.045em;
 }
 .portal-course h3 a {
   text-decoration: none;
