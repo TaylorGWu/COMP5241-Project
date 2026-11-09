@@ -110,6 +110,39 @@ function chapterPayload(reviewSlideId) {
       console.log('PASS wrong answer review link jumps to the teaching slide');
     }
 
+    // ---- 4. a long practice set shows one question at a time ----
+    {
+      const context = await browser.newContext({ viewport:{width:1440,height:1000}, reducedMotion:'reduce' });
+      const page = await context.newPage(); const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      const user = { id:'u1', name:'Learner', email:'learner@example.test', role:'student', status:'active', active:true, createdAt:1700000000 };
+      const three = ['q1','q2','q3'].map((id, i) => ({ id, stem:`Question ${i+1} about search`, revision:'a'.repeat(64), options:[{id:'A',text:'First'},{id:'B',text:'Second'}] }));
+      await page.route('**/api/**', route => {
+        const api = new URL(route.request().url()).pathname;
+        if (api === '/api/auth/me') return route.fulfill({ json: { user, csrfToken:'fixture' } });
+        if (api === '/api/student/home') return route.fulfill({ json: { courses:[course], profile:{ background:'', goal:'', weeklyMinutes:0 }, recommendation:null } });
+        if (api.endsWith('/progress')) return route.fulfill({ json: { progress:{ visitedSlideIds:['s1'], lastSlideId:'s1', completionPercent:20, completed:false } } });
+        if (api === '/api/student/courses/sample/chapters/one') return route.fulfill({ json: {
+          chapter:{ id:'one', title:'Example chapter', slides:[slideOne, slideTwo], questions:three, glossary:[] },
+          progress:{ visitedSlideIds:['s1'], lastSlideId:'s1', completionPercent:20, completed:false },
+          results:{} } });
+        return route.fulfill({ json: {} });
+      });
+      await page.goto(base + '/student/courses/sample/chapters/one');
+      await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      assert.equal(await page.locator('.portal-question').count(), 3, 'All questions stay listed');
+      assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Only one question is expanded');
+      assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'true', 'The first unanswered question opens');
+      await page.locator('.portal-question-toggle').nth(2).click();
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Opening one closes the other');
+      assert.equal(await page.locator('.portal-question-toggle').nth(2).getAttribute('aria-expanded'), 'true');
+      assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'false');
+      assert.deepEqual(errors, []);
+      await context.close();
+      console.log('PASS practice list expands one question at a time');
+    }
+
     console.log('Student next-step, weekly budget and review link passed.');
     console.log('Screenshots: ' + out);
   } finally {

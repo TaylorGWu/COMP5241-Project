@@ -8,6 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { SlideFrame } from "@/components/SlideCanvas";
+import { PortalIcon } from "./PortalIcon";
 import { authFetch } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
@@ -87,6 +88,15 @@ function Lesson({
   const [retry, setRetry] = useState(0);
   const slide = data.chapter.slides[index];
   const readingRef = useRef<HTMLDivElement>(null);
+  // Open the next question the learner has to answer; a fully answered chapter
+  // opens the first one so its feedback stays visible without expanding all.
+  const firstOpenQuestion =
+    data.chapter.questions.find((question) => !data.results[question.id])?.id ??
+    data.chapter.questions[0]?.id ??
+    null;
+  const [openQuestion, setOpenQuestion] = useState<string | null>(
+    firstOpenQuestion,
+  );
   // A wrong answer can send the learner back to the slide that teaches it.
   const reviewSlide = (slideId: string) => {
     const target = data.chapter.slides.findIndex(
@@ -218,10 +228,17 @@ function Lesson({
             <h2>{c.practice}</h2>
             <p>{c.practiceHint}</p>
             {data.chapter.questions.length ? (
-              data.chapter.questions.map((question) => (
+              data.chapter.questions.map((question, questionIndex) => (
                 <Practice
                   key={question.id}
                   question={question}
+                  index={questionIndex}
+                  open={openQuestion === question.id}
+                  onToggle={() =>
+                    setOpenQuestion(
+                      openQuestion === question.id ? null : question.id,
+                    )
+                  }
                   result={data.results[question.id]}
                   courseId={courseId}
                   chapterId={chapterId}
@@ -320,20 +337,26 @@ function StudentAsset({ url, alt }: { url: string; alt: string }) {
 }
 function Practice({
   question,
+  index,
   result,
   courseId,
   chapterId,
   accept,
   reload,
   onReviewSlide,
+  open,
+  onToggle,
 }: {
   question: Question;
+  index: number;
   result?: Result;
   courseId: string;
   chapterId: string;
   accept: (result: Awaited<ReturnType<typeof portalApi.attempt>>) => void;
   reload: () => void;
   onReviewSlide: (slideId: string) => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -363,77 +386,102 @@ function Practice({
     );
   };
   return (
-    <form className="portal-question" onSubmit={submit}>
-      <fieldset disabled={write.busy || !!shown}>
-        <legend>{question.stem}</legend>
-        {question.options.map((option) => (
-          <label className="portal-option" key={option.id}>
-            <input
-              type="radio"
-              name={`question-${question.id}`}
-              value={option.id}
-              checked={choice === option.id}
-              onChange={() => setChoice(option.id)}
-              required
-            />
-            <span>{option.text}</span>
-          </label>
-        ))}
-      </fieldset>
-      {shown ? (
-        <div
-          className={`portal-answer ${shown.correct ? "is-correct" : ""}`}
-          role="status"
+    <section className="portal-question" data-open={open ? "" : undefined}>
+      {/* One row per question keeps a long practice set scannable; the options
+          and feedback only take space for the question being worked on. */}
+      <h3 className="portal-question-head">
+        <button
+          type="button"
+          className="portal-question-toggle"
+          aria-expanded={open}
+          onClick={onToggle}
         >
-          <strong>{shown.correct ? c.correct : c.incorrect}</strong>
-          <p>
-            {c.yourAnswer}:{" "}
-            {optionText(question.options, shown.selectedOptionId)}
-          </p>
-          {!shown.correct ? (
-            <p>
-              {c.correctAnswer}:{" "}
-              {optionText(question.options, shown.correctOptionId)}
-            </p>
-          ) : null}
-          <p>{shown.explanation}</p>
-          <small>{c.resultSaved}</small>
-          {shown.reviewSlideId ? (
-            <button
-              type="button"
-              onClick={() => onReviewSlide(shown.reviewSlideId!)}
-            >
-              {c.reviewRelated}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setRetrying(true);
-              setChoice("");
-              submission.current = null;
-            }}
+          <span className="portal-question-index">{index + 1}</span>
+          <span className="portal-question-stem">{question.stem}</span>
+          <span
+            className={`portal-question-state${
+              result ? (result.correct ? " is-correct" : " is-wrong") : ""
+            }`}
           >
-            {c.retryAnswer}
-          </button>
-        </div>
-      ) : (
-        <button className="portal-button" disabled={write.busy || !choice}>
-          {write.busy ? c.saving : c.check}
+            {result ? (result.correct ? c.correct : c.incorrect) : c.notAnswered}
+          </span>
+          <PortalIcon name="chevron" />
         </button>
-      )}
-      <PortalError
-        error={
-          write.error === "Question changed; reload chapter"
-            ? c.questionChanged
-            : write.error
-        }
-        retry={
-          write.error === "Question changed; reload chapter"
-            ? reload
-            : undefined
-        }
-      />
-    </form>
+      </h3>
+      {open ? (
+        <form onSubmit={submit}>
+          <fieldset disabled={write.busy || !!shown}>
+            <legend className="sr-only">{question.stem}</legend>
+            {question.options.map((option) => (
+              <label className="portal-option" key={option.id}>
+                <input
+                  type="radio"
+                  name={`question-${question.id}`}
+                  value={option.id}
+                  checked={choice === option.id}
+                  onChange={() => setChoice(option.id)}
+                  required
+                />
+                <span>{option.text}</span>
+              </label>
+            ))}
+          </fieldset>
+          {shown ? (
+            <div
+              className={`portal-answer ${shown.correct ? "is-correct" : ""}`}
+              role="status"
+            >
+              <strong>{shown.correct ? c.correct : c.incorrect}</strong>
+              <p>
+                {c.yourAnswer}:{" "}
+                {optionText(question.options, shown.selectedOptionId)}
+              </p>
+              {!shown.correct ? (
+                <p>
+                  {c.correctAnswer}:{" "}
+                  {optionText(question.options, shown.correctOptionId)}
+                </p>
+              ) : null}
+              <p>{shown.explanation}</p>
+              <small>{c.resultSaved}</small>
+              {shown.reviewSlideId ? (
+                <button
+                  type="button"
+                  onClick={() => onReviewSlide(shown.reviewSlideId!)}
+                >
+                  {c.reviewRelated}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setRetrying(true);
+                  setChoice("");
+                  submission.current = null;
+                }}
+              >
+                {c.retryAnswer}
+              </button>
+            </div>
+          ) : (
+            <button className="portal-button" disabled={write.busy || !choice}>
+              {write.busy ? c.saving : c.check}
+            </button>
+          )}
+          <PortalError
+            error={
+              write.error === "Question changed; reload chapter"
+                ? c.questionChanged
+                : write.error
+            }
+            retry={
+              write.error === "Question changed; reload chapter"
+                ? reload
+                : undefined
+            }
+          />
+        </form>
+      ) : null}
+    </section>
   );
 }
