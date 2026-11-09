@@ -865,8 +865,119 @@ html[lang="zh-HK"] .portal {
   grid-row: 1;
 }
 /* Practice reads under the slide it belongs to; the rail is for help. */
+/* The tutor panel: a card with the page it reads, the exchanges, and one field. */
 .portal-tutor {
   grid-column: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.portal-tutor h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.portal-tutor__slide {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.portal-tutor__log {
+  display: grid;
+  gap: 8px;
+}
+/* One card per exchange: the newest open, the rest folded to their question. */
+.portal-tutor__turn {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--canvas);
+  overflow: hidden;
+}
+.portal-tutor__turn[open] {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--line) 70%, var(--ink));
+}
+.portal-tutor__question {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 19px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.portal-tutor__turn[open] .portal-tutor__question {
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.portal-tutor__question::-webkit-details-marker {
+  display: none;
+}
+.portal-tutor__question::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--body);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform .16s ease;
+}
+.portal-tutor__turn[open] .portal-tutor__question::after {
+  transform: rotate(-90deg);
+}
+.portal-tutor__said {
+  margin: 0;
+  padding: 12px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.portal-tutor__said--error {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+}
+.portal-tutor__form {
+  display: grid;
+  gap: 8px;
+}
+.portal-tutor__form textarea {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  resize: vertical;
+}
+.portal-tutor__form textarea:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.portal-tutor__form .portal-button {
+  width: 100%;
+}
+.portal-tutor__key {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 16px;
 }
 @media (min-width: 1360px) {
   .portal-player {
