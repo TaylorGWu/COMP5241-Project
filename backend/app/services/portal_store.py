@@ -4,15 +4,28 @@ import time
 import json
 
 
+def _add_weekly_minutes(db):
+    """v4: a learner's weekly time budget, used to explain the next-step recommendation."""
+    columns = {row['name'] for row in db.execute('PRAGMA table_info(portal_profiles)')}
+    if 'weekly_minutes' not in columns:
+        db.execute('ALTER TABLE portal_profiles ADD COLUMN weekly_minutes INTEGER NOT NULL DEFAULT 0')
+    db.execute("INSERT INTO auth_schema_versions VALUES(4, strftime('%s','now'))")
+
+
 def migrate(store, *, initial_upgrade=False):
     with store.connection() as db:
-        if db.execute("SELECT 1 FROM auth_schema_versions WHERE version=3").fetchone():
+        has_v3 = bool(db.execute("SELECT 1 FROM auth_schema_versions WHERE version=3").fetchone())
+        has_v4 = bool(db.execute("SELECT 1 FROM auth_schema_versions WHERE version=4").fetchone())
+        if has_v3 and has_v4:
             return
         if not initial_upgrade:
             backup_path = store.path.with_name(f"{store.path.name}.pre-portal-{time.time_ns()}.bak")
             with sqlite3.connect(backup_path) as backup:
                 db.backup(backup)
             backup_path.chmod(0o600)
+        if has_v3 and not has_v4:
+            _add_weekly_minutes(db)
+            return
         db.executescript('''
             BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS portal_publications(course_id TEXT PRIMARY KEY REFERENCES courses(id), snapshot TEXT NOT NULL);
@@ -45,3 +58,4 @@ def migrate(store, *, initial_upgrade=False):
                 except (TypeError, ValueError, KeyError):
                     continue
         db.execute("INSERT INTO auth_schema_versions VALUES(3, strftime('%s','now'))")
+        _add_weekly_minutes(db)

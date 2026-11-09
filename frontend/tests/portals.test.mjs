@@ -217,3 +217,35 @@ test("portal requests use student contracts and authenticated JSON mutations", a
     setCsrfToken(null);
   }
 });
+
+test("every locale explains each recommendation reason and the time budget", () => {
+  // The backend sends a reason code, so a missing translation would leave the
+  // "why this course" line blank in one language.
+  const required = [
+    "reasonResume",
+    "reasonGoal",
+    "reasonTime",
+    "reasonStart",
+    "weeklyMinutes",
+    "weeklyMinutesHint",
+    "reviewRelated",
+  ];
+  for (const locale of ["en", "zh-HK", "zh-CN"]) {
+    const copy = portalCopy(locale);
+    for (const key of required) {
+      assert.equal(
+        typeof copy[key],
+        "string",
+        `${locale} is missing ${key}`,
+      );
+      assert.ok(copy[key].trim().length > 0, `${locale} has empty ${key}`);
+    }
+  }
+  // The union in lib/portal.ts must cover exactly the codes the backend emits.
+  const codes = ["resume", "goal", "time", "start"];
+  const copy = portalCopy("en");
+  const mapped = codes.map(
+    (code) => copy[`reason${code[0].toUpperCase()}${code.slice(1)}`],
+  );
+  assert.equal(new Set(mapped).size, codes.length);
+});

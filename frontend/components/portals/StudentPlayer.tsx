@@ -86,6 +86,17 @@ function Lesson({
   const [saving, setSaving] = useState(false);
   const [retry, setRetry] = useState(0);
   const slide = data.chapter.slides[index];
+  const readingRef = useRef<HTMLDivElement>(null);
+  // A wrong answer can send the learner back to the slide that teaches it.
+  const reviewSlide = (slideId: string) => {
+    const target = data.chapter.slides.findIndex(
+      (entry) => entry.id === slideId,
+    );
+    if (target < 0) return;
+    setIndex(target);
+    readingRef.current?.scrollIntoView();
+    readingRef.current?.focus();
+  };
   useEffect(() => {
     if (!slide) return;
     const request = new AbortController();
@@ -165,7 +176,7 @@ function Lesson({
             </a>
           ) : null}
         </aside>
-        <div className="portal-reading">
+        <div className="portal-reading" ref={readingRef} tabIndex={-1}>
           <section aria-label={c.outline}>
             {safeSlide ? (
               <>
@@ -215,6 +226,7 @@ function Lesson({
                   courseId={courseId}
                   chapterId={chapterId}
                   reload={reload}
+                  onReviewSlide={reviewSlide}
                   accept={(result) =>
                     setData((current) => ({
                       ...current,
@@ -313,6 +325,7 @@ function Practice({
   chapterId,
   accept,
   reload,
+  onReviewSlide,
 }: {
   question: Question;
   result?: Result;
@@ -320,6 +333,7 @@ function Practice({
   chapterId: string;
   accept: (result: Awaited<ReturnType<typeof portalApi.attempt>>) => void;
   reload: () => void;
+  onReviewSlide: (slideId: string) => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -384,6 +398,14 @@ function Practice({
           ) : null}
           <p>{shown.explanation}</p>
           <small>{c.resultSaved}</small>
+          {shown.reviewSlideId ? (
+            <button
+              type="button"
+              onClick={() => onReviewSlide(shown.reviewSlideId!)}
+            >
+              {c.reviewRelated}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {

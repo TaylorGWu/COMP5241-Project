@@ -74,6 +74,25 @@ def question_revision(db, user_id, digest):
     return hmac.new(key.encode(), digest.encode(), hashlib.sha256).hexdigest()
 
 
+def review_slide(chapter, question):
+    """A teaching slide that covers the same objective, for reviewing a wrong answer.
+
+    Check-understanding slides are skipped: they ask the question rather than
+    explain it, so sending a learner back there teaches nothing.
+    """
+    objectives = set(question.get('objectiveIds') or []) if isinstance(question, dict) else set()
+    if not objectives:
+        return None
+    for slide in chapter['slides']:
+        if not isinstance(slide, dict) or not isinstance(slide.get('id'), str) or not slide['id']:
+            continue
+        if slide.get('teachingRole') == 'check_understanding':
+            continue
+        if objectives & set(slide.get('objectiveIds') or []):
+            return slide['id']
+    return None
+
+
 def state(course_id, chapter, user_id):
     with get_auth_store().connection() as db:
         visits = db.execute('SELECT slide_id FROM portal_visits WHERE course_id=? AND user_id=? AND chapter_id=? ORDER BY visited_at', (course_id, user_id, chapter['id'])).fetchall()
@@ -84,7 +103,8 @@ def state(course_id, chapter, user_id):
     results = {}
     for row in attempts:
         if row['question_id'] in questions and row['question_hash'] == question_hash(questions[row['question_id']]):
-            results[row['question_id']] = dict(questionId=row['question_id'], selectedOptionId=row['option_id'], correct=bool(row['correct']), correctOptionId=row['correct_option'], explanation=row['explanation'], attemptId=row['id'])
+            correct = bool(row['correct'])
+            results[row['question_id']] = dict(questionId=row['question_id'], selectedOptionId=row['option_id'], correct=correct, correctOptionId=row['correct_option'], explanation=row['explanation'], attemptId=row['id'], reviewSlideId=None if correct else review_slide(chapter, questions[row['question_id']]))
     total = len(slide_ids) + len(questions)
     done = len(set(visited)) + len(results)
     return dict(visitedSlideIds=visited, lastSlideId=visited[-1] if visited else None, completionPercent=round(done * 100 / total) if total else 0, completed=bool(total and done == total)), results
@@ -169,5 +189,6 @@ def attempt(course_id, chapter, user_id, question_id, option_id, submission_id, 
             db.execute('INSERT INTO portal_attempts VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', (attempt_id, submission_id, course_id, user_id, chapter['id'], question_id, option_id, int(option_id == question['answer']), question['answer'], question.get('explanation', ''), time.time(), question_hash(question)))
         else:
             attempt_id = previous['id']
-    result = dict(questionId=question_id, selectedOptionId=option_id, correct=bool(previous['correct']) if previous else option_id == question['answer'], correctOptionId=previous['correct_option'] if previous else question['answer'], explanation=previous['explanation'] if previous else question.get('explanation', ''), attemptId=attempt_id)
+    correct = bool(previous['correct']) if previous else option_id == question['answer']
+    result = dict(questionId=question_id, selectedOptionId=option_id, correct=correct, correctOptionId=previous['correct_option'] if previous else question['answer'], explanation=previous['explanation'] if previous else question.get('explanation', ''), attemptId=attempt_id, reviewSlideId=None if correct else review_slide(chapter, question))
     return result, state(course_id, chapter, user_id)[0]

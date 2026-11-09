@@ -18,12 +18,50 @@ async def student_user(request: Request) -> dict:
     return user
 
 
+def _tokens(text):
+    return {word for word in re.findall(r'\w+', text.casefold()) if len(word) > 1}
+
+
+def next_step(courses, profile):
+    """Pick one explainable next step and say why.
+
+    Resuming beats starting again, so an unfinished enrolled course wins first.
+    Otherwise rank new courses by goal overlap, then by whether they fit the
+    learner's weekly time budget. The default is the shortest course.
+    """
+    ongoing = [item for item in courses if item['enrolled'] and 0 < item['completionPercent'] < 100]
+    if ongoing:
+        best = sorted(ongoing, key=lambda item: (-item['completionPercent'], item['durationMin'], item['id']))[0]
+        return {'courseId': best['id'], 'reasonCode': 'resume', 'reason': 'Continue the course you have already started.'}
+    goal = _tokens(profile.get('background', '') + ' ' + profile.get('goal', ''))
+    minutes = profile.get('weeklyMinutes') or 0
+    ranked = []
+    for item in courses:
+        if item['enrolled']:
+            continue
+        words = _tokens(' '.join(str(item[key]) for key in ('title', 'description', 'courseCode', 'subject')))
+        overlap = len(goal & words)
+        fits_time = bool(minutes) and item['durationMin'] <= minutes
+        ranked.append((min(overlap, 3) * 2 + (1 if fits_time else 0), overlap > 0, fits_time, item['durationMin'], item['id'], item))
+    if not ranked:
+        return None
+    ranked.sort(key=lambda entry: (-entry[0], entry[3], entry[4]))
+    _score, matched_goal, fits_time, _duration, _course_id, item = ranked[0]
+    if matched_goal:
+        reason_code, reason = 'goal', 'It matches words in your background and goal.'
+    elif fits_time:
+        reason_code, reason = 'time', 'It fits the time you have available each week.'
+    else:
+        reason_code, reason = 'start', 'A short course to begin with.'
+    return {'courseId': item['id'], 'reasonCode': reason_code, 'reason': reason}
+
+
 @router.get("/home")
 async def home(request: Request):
     user = await student_user(request)
     with get_auth_store().connection() as db:
         ids = [r[0] for r in db.execute('SELECT course_id FROM portal_publications')]
-        profile = db.execute('SELECT background,goal FROM portal_profiles WHERE user_id=?', (user['id'],)).fetchone()
+        profile = db.execute('SELECT background,goal,weekly_minutes FROM portal_profiles WHERE user_id=?', (user['id'],)).fetchone()
     courses = []
     for course_id in ids:
         try:
@@ -31,25 +69,17 @@ async def home(request: Request):
         except HTTPException as exc:
             if exc.status_code != 404:
                 raise
-    profile = dict(profile) if profile else {"background": "", "goal": ""}
-    tokens = set(re.findall(r'\w+', (profile['background'] + ' ' + profile['goal']).casefold()))
-    matches = []
-    for item in courses:
-        words = set(re.findall(r'\w+', ' '.join(str(item[k]) for k in ('title', 'description', 'courseCode', 'subject')).casefold()))
-        score = len(tokens & words)
-        if score and not item['enrolled']:
-            matches.append((score, item['id']))
-    recommendation = None
-    if matches:
-        _, course_id = sorted(matches, key=lambda match: (-match[0], match[1]))[0]
-        recommendation = {'courseId': course_id, 'reason': f"Matches words in your background ({profile['background'] or 'not provided'}) and goal ({profile['goal'] or 'not provided'})."}
-    return {"courses": courses, "profile": profile, "recommendation": recommendation}
+    stored = dict(profile) if profile else {'background': '', 'goal': '', 'weekly_minutes': 0}
+    profile = {'background': stored['background'], 'goal': stored['goal'], 'weeklyMinutes': stored['weekly_minutes']}
+    return {"courses": courses, "profile": profile, "recommendation": next_step(courses, profile)}
 
 
 class Profile(BaseModel):
     model_config = ConfigDict(extra='forbid')
     background: str = Field(max_length=500)
     goal: str = Field(max_length=500)
+    # Optional so older clients keep working; None leaves the stored value alone.
+    weeklyMinutes: int | None = Field(default=None, ge=0, le=6000)
 
 
 class Visit(BaseModel):
@@ -107,8 +137,12 @@ def overview(snapshot, user_id):
 async def profile(request: Request, body: Profile):
     user = await student_user(request)
     with get_auth_store().connection() as db:
-        db.execute('INSERT INTO portal_profiles VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET background=excluded.background,goal=excluded.goal', (user['id'], body.background.strip(), body.goal.strip()))
-    return {'profile': {'background': body.background.strip(), 'goal': body.goal.strip()}}
+        stored = db.execute('SELECT weekly_minutes FROM portal_profiles WHERE user_id=?', (user['id'],)).fetchone()
+        minutes = body.weeklyMinutes if body.weeklyMinutes is not None else (stored['weekly_minutes'] if stored else 0)
+        db.execute('''INSERT INTO portal_profiles(user_id,background,goal,weekly_minutes) VALUES(?,?,?,?)
+                      ON CONFLICT(user_id) DO UPDATE SET background=excluded.background,goal=excluded.goal,weekly_minutes=excluded.weekly_minutes''',
+                   (user['id'], body.background.strip(), body.goal.strip(), minutes))
+    return {'profile': {'background': body.background.strip(), 'goal': body.goal.strip(), 'weeklyMinutes': minutes}}
 
 
 @router.get('/courses/{course_id}')

@@ -28,10 +28,15 @@ export type CourseDetail = {
   chapters: ChapterSummary[];
   enrolled: boolean;
 };
+export type NextStepReason = "resume" | "goal" | "time" | "start";
 export type StudentHome = {
   courses: Course[];
-  profile: { background: string; goal: string };
-  recommendation: { courseId: string; reason: string } | null;
+  profile: { background: string; goal: string; weeklyMinutes: number };
+  recommendation: {
+    courseId: string;
+    reason: string;
+    reasonCode: NextStepReason;
+  } | null;
 };
 export type Progress = {
   visitedSlideIds: string[];
@@ -59,6 +64,7 @@ export type Result = {
   correctOptionId: string;
   explanation: string;
   attemptId: string;
+  reviewSlideId: string | null;
 };
 export type ChapterDetail = {
   chapter: {

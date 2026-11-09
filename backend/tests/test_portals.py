@@ -123,13 +123,21 @@ def test_published_course_enrollment_learning_and_analytics():
         course = teacher.post('/api/demo/courses', json={'title': 'Git', 'durationMin': 45}).json()
         course_id, chapter_id = course['id'], course['chapterIds'][0]
         path = f'/api/demo/courses/{course_id}/chapters/{chapter_id}'
-        package = {'slideDeck': {'slides': [{'id': 's1', 'layout': 'bullets', 'title': 'Branches', 'bullets': ['Isolate work'], 'speakerNotes': 'private notes'}]},
-                   'questionSet': {'questions': [{'id': 'q1', 'type': 'mcq', 'stem': 'Branch?', 'options': [{'id': 'A', 'text': 'Isolate'}, {'id': 'B', 'text': 'Overwrite'}], 'answer': 'A', 'explanation': 'A branch isolates work.'}]}}
+        package = {'slideDeck': {'slides': [{'id': 's1', 'layout': 'bullets', 'title': 'Branches', 'bullets': ['Isolate work'], 'speakerNotes': 'private notes', 'objectiveIds': ['LO1'], 'teachingRole': 'explain'}]},
+                   'questionSet': {'questions': [{'id': 'q1', 'type': 'mcq', 'stem': 'Branch?', 'options': [{'id': 'A', 'text': 'Isolate'}, {'id': 'B', 'text': 'Overwrite'}], 'answer': 'A', 'explanation': 'A branch isolates work.', 'objectiveIds': ['LO1']}]}}
         assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
         assert student.get('/api/student/home').json()['courses'] == []
         assert teacher.post(f'/api/demo/courses/{course_id}/publish').status_code == 200
         assert student.put('/api/student/profile', json={'background': 'Git beginner', 'goal': 'Learn Git'}).status_code == 200
-        assert student.get('/api/student/home').json()['recommendation']['courseId'] == course_id
+        saved = student.put('/api/student/profile', json={'background': 'Git beginner', 'goal': 'Learn Git', 'weeklyMinutes': 90})
+        assert saved.json()['profile']['weeklyMinutes'] == 90
+        home = student.get('/api/student/home').json()
+        assert home['recommendation']['courseId'] == course_id
+        # The reason is a code the interface localises, not a rebuilt sentence.
+        assert home['recommendation']['reasonCode'] == 'goal'
+        assert home['profile']['weeklyMinutes'] == 90
+        # Omitting the field keeps the stored budget instead of zeroing it.
+        assert student.put('/api/student/profile', json={'background': 'Git beginner', 'goal': 'Learn Git'}).json()['profile']['weeklyMinutes'] == 90
         assert teacher.get('/api/student/home').status_code == 403
         assert student.post(f'/api/student/courses/{course_id}/enroll', json={}).status_code == 200
         imported = teacher.post(f'/api/demo/courses/{course_id}/students/import', json={'rows': [{'row': 2, 'name': 'Legacy Student', 'email': 'student@example.test'}]})
@@ -149,10 +157,14 @@ def test_published_course_enrollment_learning_and_analytics():
         assert result.status_code == 200
         assert result.json()['result']['correct'] is False
         assert result.json()['result']['correctOptionId'] == 'A'
+        # A wrong answer points back at the slide that teaches the same objective.
+        assert result.json()['result']['reviewSlideId'] == 's1'
         assert result.json()['progress']['completed'] is True
         assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision}).json()['result']['attemptId'] == result.json()['result']['attemptId']
         retry = student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'A', 'submissionId': 'submission-2', 'questionRevision': revision})
         assert retry.json()['result']['correct'] is True
+        # Nothing to review after a correct answer.
+        assert retry.json()['result']['reviewSlideId'] is None
         assert student.post(chapter_url + '/attempts', json={'questionId': 'q1', 'optionId': 'B', 'submissionId': 'submission-1', 'questionRevision': revision}).json()['result']['attemptId'] == result.json()['result']['attemptId']
         from app.services.auth import _store_at
         _store_at.cache_clear()
@@ -357,3 +369,68 @@ def test_registered_student_can_sign_in_and_open_portal():
         response = client.post('/api/auth/login', json={'email': 'register@example.test', 'password': PASSWORD}, headers={'Origin': ORIGIN, 'X-CSRF-Token': csrf})
         assert response.status_code == 200
         assert client.get('/api/student/home').status_code == 200
+
+
+def test_next_step_explains_resume_goal_time_and_default():
+    from app.api.routes.student import next_step
+
+    def course(**values):
+        return {'id': 'x', 'title': '', 'description': '', 'courseCode': '', 'subject': '',
+                'durationMin': 60, 'enrolled': False, 'completionPercent': 0} | values
+
+    # Finishing what you started beats a perfect goal match somewhere else.
+    resume = next_step([course(id='started', enrolled=True, completionPercent=40), course(id='match', title='Git')],
+                       {'background': '', 'goal': 'git', 'weeklyMinutes': 0})
+    assert (resume['courseId'], resume['reasonCode']) == ('started', 'resume')
+    goal = next_step([course(id='match', title='Introduction to Git', durationMin=90), course(id='other', title='Queues', durationMin=20)],
+                     {'background': 'commuter', 'goal': 'git', 'weeklyMinutes': 15})
+    assert (goal['courseId'], goal['reasonCode']) == ('match', 'goal')
+    # With no goal words, the course that fits the weekly budget wins and says why.
+    fits = next_step([course(id='long', title='Git basics', durationMin=90), course(id='short', title='Queues', durationMin=20)],
+                     {'background': '', 'goal': '', 'weeklyMinutes': 30})
+    assert (fits['courseId'], fits['reasonCode']) == ('short', 'time')
+    # With nothing to go on, offer the shortest course rather than nothing.
+    start = next_step([course(id='long', title='Git basics', durationMin=90), course(id='short', title='Queues', durationMin=20)],
+                      {'background': '', 'goal': '', 'weeklyMinutes': 0})
+    assert (start['courseId'], start['reasonCode']) == ('short', 'start')
+    assert next_step([], {'background': '', 'goal': '', 'weeklyMinutes': 0}) is None
+
+
+def test_review_slide_skips_the_question_slide_itself():
+    from app.services.student_learning import review_slide
+
+    chapter = {'slides': [
+        {'id': 's1', 'objectiveIds': ['LO1'], 'teachingRole': 'explain'},
+        {'id': 's2', 'objectiveIds': ['LO1'], 'teachingRole': 'check_understanding'},
+        {'id': 's3', 'objectiveIds': ['LO2'], 'teachingRole': 'explain'},
+    ]}
+    assert review_slide(chapter, {'objectiveIds': ['LO1']}) == 's1'
+    assert review_slide(chapter, {'objectiveIds': ['LO2']}) == 's3'
+    assert review_slide(chapter, {'objectiveIds': ['LO9']}) is None
+    assert review_slide(chapter, {}) is None
+
+
+def test_weekly_minutes_migration_upgrades_an_existing_profile_table(tmp_path):
+    # An existing v3 workspace gains the column without losing stored profiles,
+    # and re-running the migration stays idempotent.
+    from app.services import portal_store
+    from app.services.auth import AuthStore
+
+    path = tmp_path / 'upgrade.db'
+    store = AuthStore(path)
+    user = store.create_user(name='Learner', email='upgrade@example.test', password=PASSWORD, role='student')
+    with store.connection() as db:
+        db.execute("INSERT INTO portal_profiles(user_id,background,goal,weekly_minutes) VALUES(?,?,?,?)", (user['id'], 'new', 'learn git', 45))
+        db.execute('DELETE FROM auth_schema_versions WHERE version=4')
+        db.execute('ALTER TABLE portal_profiles RENAME TO portal_profiles_v4')
+        db.execute('CREATE TABLE portal_profiles(user_id TEXT PRIMARY KEY REFERENCES users(id), background TEXT NOT NULL, goal TEXT NOT NULL)')
+        db.execute('INSERT INTO portal_profiles SELECT user_id,background,goal FROM portal_profiles_v4')
+        db.execute('DROP TABLE portal_profiles_v4')
+    portal_store.migrate(store)
+    portal_store.migrate(store)
+    with store.connection() as db:
+        assert 'weekly_minutes' in {row['name'] for row in db.execute('PRAGMA table_info(portal_profiles)')}
+        row = db.execute('SELECT background,goal,weekly_minutes FROM portal_profiles WHERE user_id=?', (user['id'],)).fetchone()
+        assert (row['background'], row['goal'], row['weekly_minutes']) == ('new', 'learn git', 0)
+        assert db.execute('SELECT COUNT(*) FROM auth_schema_versions WHERE version=4').fetchone()[0] == 1
+    assert list(tmp_path.glob('upgrade.db.pre-portal-*.bak'))

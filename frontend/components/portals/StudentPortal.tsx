@@ -11,6 +11,7 @@ import {
   studentChapterHref,
   type StudentHome,
   type Course,
+  type NextStepReason,
 } from "@/lib/portal";
 import {
   PortalShell,
@@ -52,15 +53,30 @@ function StudentHomeContent({
   const [search, setSearch] = useState("");
   const [background, setBackground] = useState(data.profile.background);
   const [goal, setGoal] = useState(data.profile.goal);
+  const [minutes, setMinutes] = useState(
+    data.profile.weeklyMinutes ? String(data.profile.weeklyMinutes) : "",
+  );
   const [code, setCode] = useState("");
   const profile = usePortalWrite();
   const invite = usePortalWrite();
   const enrolled = data.courses.filter((course) => course.enrolled);
-  const resume =
-    enrolled.find((course) => course.completionPercent < 100) ?? enrolled[0];
   const recommendation = data.courses.find(
     (course) => course.id === data.recommendation?.courseId,
   );
+  // One next step, one entry point: a resume is shown in the resume card only.
+  const resume =
+    (data.recommendation?.reasonCode === "resume" ? recommendation : undefined) ??
+    enrolled.find((course) => course.completionPercent < 100) ??
+    enrolled[0];
+  const reasons: Record<NextStepReason, string> = {
+    resume: c.reasonResume,
+    goal: c.reasonGoal,
+    time: c.reasonTime,
+    start: c.reasonStart,
+  };
+  const reason = data.recommendation
+    ? reasons[data.recommendation.reasonCode]
+    : "";
   const visible = data.courses.filter((course) =>
     `${course.title} ${course.description} ${course.subject} ${course.courseCode}`
       .toLocaleLowerCase()
@@ -71,7 +87,11 @@ function StudentHomeContent({
     void profile.run(
       (signal) =>
         portalApi.profile(
-          { background: background.trim(), goal: goal.trim() },
+          {
+            background: background.trim(),
+            goal: goal.trim(),
+            weeklyMinutes: minutes.trim() === "" ? 0 : Number(minutes),
+          },
           signal,
         ),
       reload,
@@ -119,7 +139,9 @@ function StudentHomeContent({
             <p>{c.noResume}</p>
           )}
         </section>
-        {recommendation && data.recommendation ? (
+        {recommendation &&
+        data.recommendation &&
+        data.recommendation.reasonCode !== "resume" ? (
           <section className="portal-recommendation">
             <h2>{c.recommendation}</h2>
             <h3>
@@ -129,9 +151,7 @@ function StudentHomeContent({
             </h3>
             <p>
               <strong>{c.why}: </strong>
-              {c.matchReason} {c.background}:{" "}
-              {data.profile.background || c.notProvided}; {c.goal}:{" "}
-              {data.profile.goal || c.notProvided}.
+              {reason}
             </p>
           </section>
         ) : null}
@@ -167,7 +187,9 @@ function StudentHomeContent({
       <aside className="portal-sidebar">
         <section className="portal-panel">
           <h2>{c.profile}</h2>
-          {data.profile.background || data.profile.goal ? (
+          {data.profile.background ||
+          data.profile.goal ||
+          data.profile.weeklyMinutes ? (
             <dl className="portal-goal-summary">
               <div>
                 <dt>{c.background}</dt>
@@ -177,6 +199,14 @@ function StudentHomeContent({
                 <dt>{c.goal}</dt>
                 <dd>{data.profile.goal || c.notProvided}</dd>
               </div>
+              {data.profile.weeklyMinutes ? (
+                <div>
+                  <dt>{c.weeklyMinutes}</dt>
+                  <dd>
+                    {data.profile.weeklyMinutes} {c.minutes}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           ) : (
             <p>{c.profileHint}</p>
@@ -203,6 +233,19 @@ function StudentHomeContent({
                   onChange={(event) => setGoal(event.target.value)}
                 />
               </label>
+              <label>
+                {c.weeklyMinutes}
+                <input
+                  type="number"
+                  min={0}
+                  max={6000}
+                  step={15}
+                  inputMode="numeric"
+                  value={minutes}
+                  onChange={(event) => setMinutes(event.target.value)}
+                />
+              </label>
+              <p className="portal-meta">{c.weeklyMinutesHint}</p>
               <button className="portal-button" disabled={profile.busy}>
                 {profile.busy ? c.saving : c.save}
               </button>
