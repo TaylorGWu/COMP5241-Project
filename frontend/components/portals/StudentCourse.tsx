@@ -108,16 +108,33 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 <ProgressBar value={data.course.completionPercent} />
               </div>
             ) : null}
-            {data.enrolled && next ? (
-              <div className="portal-course-cta">
+            {/* One slot for the course's next action: keep going, or join. */}
+            <div className="portal-course-cta">
+              {data.enrolled && next ? (
                 <Link
                   className="portal-button portal-button--primary"
                   href={studentChapterHref(courseId, next)}
                 >
                   {data.course.completionPercent ? c.continue : c.start}
                 </Link>
-              </div>
-            ) : null}
+              ) : data.enrolled ? null : (
+                <>
+                  <button
+                    className="portal-button portal-button--primary"
+                    disabled={join.busy}
+                    onClick={() =>
+                      void join.run(
+                        (signal) => portalApi.enroll(courseId, signal),
+                        resource.setData,
+                      )
+                    }
+                  >
+                    {join.busy ? c.loading : c.join}
+                  </button>
+                  <PortalError error={join.error} />
+                </>
+              )}
+            </div>
           </header>
           <div className="portal-course-overview">
             <section>
@@ -166,24 +183,7 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 <p className="portal-empty">{c.empty}</p>
               )}
             </section>
-            {data.enrolled ? null : (
-              <aside className="portal-panel">
-                <h2>{c.yourProgress}</h2>
-                <button
-                  className="portal-button"
-                  disabled={join.busy}
-                  onClick={() =>
-                    void join.run(
-                      (signal) => portalApi.enroll(courseId, signal),
-                      resource.setData,
-                    )
-                  }
-                >
-                  {join.busy ? c.loading : c.join}
-                </button>
-                <PortalError error={join.error} />
-              </aside>
-            )}
+
           </div>
         </>
       ) : null}
