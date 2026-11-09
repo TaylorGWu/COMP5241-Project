@@ -133,6 +133,33 @@ html[lang="zh-HK"] .portal {
   border-color: var(--line);
   color: var(--ink);
 }
+.portal .portal-button--back {
+  white-space: nowrap;
+}
+/* On a phone the top bar has room for the brand, this control and the avatar -
+   just. It shrinks rather than pushing the header sideways. */
+@media (max-width: 400px) {
+  /* Below this the brand and the page control no longer share one line. */
+  .portal .public-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .portal .public-header nav {
+    margin-left: auto;
+  }
+}
+@media (max-width: 560px) {
+  .portal .public-header .portal-button--back {
+    min-height: 32px;
+    padding: 4px 8px;
+    gap: 4px;
+    font-size: 13px;
+  }
+  .portal .public-header .portal-button--back .portal-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
 .portal .portal-button--quiet .portal-icon {
   width: 16px;
   height: 16px;
@@ -920,6 +947,8 @@ html[lang="zh-HK"] .portal {
 .portal-reading {
   min-width: 0;
   display: grid;
+  /* An auto-sized column lets a nowrap row push the whole page sideways. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 40px;
 }
 /* Three views of one chapter, so the tab row sits with the content it switches. */
@@ -1108,22 +1137,30 @@ html[lang="zh-HK"] .portal {
 }
 /* Chapter footer: the reader had no way forward once a chapter ended, so the
    next chapter is reachable without going back to the course page. */
+/* Chapter navigation sits above the slide: it is how you move between chapters,
+   so it belongs before the page you are reading, not after a long scroll. */
 .portal-chapter-nav {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: -16px;
+}
+.portal-chapter-nav > span {
+  display: none;
 }
 .portal .portal-chapter-nav__link {
-  display: grid;
-  gap: 4px;
-  align-content: center;
-  min-height: 64px;
-  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(100%, 420px);
+  min-height: 36px;
+  padding: 6px 12px;
   border: 1px solid var(--color-line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--color-surface);
+  text-decoration: none;
   color: var(--color-ink);
   text-decoration: none;
 }
@@ -1132,18 +1169,15 @@ html[lang="zh-HK"] .portal {
   border-color: var(--ui-selection-text);
 }
 .portal-chapter-nav__link--next {
-  justify-items: end;
-  text-align: right;
+  margin-left: auto;
 }
-/* A lone neighbour spans the row instead of floating in one half. */
-.portal-chapter-nav--first .portal-chapter-nav__link,
-.portal-chapter-nav--last .portal-chapter-nav__link {
-  grid-column: 1 / -1;
-}
+
 .portal-chapter-nav__label {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   font-size: 12px;
   line-height: 16px;
   color: var(--color-body);
@@ -1156,6 +1190,10 @@ html[lang="zh-HK"] .portal {
   transform: rotate(180deg);
 }
 .portal-chapter-nav__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;

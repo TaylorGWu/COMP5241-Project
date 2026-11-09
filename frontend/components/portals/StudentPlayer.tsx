@@ -414,6 +414,42 @@ function Lesson({
               </button>
             ) : null}
           </nav>
+          {data.previousChapter || data.nextChapter ? (
+            <nav
+              className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
+            >
+              {data.previousChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
+                  href={studentChapterHref(courseId, data.previousChapter.id)}
+                >
+                  <span className="portal-chapter-nav__label">
+                    <PortalIcon name="arrow" /> {c.previousChapter}
+                  </span>
+                  <span className="portal-chapter-nav__title">
+                    {data.previousChapter.title}
+                  </span>
+                </Link>
+              ) : (
+                <span />
+              )}
+              {data.nextChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
+                  href={studentChapterHref(courseId, data.nextChapter.id)}
+                >
+                  <span className="portal-chapter-nav__label">
+                    {c.nextChapter} <PortalIcon name="arrow" />
+                  </span>
+                  <span className="portal-chapter-nav__title">
+                    {data.nextChapter.title}
+                  </span>
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          ) : null}
           {view === "slides" ? (
           <section aria-label={c.outline}>
             {safeSlide ? (
@@ -509,42 +545,6 @@ function Lesson({
           )}
         </section>
         ) : null}
-          {data.previousChapter || data.nextChapter ? (
-            <nav
-              className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
-            >
-              {data.previousChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
-                  href={studentChapterHref(courseId, data.previousChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    <PortalIcon name="arrow" /> {c.previousChapter}
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.previousChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-              {data.nextChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
-                  href={studentChapterHref(courseId, data.nextChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    {c.nextChapter} <PortalIcon name="arrow" />
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.nextChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-            </nav>
-          ) : null}
         </div>
         <aside className="portal-tutor">
           <h2>{c.tutor}</h2>
