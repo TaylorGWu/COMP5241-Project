@@ -746,11 +746,38 @@ html[lang="zh-HK"] .portal {
   margin: 24px 0 0;
   padding: 0;
 }
+/* The whole row is the target, and it says so on hover - the teacher's curriculum
+   behaves the same way, so a learner is not aiming at a word. */
 .portal-chapter-list > li {
+  position: relative;
   display: flex;
   gap: 16px;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
+  margin: 0 -12px;
+  padding: 16px 12px;
+  border-radius: 8px;
+  transition: background-color .16s ease;
+}
+.portal-chapter-list > li:hover {
+  background: var(--soft);
+}
+.portal-chapter-list > li:has(a:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.portal-chapter-list > li h3 a {
+  color: var(--blue-deep);
+  text-decoration: none;
+}
+.portal-chapter-list > li h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The title's link covers the row, so a click anywhere opens the chapter. */
+.portal-chapter-list > li h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
 }
 .portal-chapter-list > li > div {
   display: grid;
