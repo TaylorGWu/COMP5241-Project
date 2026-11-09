@@ -1027,13 +1027,19 @@ html[lang="zh-HK"] .portal {
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 16px;
   min-width: 0;
-  position: sticky;
-  top: 24px;
-  /* Capped to roughly the height of the column beside it: a taller rail used to
-     stretch the grid row and leave a blank block under the slide. */
-  max-height: clamp(360px, calc(100vh - 340px), 640px);
-  /* Its list scrolls inside; without paint containment the overflowing entries keep
-     counting towards the document height, so the page scrolls into blank space. */
+  align-content: start;
+  /* Exactly as tall as the column beside it: the rail stretches to the row the
+     slide sets, and its list scrolls inside that box. `min-height: 0` plus
+     `overflow: hidden` keep the rail from setting the row height itself, which is
+     what used to stretch the page and leave a blank block under the slide. */
+  align-self: start;
+  min-height: 0;
+  /* Measured against the slide column (see StudentPlayer), so the list's scrollbar
+     is exactly as long as the page area it sits beside. */
+  max-height: var(--rail-height, calc(100vh - 340px));
+  /* Clipped entries must not keep counting towards the document height, or the
+     page scrolls past its own content. */
+  overflow: hidden;
   contain: paint;
 }
 .portal-outline ol {

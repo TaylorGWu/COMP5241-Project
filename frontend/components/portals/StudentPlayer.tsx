@@ -277,6 +277,25 @@ function Lesson({
   // Slides, practice and the glossary are three views of one chapter, not one
   // long page: the teacher's chapter does the same with its material tabs.
   const [view, setView] = useState<"slides" | "practice" | "glossary">("slides");
+  // The rail is exactly as tall as the slide column beside it, so its scrollbar
+  // ends where the page does instead of somewhere arbitrary.
+  const railRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const reading = readingRef.current;
+    const rail = railRef.current;
+    if (!reading || !rail) return;
+    const sync = () => {
+      rail.style.setProperty(
+        "--rail-height",
+        `${Math.round(reading.getBoundingClientRect().height)}px`,
+      );
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(reading);
+    return () => observer.disconnect();
+  }, [data.chapter.id, view, data.chapter.slides.length]);
+
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState<
     { id: string; question: string; answer?: string }[]
@@ -346,7 +365,7 @@ function Lesson({
       </header>
       <PortalError error={progressError} retry={() => setRetry((n) => n + 1)} />
       <div className="portal-player">
-        <aside className="portal-outline">
+        <aside className="portal-outline" ref={railRef}>
           {/* No visible heading: the list is self-evident and the label below keeps
               it announced. */}
           <ol aria-label={c.outline}>
