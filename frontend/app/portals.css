@@ -515,9 +515,14 @@ html[lang="zh-HK"] .portal {
 }
 /* The reader is a wide teaching surface, but stretched text is not. Up to this
    width the slide and practice share one measure; past it the practice becomes
-   its own rail so the extra width carries content instead of blank margin. */
+   its own rail so the extra width carries content instead of blank margin.
+   Header and content read the same variable so they cannot drift apart. */
+.portal:has(.portal-player) {
+  --reader-shell: 1560px;
+}
+.portal:has(.portal-player) .public-header,
 .portal-shell:has(.portal-player) {
-  max-width: 1560px;
+  max-width: var(--reader-shell);
 }
 .portal-player {
   display: grid;
