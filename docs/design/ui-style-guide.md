@@ -64,8 +64,10 @@ remain unchanged. The `.slide-body` boundary restores the original lesson colour
 tokens through root-level `--lesson-*` aliases, including thumbnail content.
 Do not remove that boundary when merging: UI changes must not recolour lessons.
 
-Login, registration, profile and qualification application keep their existing
-layout and palette. Only navigation selection,
+Login and registration now share the operating canvas, palette, type and dark
+primary action through the stable `.auth-page` root; their layout, field heights,
+blue links and photographic panel are unchanged. Profile and qualification
+application keep their existing layout and palette. Only navigation selection,
 account disclosure and segmented preference controls share the global
 `--ui-selection-bg` and `--ui-selection-text` tokens. Do not add the canvas skin
 to teaching slides: their colours can carry teaching meaning. Homepage layout

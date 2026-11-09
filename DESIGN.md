@@ -130,7 +130,7 @@ components:
 
 **Creative North Star: "Make teaching decisions visible."**
 
-Extend the incumbent Coursework system: navy ink, restrained blue actions and light blue-grey surfaces. The approved home/profile/application refinement uses Manrope display, Source Sans 3 body and locale-appropriate Noto Sans SC/TC. Course editing and authentication retain Geist. Authentication uses a focused form and a quiet photographic learning-studio illustration; the homepage has its own labelled lesson-planning image and live teaching example.
+Extend the incumbent Coursework system: navy ink, restrained blue actions and light blue-grey surfaces. The approved home/profile/application refinement uses Manrope display, Source Sans 3 body and locale-appropriate Noto Sans SC/TC. Course editing retains Geist. Authentication uses a focused form and a quiet photographic learning-studio illustration; the homepage has its own labelled lesson-planning image and live teaching example.
 
 This is an extraction of the current system, not a rebrand. Sources include `frontend/app/globals.css`, `frontend/app/public.css`, `frontend/app/public-refinement.css`, `frontend/components/ui.tsx`, `PublicHeader.tsx`, `AccountActions.tsx`, `PublicHome.tsx`, `TeacherProfile.tsx`, `AuthScreen.module.css` and `AccountPages.tsx`. The approved surface composition and narrative remain in `docs/design/public-entry-interface.md`; they are not mandatory layouts for every new screen.
 
@@ -161,7 +161,7 @@ The frontmatter records the light-theme primitives; `globals.css` remains the im
 
 ## Typography
 
-Geist remains the course-editor and authentication family; Geist Mono serves actual code and selected numeric information. Home, profile and application pages use Manrope headings (550-600) and Source Sans 3 body (400-600), scoped by their main classes. Chinese pages use Noto Sans SC or TC. Fonts are self-hosted through `next/font` with swap; the large CJK face sheets load only for Chinese interfaces and on live locale changes, without reloading dirty forms. The recorded display/headline/public-body/profile-title roles describe these three surfaces; title/body/label remain authentication roles.
+Geist remains the course-editor family; Geist Mono serves actual code and selected numeric information. Login and registration follow the operating canvas and Manrope through `.auth-page`. Home, profile and application pages use Manrope headings (550-600) and Source Sans 3 body (400-600), scoped by their main classes. Chinese pages use Noto Sans SC or TC. Fonts are self-hosted through `next/font` with swap; the large CJK face sheets load only for Chinese interfaces and on live locale changes, without reloading dirty forms. The recorded display/headline/public-body/profile-title roles describe these three surfaces; title/body/label remain authentication roles.
 
 Public headings are tightly tracked with moderate variable weights. Forms keep their labels visible; supporting copy uses generous line height. Auth text inputs are larger than labels (15px desktop, 16px mobile). At the mobile public breakpoint, the teaching demonstration becomes a vertical sequence with readable titles (15px), guiding questions and descriptions (13px).
 
@@ -281,6 +281,14 @@ code, and carry this visual system into the integrated version.
 - Don't replace the approved scoped type system or carry public display typography into the course editor.
 - Don't replace readable text/code demonstrations with raster artwork containing labels.
 - Don't add visual proof such as logos, testimonials, adoption numbers or progress that the product cannot substantiate.
+
+Authentication override 2026-11-09: login and registration were the last screens on
+the old palette, so signing in looked like a different product. Both now join the
+operating canvas through the stable `.auth-page` root - warm ivory, neutral ink,
+Manrope and the dark primary action - while keeping their own layout: the 400px
+form, 50px fields, blue links, the photographic panel and its provenance note are
+unchanged. Profile and qualification application still keep their existing layout
+and palette. This supersedes the earlier note that authentication retained Geist.
 
 Teacher operating screens override approved 2026-10-26: the course library uses
 two aligned columns above 760px, one below, without restoring the removed title

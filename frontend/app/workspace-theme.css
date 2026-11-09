@@ -16,7 +16,7 @@
   --ui-selection-bg: #343f2b;
   --ui-selection-text: #dce8cd;
 }
-:is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page, .auth-page) {
   --color-canvas: #f7f6f2;
   --color-surface: #ffffff;
   --color-soft: #efeee8;
@@ -35,14 +35,14 @@
   font-family: var(--font-public-display), var(--workspace-cjk), sans-serif;
   font-weight: 450;
 }
-:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(h1, h2, h3) {
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) :is(h1, h2, h3) {
   letter-spacing: -.02em;
   font-weight: 600;
 }
-html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page, .auth-page) {
   --workspace-cjk: var(--font-public-tc, "PingFang TC");
 }
-[data-theme="dark"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page) {
+[data-theme="dark"] :is(.course-library-page, .course-create-page, .course-detail, .portal, .chapter-workspace-page, .auth-page) {
   --color-canvas: #181818;
   --color-surface: #242424;
   --color-soft: #2b2b2b;
@@ -54,19 +54,19 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
   --workspace-action-text: #242424;
   --workspace-action-hover: #dedede;
 }
-:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(a, button, input, textarea, select, summary):focus-visible {
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) :is(a, button, input, textarea, select, summary):focus-visible {
   outline: 2px solid var(--color-blue);
   outline-offset: 4px;
 }
-:is(.course-library-page, .course-create-page, .course-detail, .portal) ::selection {
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) ::selection {
   background: var(--workspace-selected);
   color: var(--workspace-selected-text);
 }
-:is(.course-library-page, .course-create-page, .course-detail, .portal) :is(input, textarea) {
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) :is(input, textarea) {
   caret-color: var(--color-ink);
 }
 :is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue),
-:is(.course-library-page, .course-create-page, .course-detail, .portal) .public-button,
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) .public-button,
 .portal .portal-button:not(.portal-button--secondary) {
   color: var(--workspace-action-text);
   background: var(--workspace-action);
@@ -75,7 +75,7 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
   transition: background-color 200ms cubic-bezier(.22,1,.36,1);
 }
 :is(.course-library-page, .course-create-page, .course-detail) :is(button.bg-blue, a.bg-blue):hover:not(:disabled),
-:is(.course-library-page, .course-create-page, .course-detail, .portal) .public-button:hover:not(:disabled),
+:is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) .public-button:hover:not(:disabled),
 .portal .portal-button:not(.portal-button--secondary):hover:not(:disabled) {
   color: var(--workspace-action-text);
   background: var(--workspace-action-hover);
@@ -201,5 +201,5 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
   .portal .portal-title { margin: 16px 0 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.course-library-page, .course-create-page, .course-detail, .portal) :is(button, a) { transition: none; }
+  :is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) :is(button, a) { transition: none; }
 }
