@@ -325,8 +325,28 @@ html[lang="zh-HK"] .portal {
 .portal-goals-editor form {
   margin-top: 16px;
 }
+/* Sits beside the button it confirms, not as a loose label under the form. */
+.portal-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .portal .portal-save-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
   color: var(--green);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.portal-save-feedback .portal-icon {
+  width: 15px;
+  height: 15px;
 }
 .portal-recommendation {
   display: grid;

@@ -130,6 +130,7 @@ export function usePortalResource<T>(
 export function usePortalWrite() {
   const request = useRef<AbortController | null>(null);
   const mounted = useRef(false);
+  const savedTimer = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -137,9 +138,19 @@ export function usePortalWrite() {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (savedTimer.current) window.clearTimeout(savedTimer.current);
       request.current?.abort();
     };
   }, []);
+  // The confirmation is feedback for one action, not a permanent state, so it
+  // clears itself instead of sitting under the form until the next save.
+  const confirm = () => {
+    setSaved(true);
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => {
+      if (mounted.current) setSaved(false);
+    }, 2600);
+  };
   const run = async <T,>(
     write: (signal: AbortSignal) => Promise<T>,
     accept?: (data: T) => void,
@@ -150,11 +161,12 @@ export function usePortalWrite() {
     setBusy(true);
     setError("");
     setSaved(false);
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
     try {
       const result = await write(controller.signal);
       if (mounted.current && !controller.signal.aborted) {
         accept?.(result);
-        setSaved(true);
+        confirm();
       }
     } catch (cause) {
       if (mounted.current && !controller.signal.aborted)

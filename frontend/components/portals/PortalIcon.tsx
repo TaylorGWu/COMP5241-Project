@@ -7,6 +7,7 @@ const paths = {
     "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M13 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
   activity: "M22 12a10 10 0 1 1-3-7.14M22 3v6h-6m-4-3v6l4 2",
   chevron: "m6 9 6 6 6-6",
+  check: "m5 12 4 4L19 7",
 } as const;
 
 export function PortalIcon({ name }: { name: keyof typeof paths }) {

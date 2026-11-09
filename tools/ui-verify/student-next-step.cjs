@@ -55,6 +55,14 @@ function chapterPayload(reviewSlideId) {
       await page.getByText('Edit learning goals').click();
       const budget = page.getByLabel('Time available each week');
       assert.equal(await budget.inputValue(), '60', 'The budget input is prefilled from the server');
+      // Saving confirms beside the button and then clears itself, rather than
+      // leaving a permanent label under the form.
+      const said = page.locator('.portal-save-feedback');
+      await page.getByRole('button', { name:'Save goals' }).click();
+      await said.waitFor();
+      assert.ok((await said.innerText()).includes('Saved'), 'The confirmation is announced');
+      await page.waitForTimeout(2900);
+      assert.equal(await said.count(), 0, 'The confirmation clears itself');
       // A goal recommendation must not also appear as the resume card.
       assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 1);
       // Reading and answering are reported separately rather than blended away.

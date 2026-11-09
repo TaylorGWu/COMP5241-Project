@@ -246,17 +246,20 @@ function StudentHomeContent({
                 />
               </label>
               <p className="portal-meta">{c.weeklyMinutesHint}</p>
-              <button className="portal-button" disabled={profile.busy}>
-                {profile.busy ? c.saving : c.save}
-              </button>
+              <div className="portal-form-actions">
+                <button className="portal-button" disabled={profile.busy}>
+                  {profile.busy ? c.saving : c.save}
+                </button>
+                {profile.saved ? (
+                  <span role="status" className="portal-save-feedback">
+                    <PortalIcon name="check" />
+                    {c.saved}
+                  </span>
+                ) : null}
+              </div>
             </form>
           </details>
           <PortalError error={profile.error} />
-          {profile.saved ? (
-            <p role="status" className="portal-save-feedback">
-              {c.saved}
-            </p>
-          ) : null}
         </section>
         <section className="portal-panel">
           <h2>{c.invite}</h2>
