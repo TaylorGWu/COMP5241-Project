@@ -198,7 +198,9 @@ html[lang="zh-HK"] .portal {
 .portal-title {
   display: grid;
   gap: 12px;
-  margin: 16px 0 24px;
+  /* The top bar already separates the page from the chrome; a second 24px of
+     margin left a dead band above the title. */
+  margin: 0 0 24px;
 }
 /* Only the reader header carries a progress block; every other header is a
    simple stack, so its lines cannot drift apart. */

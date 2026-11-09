@@ -181,7 +181,7 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
   border-color: transparent;
 }
 .portal .portal-section-nav button:hover:not(:disabled) { border-color: transparent; }
-.portal .portal-title { margin: 24px 0 32px; }
+.portal .portal-title { margin: 0 0 28px; }
 .portal .portal-course-mark { background: var(--workspace-selected); color: var(--workspace-selected-text); }
 .portal .portal-metric-action { color: var(--color-ink); }
 .portal .portal-metric:hover:not(:disabled) { border-color: var(--workspace-selected-text); background: var(--color-surface); }
@@ -198,7 +198,7 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
 @media (max-width: 480px) {
   .portal .public-brand { font-size: 20px; gap: 8px; }
   .portal .public-brand > span:first-child { width: 32px; height: 32px; }
-  .portal .portal-title { margin: 16px 0 24px; }
+  .portal .portal-title { margin: 0 0 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.course-library-page, .course-create-page, .course-detail, .portal, .auth-page) :is(button, a) { transition: none; }
