@@ -53,7 +53,7 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await page.getByText('60 min').count() >= 1, true, 'The weekly time budget is shown');
       // The editor exposes the budget field so it can be changed.
       await page.getByText('Edit learning goals').click();
-      const budget = page.getByLabel('Time available each week');
+      const budget = page.getByLabel('Weekly study budget');
       assert.equal(await budget.inputValue(), '60', 'The budget input is prefilled from the server');
       // Saving confirms beside the button and then clears itself, rather than
       // leaving a permanent label under the form.
