@@ -2396,3 +2396,37 @@ body:has(.portal) {
 #learning-goals {
   scroll-margin-top: 88px;
 }
+
+/* The course header uses two columns: the title and its description on the left, the
+   course's facts on the right, so the right half of the page is not left empty. */
+.portal .portal-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  column-gap: 48px;
+  align-items: start;
+}
+.portal .portal-title > .portal-title-head,
+.portal .portal-title > p:not(.portal-tags):not(.portal-meta),
+.portal .portal-course-progress {
+  grid-column: 1;
+}
+.portal .portal-title > .portal-tags,
+.portal .portal-title > .portal-facts,
+.portal .portal-title > .portal-meta {
+  grid-column: 2;
+  justify-content: flex-start;
+}
+.portal .portal-title > .portal-tags {
+  margin-top: 4px;
+}
+@media (max-width: 900px) {
+  .portal .portal-title {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+  .portal .portal-title > .portal-tags,
+  .portal .portal-title > .portal-facts,
+  .portal .portal-title > .portal-meta {
+    grid-column: 1;
+  }
+}
