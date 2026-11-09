@@ -1411,6 +1411,18 @@ body:has(.portal) {
 .portal-stage-arrow--next .portal-icon {
   transform: rotate(-90deg);
 }
+/* In the top bar the chapter jumps are plain quiet buttons, not the wide pill the
+   tab row used to hold. */
+.portal .portal-chapter-nav--bar {
+  margin: 0;
+  gap: 8px;
+}
+.portal .portal-chapter-nav__bar-link {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .portal-chapter-nav {
   display: flex;
   flex-wrap: wrap;

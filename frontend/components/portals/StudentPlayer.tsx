@@ -172,12 +172,45 @@ export function StudentPlayer({
     <PortalShell
       title={resource.data?.courseTitle}
       action={
-        <Link
-          href={studentCourseHref(courseId)}
-          className="portal-button portal-button--quiet portal-button--back"
-        >
-          <PortalIcon name="chevron" /> {copy.courseBack}
-        </Link>
+        <>
+          {/* Chapter jumps live in the top bar beside the back control, so the tab
+              row belongs to the page's own views. */}
+          {resource.data?.previousChapter || resource.data?.nextChapter ? (
+            <nav className="portal-chapter-nav portal-chapter-nav--bar" aria-label={copy.outline}>
+              {resource.data.previousChapter ? (
+                <Link
+                  className="portal-button portal-button--quiet portal-chapter-nav__bar-link"
+                  href={studentChapterHref(courseId, resource.data.previousChapter.id)}
+                  title={resource.data.previousChapter.title}
+                >
+                  <PortalIcon name="chevron" /> {copy.previousChapter}{" "}
+                  <span className="portal-chapter-nav__title">
+                    {resource.data.previousChapter.title}
+                  </span>
+                </Link>
+              ) : null}
+              {resource.data.nextChapter ? (
+                <Link
+                  className="portal-button portal-button--quiet portal-chapter-nav__bar-link"
+                  href={studentChapterHref(courseId, resource.data.nextChapter.id)}
+                  title={resource.data.nextChapter.title}
+                >
+                  {copy.nextChapter}{" "}
+                  <span className="portal-chapter-nav__title">
+                    {resource.data.nextChapter.title}
+                  </span>{" "}
+                  <PortalIcon name="arrow" />
+                </Link>
+              ) : null}
+            </nav>
+          ) : null}
+          <Link
+            href={studentCourseHref(courseId)}
+            className="portal-button portal-button--quiet portal-button--back"
+          >
+            <PortalIcon name="chevron" /> {copy.courseBack}
+          </Link>
+        </>
       }
     >
       <PortalError error={resource.error} retry={resource.reload} />
@@ -397,8 +430,7 @@ function Lesson({
           </div>
         </aside>
         <div className="portal-reading" ref={readingRef} tabIndex={-1}>
-          {/* Tabs and the chapter links share one bar: moving between chapters is
-              navigation, so it belongs on the same line as the views. */}
+          {/* The bar belongs to the page's own views; chapter jumps sit in the top bar. */}
           <div className="portal-reading-bar">
           <nav className="portal-tabs portal-tabs--reading" aria-label={c.outline}>
             <button
@@ -425,42 +457,6 @@ function Lesson({
               </button>
             ) : null}
           </nav>
-          {data.previousChapter || data.nextChapter ? (
-            <nav
-              className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
-            >
-              {data.previousChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
-                  href={studentChapterHref(courseId, data.previousChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    <PortalIcon name="arrow" /> {c.previousChapter}
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.previousChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-              {data.nextChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
-                  href={studentChapterHref(courseId, data.nextChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    {c.nextChapter} <PortalIcon name="arrow" />
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.nextChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-            </nav>
-          ) : null}
           </div>
           {view === "slides" ? (
           <section aria-label={c.outline}>
