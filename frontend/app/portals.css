@@ -875,12 +875,37 @@ html[lang="zh-HK"] .portal {
     grid-row: 1;
   }
 }
-/* Stacked entries make the rail taller than the viewport, so it scrolls with the
-   page instead of pinning itself and hiding its lower half. */
+/* The deck index pins itself and scrolls its own list, like the teacher's: the
+   heading and the glossary link stay put while the slides move under the pointer. */
 .portal-outline {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 16px;
   min-width: 0;
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+}
+.portal-outline ol {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* No `scrollbar-width: thin` here: it makes Chrome use the overlay scrollbar,
+     which hides itself on macOS - the styled webkit one below stays put. */
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+.portal-outline ol::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+.portal-outline ol::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  /* Visible enough to read as "this scrolls" against the ivory rail. */
+  background: #c4c3b9;
+}
+.portal-outline ol::-webkit-scrollbar-track {
+  background: transparent;
 }
 .portal-outline h2 {
   font-size: 18px;
@@ -1919,6 +1944,7 @@ html[lang="zh-HK"] .portal {
      becomes one horizontally scrollable strip so the slide is the next thing. */
   .portal-outline {
     position: static;
+    max-height: none;
     /* The strip scrolls itself. `overflow: hidden` alone still let the strip's
        width count towards the document, so the page could be dragged sideways;
        paint containment is what actually clips it. */
@@ -1931,7 +1957,9 @@ html[lang="zh-HK"] .portal {
        push the whole page sideways instead of scrolling the strip. */
     min-width: 0;
     width: 100%;
+    max-height: none;
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-snap-type: x proximity;
     padding-bottom: 4px;
   }
