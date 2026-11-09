@@ -407,11 +407,15 @@ html[lang="zh-HK"] .portal {
   border: 0;
   background: transparent;
 }
+/* The label stays for screen readers but no longer pushes the select down: with it
+   visible, the two selects sat lower than the search field beside them. */
 .portal .course-catalogue-filter > span {
-  color: var(--body);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 650;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* `appearance: none` is what removes the native macOS control. */
 .portal .course-catalogue-filter select {
