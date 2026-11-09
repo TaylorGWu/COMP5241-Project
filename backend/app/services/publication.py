@@ -24,7 +24,9 @@ def build_snapshot(repository, course):
     chapters = []
     for chapter_id in course.chapter_ids:
         chapter = repository.get_chapter(course.id, chapter_id)
-        if chapter.status != 'ready' or chapter.package is None:
+        # A chapter's draft/ready status is a teacher-side hint; what decides
+        # whether it can be published is whether it has content.
+        if chapter.package is None:
             continue
         package = chapter.package
         if hasattr(package, 'model_dump'):
@@ -77,11 +79,9 @@ def publish(repository, course_id, instructor_id):
         class TransactionRepository:
             def get_chapter(self, ignored, chapter_id):
                 return chapters[chapter_id]
-        if not any(c.status == 'ready' and c.package is not None for c in chapters.values()):
-            raise HTTPException(409, 'A course needs one ready chapter before publish')
         snapshot = build_snapshot(TransactionRepository(), course)
         if not snapshot['chapters']:
-            raise HTTPException(409, 'A course needs one ready chapter with slides before publish')
+            raise HTTPException(409, 'A course needs at least one chapter with slides before publish')
         payload = json.loads(row['payload_json'])
         payload['status'] = 'published'
         db.execute('UPDATE courses SET payload_json=? WHERE id=?', (json.dumps(payload, ensure_ascii=False), course_id))

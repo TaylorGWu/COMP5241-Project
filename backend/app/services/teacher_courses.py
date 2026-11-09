@@ -109,8 +109,9 @@ class TeacherCourseService:
     def publish(self, course_id: str) -> Course:
         course = self.repository.get_course(course_id)
         chapters = [self.repository.get_chapter(course_id, chapter_id) for chapter_id in course.chapter_ids]
-        if not any(chapter.status == "ready" and chapter.package is not None for chapter in chapters):
-            raise ValueError("a course needs one ready chapter before publish")
+        # Only the course carries draft/published; a chapter just has content or not.
+        if not any(chapter.package is not None for chapter in chapters):
+            raise ValueError("a course needs at least one chapter with content before publish")
         before = {"status": course.status}
         course = self.repository.update_course(course_id, status="published")
         self.record_version(course_id, None, kind="publish", reason="Instructor published course", changed_fields=["status"], before=before, after={"status": course.status})

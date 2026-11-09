@@ -10,12 +10,25 @@ def _service() -> TeacherCourseService:
     return TeacherCourseService(InMemoryCourseRepository())
 
 
-def test_draft_course_requires_a_ready_chapter_before_publish():
+def test_a_course_with_no_content_cannot_be_published():
     service = _service()
     course = service.create_course(title="Git", description="", audience="Beginners", duration_min=45)
 
-    with pytest.raises(ValueError, match="ready chapter"):
+    with pytest.raises(ValueError, match="chapter with content"):
         service.publish(course.id)
+
+
+def test_a_chapter_does_not_need_a_ready_status_to_publish():
+    """Only the course carries draft/published; a chapter with content publishes even
+    while its own status still says empty."""
+    service = _service()
+    course = service.create_course(title="Git", description="", audience="Beginners", duration_min=45)
+    chapter_id = course.chapter_ids[0]
+    service.repository.update_chapter(course.id, chapter_id, package={"slides": [{"id": "s1"}]})
+
+    assert service.repository.get_chapter(course.id, chapter_id).status != "ready"
+    published = service.publish(course.id)
+    assert published.status == "published"
 
 
 def test_publish_and_unpublish_are_recorded_in_history():
