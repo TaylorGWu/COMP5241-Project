@@ -838,8 +838,8 @@ html[lang="zh-HK"] .portal {
    its own rail so the extra width carries content instead of blank margin.
    Header and content read the same variable so they cannot drift apart. */
 .portal:has(.portal-player) {
-  /* The slide is the point of the page, so the reader gets the widest shell. */
-  --reader-shell: 1720px;
+  /* The slide is the point of the page, so the reader takes the whole window. */
+  --reader-shell: 100%;
 }
 .portal:has(.portal-player) .public-header,
 .portal-shell:has(.portal-player) {
@@ -847,8 +847,8 @@ html[lang="zh-HK"] .portal {
 }
 .portal-player {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
   max-width: none;
   margin-inline: auto;
@@ -867,7 +867,7 @@ html[lang="zh-HK"] .portal {
 }
 @media (min-width: 1360px) {
   .portal-player {
-    grid-template-columns: 208px minmax(0, 1fr) clamp(300px, 21vw, 360px);
+    grid-template-columns: 196px minmax(0, 1fr) clamp(240px, 17vw, 320px);
     max-width: none;
   }
   .portal-tutor {
