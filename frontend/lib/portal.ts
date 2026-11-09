@@ -374,19 +374,33 @@ export function studentRenderSlide(
   return {
     id: slide.id,
     order: slide.order,
-    layout: ["diagram", "quiz"].includes(slide.layout)
-      ? "bullets"
-      : slide.layout,
+    // A figure belongs inside the slide, where the teacher reviewed it. Flattening
+    // diagram pages to bullets is what made the learner view a second design.
+    layout: slide.layout === "quiz" ? "bullets" : slide.layout,
     title: slide.title,
     bullets: slide.layout === "quiz" ? [quizGuide] : (slide.bullets ?? []),
     quizInstruction: slide.quizInstruction,
     statusGroups: slide.statusGroups,
-    visuals: [],
+    // Only the kind is kept so the renderer knows a figure exists; the asset
+    // itself is addressed by URL, and specs stay teacher-side.
+    visuals: slide.visuals.map((visual) => ({
+      id: visual.id,
+      kind: visual.kind,
+    })),
     speakerNotes: "",
     objectiveIds: [],
     sourceRefs: [],
     origin: "teacher",
   };
+}
+
+/** The figure a slide should show, already resolved to a learner-readable URL. */
+export function studentSlideFigure(slide: StudentSlide): string | undefined {
+  const visual = slide.visuals.find(
+    (entry) =>
+      entry.url && ["diagram", "illustration", "screenshot"].includes(entry.kind),
+  );
+  return visual?.url ?? undefined;
 }
 export type AttemptSubmission = {
   questionId: string;

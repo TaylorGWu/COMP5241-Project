@@ -34,36 +34,35 @@ html[lang="zh-HK"] .portal {
   margin: auto;
   padding: 24px 32px 80px;
 }
-.portal h1,
-.portal h2,
-.portal h3,
-.portal p {
+/* Portal element sizes are defaults, not law: :where() keeps them at zero
+   specificity so the slide renderer's own type scale can win inside a slide. */
+:where(.portal) :where(h1, h2, h3, p) {
   margin: 0;
   overflow-wrap: anywhere;
 }
-.portal h1 {
+:where(.portal) :where(h1) {
   font-size: 30px;
   line-height: 36px;
   font-weight: 600;
   letter-spacing: -0.03em;
   text-wrap: balance;
 }
-.portal h2 {
+:where(.portal) :where(h2) {
   font-size: 20px;
   line-height: 28px;
   font-weight: 600;
   text-wrap: balance;
 }
-.portal h3 {
+:where(.portal) :where(h3) {
   font-size: 18px;
   line-height: 28px;
   font-weight: 600;
 }
-.portal p {
+:where(.portal) :where(p) {
   color: var(--body);
   text-wrap: pretty;
 }
-.portal a {
+:where(.portal) :where(a) {
   text-underline-offset: 4px;
 }
 .portal a:hover {
@@ -743,6 +742,9 @@ html[lang="zh-HK"] .portal {
   min-width: 0;
   position: sticky;
   top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .portal-outline h2 {
   font-size: 18px;
@@ -755,25 +757,40 @@ html[lang="zh-HK"] .portal {
   display: grid;
   gap: 4px;
 }
+/* Each entry is the slide itself, like the teacher's deck index. */
 .portal-outline button {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   text-align: left;
   width: 100%;
-  gap: 4px 8px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 8px;
   background: transparent;
   border-color: transparent;
   font-weight: 400;
   line-height: 22px;
+}
+.portal-outline .portal-stage--thumb {
+  max-width: 148px;
+}
+.portal-outline__label {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 4px 8px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.portal-outline__label > span:first-child {
+  color: var(--body);
+  font-variant-numeric: tabular-nums;
 }
 .portal-outline button[aria-current] {
   color: var(--blue);
   background: var(--blue-soft);
   border-color: var(--line);
 }
-.portal-outline button small {
+.portal-outline__label small {
   grid-column: 2;
   font-size: 11px;
   line-height: 16px;
@@ -784,15 +801,44 @@ html[lang="zh-HK"] .portal {
   display: grid;
   gap: 40px;
 }
+/* Below the stage breakpoint the slide is read, not projected: it reflows to the
+   column so the type stays legible on a phone. */
 .portal .portal-slide {
   display: grid;
   align-content: center;
-  padding: 32px 36px;
-  min-height: 400px;
+  min-height: 0;
   height: auto;
   aspect-ratio: auto;
   overflow: visible;
-  overflow-wrap: anywhere;
+  padding: 24px 20px;
+}
+.portal .portal-slide > div {
+  height: auto;
+}
+.portal .portal-slide h3 {
+  font-size: 24px;
+  line-height: 32px;
+  margin-bottom: 16px;
+}
+/* The learner stage is the teacher's canvas: a 16:9 frame laid out at a fixed
+   design width and scaled to fit, so both sides show the same page. */
+.portal-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.portal-stage__canvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: top left;
+}
+.portal-stage__canvas .slide-body {
+  border-radius: 8px;
+}
+.portal-stage--thumb {
+  border-radius: 4px;
+  border: 1px solid var(--line);
 }
 .portal .portal-slide ul.font-mono {
   white-space: pre-wrap;
@@ -800,12 +846,6 @@ html[lang="zh-HK"] .portal {
 }
 .portal .portal-slide > div {
   height: auto;
-}
-/* The slide headline stays below the page title so the page keeps a hierarchy. */
-.portal .portal-slide h3 {
-  font-size: 24px;
-  line-height: 32px;
-  margin-bottom: 20px;
 }
 .portal-reading figure {
   margin: 24px 0;
@@ -1611,21 +1651,29 @@ html[lang="zh-HK"] .portal {
     flex: 0 0 auto;
     scroll-snap-align: start;
   }
+  /* One strip of titles: a 16:9 thumbnail is unreadable at this size. */
+  .portal-outline .portal-stage--thumb {
+    display: none;
+  }
   .portal-outline button {
-    grid-template-columns: 24px minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
     gap: 8px;
     width: auto;
     max-width: 260px;
   }
-  .portal-outline button > span:nth-child(2) {
+  .portal-outline__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .portal-outline__label > span:nth-child(2) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .portal-outline button small {
-    grid-column: 3;
-    grid-row: 1;
+  .portal-outline__label small {
     white-space: nowrap;
   }
   .portal-sidebar {

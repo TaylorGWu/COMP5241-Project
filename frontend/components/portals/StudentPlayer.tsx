@@ -8,6 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { SlideFrame } from "@/components/SlideCanvas";
+import type { Slide } from "@/lib/api";
 import { PortalIcon } from "./PortalIcon";
 import { authFetch } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -18,6 +19,7 @@ import {
   studentChapterHref,
   optionText,
   studentRenderSlide,
+  studentSlideFigure,
   prepareAttempt,
   mergeProgress,
   type AttemptSubmission,
@@ -33,6 +35,121 @@ import {
   usePortalResource,
   usePortalWrite,
 } from "./PortalShell";
+/**
+ * A slide is laid out at the width the teacher reviewed it at, then scaled to fit
+ * whatever room the learner has. Same width means the same line breaks, the same
+ * figure size and the same reading-guide column - the learner sees the reviewed
+ * page, just smaller, instead of a reflow that can clip the last bullet.
+ */
+/**
+ * Learner assets sit behind the session cookie, so a bare <img src> hits the page's
+ * own origin and 404s. Fetch once with the session and hand the renderer a blob URL.
+ */
+function useStudentAssetUrl(url?: string) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    if (!url) {
+      setSrc("");
+      return;
+    }
+    const controller = new AbortController();
+    let objectUrl = "";
+    void authFetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setSrc("");
+      });
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+  return src;
+}
+
+/** True below the width where a scaled slide stops being legible. */
+function useNarrowViewport() {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 720px)");
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return narrow;
+}
+
+const SLIDE_WIDTH = 966;
+const THUMB_WIDTH = 320;
+
+function ScaledSlide({
+  slide,
+  diagramUrl,
+  thumbnail = false,
+}: {
+  slide: Slide;
+  diagramUrl?: string;
+  thumbnail?: boolean;
+}) {
+  const resolvedDiagram = useStudentAssetUrl(diagramUrl);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxWidth, setBoxWidth] = useState(0);
+  const narrow = useNarrowViewport();
+  const width = thumbnail ? THUMB_WIDTH : SLIDE_WIDTH;
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const measure = () => setBoxWidth(box.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+  const scale = boxWidth ? boxWidth / width : 1;
+  // A fixed 16:9 page cannot be read at phone width - the type would be ~7px.
+  // Phones get the same slide reflowed for reading; every wider view shows the
+  // page exactly as the teacher reviewed it.
+  if (narrow && !thumbnail) {
+    return (
+      <SlideFrame
+        slide={slide}
+        diagramUrl={resolvedDiagram || undefined}
+        className="portal-slide"
+      />
+    );
+  }
+  return (
+    <div
+      ref={boxRef}
+      className={thumbnail ? "portal-stage portal-stage--thumb" : "portal-stage"}
+      style={{ height: boxWidth ? (boxWidth * 9) / 16 : undefined }}
+    >
+      <div
+        className="portal-stage__canvas"
+        style={{
+          width,
+          height: (width * 9) / 16,
+          transform: `scale(${scale})`,
+          visibility: boxWidth ? "visible" : "hidden",
+        }}
+      >
+        <SlideFrame
+          slide={slide}
+          diagramUrl={resolvedDiagram || undefined}
+          thumbnail={thumbnail}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function StudentPlayer({
   courseId,
   chapterId,
@@ -139,6 +256,7 @@ function Lesson({
     };
   }, [courseId, chapterId, slide, c.progressFailed, retry]);
   const safeSlide = slide ? studentRenderSlide(slide, c.quizGuide) : undefined;
+  const figure = slide ? studentSlideFigure(slide) : undefined;
   return (
     <>
       <header className="portal-title">
@@ -175,11 +293,20 @@ function Lesson({
                   onClick={() => setIndex(i)}
                   aria-current={i === index ? "step" : undefined}
                 >
-                  <span>{i + 1}</span>
-                  <span>{entry.title}</span>
-                  {data.progress.visitedSlideIds.includes(entry.id) ? (
-                    <small>{c.complete}</small>
-                  ) : null}
+                  {/* The rail shows the same slide the stage shows, so the list
+                      and the canvas can never disagree. */}
+                  <ScaledSlide
+                    slide={studentRenderSlide(entry, c.quizGuide)}
+                    diagramUrl={studentSlideFigure(entry)}
+                    thumbnail
+                  />
+                  <span className="portal-outline__label">
+                    <span>{i + 1}</span>
+                    <span>{entry.title}</span>
+                    {data.progress.visitedSlideIds.includes(entry.id) ? (
+                      <small>{c.complete}</small>
+                    ) : null}
+                  </span>
                 </button>
               </li>
             ))}
@@ -197,16 +324,18 @@ function Lesson({
           <section aria-label={c.outline}>
             {safeSlide ? (
               <>
-                <SlideFrame slide={safeSlide} className="portal-slide" />
-                {slide.visuals.map((entry) =>
-                  entry.url ? (
-                    <StudentAsset
-                      key={entry.url}
-                      url={entry.url}
-                      alt={entry.altText?.trim() || c.figure}
-                    />
-                  ) : null,
-                )}
+                <ScaledSlide slide={safeSlide} diagramUrl={figure} />
+                {slide.visuals
+                  .filter((entry) => entry.url && entry.url !== figure)
+                  .map((entry) =>
+                    entry.url ? (
+                      <StudentAsset
+                        key={entry.url}
+                        url={entry.url}
+                        alt={entry.altText?.trim() || c.figure}
+                      />
+                    ) : null,
+                  )}
                 <div className="portal-slide-controls">
                   <button
                     type="button"

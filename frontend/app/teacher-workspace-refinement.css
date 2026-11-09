@@ -52,8 +52,6 @@ html[lang="zh-HK"] :is(.course-library-page,.chapter-workspace-page) { --workspa
 .chapter-workspace-page [data-slide-carousel] > button { position: static; transform: none; grid-row: 2; box-shadow: none; width: 40px; height: 40px; border-radius: 8px; font-size: 12px; }
 .chapter-workspace-page [data-slide-direction="next"] { justify-self: end; }
 .chapter-workspace-page .studio-slide-stage--large .slide-body { padding: 32px; }
-.chapter-workspace-page .studio-slide-stage--large .slide-body h3 { font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -.03em; text-wrap: balance; }
-.chapter-workspace-page .studio-slide-stage--large .slide-body li { font-size: 18px; line-height: 28px; }
 .chapter-workspace-page .studio-review-dock { padding: 0; scrollbar-gutter: stable; }
 .chapter-workspace-page .studio-revision-composer { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 12px; padding: 16px; }
 .chapter-workspace-page .studio-revision-composer h2 { font-size: 16px; line-height: 24px; font-weight: 600; }
