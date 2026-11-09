@@ -29,6 +29,12 @@ html[lang="zh-HK"] .portal {
   height: 76px;
   border-bottom: 1px solid var(--line);
 }
+/* The portal paints the canvas; if it is shorter than the window the body's own
+   background shows as a band under the page. */
+.portal {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 .portal-shell {
   max-width: 1280px;
   margin: auto;
