@@ -21,7 +21,6 @@ function chapterPayload(reviewSlideId) {
     results: { q1: { questionId:'q1', selectedOptionId:'B', correct:false, correctOptionId:'A', explanation:'A branch isolates work.', attemptId:'a1', reviewSlideId } },
     previousChapter: null,
     nextChapter: null,
-    objectives: [{ id: 'LO1', text: 'Explain why a branch isolates work' }],
   };
 }
 

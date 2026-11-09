@@ -1008,41 +1008,11 @@ html[lang="zh-HK"] .portal {
   font-size: 20px;
   line-height: 28px;
 }
-.portal-tutor__hint,
-.portal-tutor__empty {
-  margin: 0;
-  color: var(--body);
-  font-size: 14px;
-  line-height: 20px;
-}
-.portal-tutor__grounded {
-  margin: 0;
-  color: var(--body);
-  font-size: 14px;
-  line-height: 20px;
-}
-.portal-tutor__grounded strong {
-  color: var(--ink);
-}
 .portal-tutor__slide {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
-}
-.portal-tutor__slide-title {
-  margin: -4px 0 0;
-  color: var(--ink);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-}
-.portal-tutor__objectives {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--body);
-  font-size: 13px;
-  line-height: 19px;
 }
 .portal-tutor__log {
   display: grid;

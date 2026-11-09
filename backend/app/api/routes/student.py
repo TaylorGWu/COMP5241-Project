@@ -201,14 +201,8 @@ async def chapter(course_id: str, chapter_id: str, request: Request):
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
     progress, results = learning.state(course_id, chapter, user['id'])
     previous, following = learning.chapter_neighbours(course_id, chapter_id)
-    # The learner tutor is grounded in the objectives this chapter actually serves,
-    # so the page shows the same list it is answering from.
-    snapshot = available(course_id)
-    served = {str(item) for slide in chapter.get('slides', []) for item in slide.get('objectiveIds', [])}
-    published = [item for item in snapshot.get('learningObjectives', []) if isinstance(item, dict)]
-    objectives = [item for item in published if str(item.get('id')) in served] or published
     return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results,
-            'previousChapter': previous, 'nextChapter': following, 'objectives': objectives}
+            'previousChapter': previous, 'nextChapter': following}
 
 
 @router.post('/courses/{course_id}/chapters/{chapter_id}/progress')
