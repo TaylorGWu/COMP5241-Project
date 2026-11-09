@@ -78,7 +78,8 @@ function chapterPayload(reviewSlideId) {
       await page.getByText(/Last studied/).first().waitFor();
       // The page separates what I am learning from the catalogue.
       assert.equal(await page.locator('.portal-tabs button[aria-current]').innerText(), 'My learning');
-      assert.equal(await page.locator('.course-catalogue-search').count(), 0, 'Search belongs to the catalogue tab');
+      // Both tabs carry the same toolbar; it narrows whichever list is showing.
+      assert.equal(await page.locator('.course-catalogue-search').count(), 1, 'My learning is searchable too');
       await page.getByRole('button', { name:'Courses', exact:true }).click();
       await page.waitForTimeout(200);
       assert.equal(await page.locator('.course-catalogue-search').count(), 1, 'The catalogue tab is searchable');

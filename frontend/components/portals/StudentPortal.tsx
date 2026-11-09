@@ -81,6 +81,13 @@ function StudentHomeContent({
   const subjects = [
     ...new Set(data.courses.map((course) => course.subject)),
   ].sort();
+  const learning = data.courses.filter(
+    (course) =>
+      course.enrolled &&
+      courseMatchesQuery(course, search) &&
+      (level === "all" || course.level === level) &&
+      (subject === "all" || course.subject === subject),
+  );
   const visible = data.courses.filter(
     (course) =>
       courseMatchesQuery(course, search) &&
@@ -113,12 +120,54 @@ function StudentHomeContent({
         {/* The count rides with the tabs, as the teacher library's line does. */}
         <p className="portal-tabs-count">
           {tab === "learning"
-            ? `${enrolled.length} ${enrolled.length === 1 ? c.course : c.courses}`
+            ? `${learning.length} ${learning.length === 1 ? c.course : c.courses}`
             : `${visible.length} ${visible.length === 1 ? c.course : c.courses}`}
         </p>
       </div>
       <div className="portal-student-home">
         <div className="portal-main-column">
+              <div className="course-catalogue-toolbar">
+                <label className="course-catalogue-search">
+                  <PortalIcon name="search" />
+                  <span className="sr-only">{c.search}</span>
+                  <input
+                    type="search"
+                    placeholder={c.searchCatalogue}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+                <div className="course-catalogue-filters">
+                  <label className="course-catalogue-filter">
+                    <span>{c.level}</span>
+                    <select
+                      value={level}
+                      onChange={(event) => setLevel(event.target.value)}
+                    >
+                      <option value="all">{c.allLevels}</option>
+                      {levels.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="course-catalogue-filter">
+                    <span>{c.subject}</span>
+                    <select
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                    >
+                      <option value="all">{c.allSubjects}</option>
+                      {subjects.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
           {tab === "learning" ? (
             <>
               {enrolled.length ? (
@@ -126,9 +175,9 @@ function StudentHomeContent({
                   {/* One list: the course the learner should open next is marked
                       on its card instead of being lifted out of the list. */}
                   <div
-                    className={`portal-course-grid${enrolled.length === 1 ? " portal-course-grid--single" : ""}`}
+                    className={`portal-course-grid${learning.length === 1 ? " portal-course-grid--single" : ""}`}
                   >
-                    {enrolled.map((course) => (
+                    {learning.map((course) => (
                       <CourseCard
                         key={course.id}
                         course={course}
@@ -179,48 +228,6 @@ function StudentHomeContent({
                   search on the left and the two attributes on the right. */}
               {/* Same markup as the teacher library - one toolbar, one set of
                   styles, no second catalogue implementation. */}
-              <div className="course-catalogue-toolbar">
-                <label className="course-catalogue-search">
-                  <PortalIcon name="search" />
-                  <span className="sr-only">{c.search}</span>
-                  <input
-                    type="search"
-                    placeholder={c.searchCatalogue}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
-                <div className="course-catalogue-filters">
-                  <label className="course-catalogue-filter">
-                    <span>{c.level}</span>
-                    <select
-                      value={level}
-                      onChange={(event) => setLevel(event.target.value)}
-                    >
-                      <option value="all">{c.allLevels}</option>
-                      {levels.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="course-catalogue-filter">
-                    <span>{c.subject}</span>
-                    <select
-                      value={subject}
-                      onChange={(event) => setSubject(event.target.value)}
-                    >
-                      <option value="all">{c.allSubjects}</option>
-                      {subjects.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
               {visible.length ? (
                 <div
                   className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
