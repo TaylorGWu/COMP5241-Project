@@ -99,6 +99,21 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 )}
               </p>
             ) : null}
+            {/* Progress sits with the course facts, as the teacher's outline header
+                does, so the chapter list can use the full width. */}
+            {data.enrolled && data.chapters.length ? (
+              <div className="portal-course-progress">
+                <ProgressBar value={data.course.completionPercent} />
+                {next ? (
+                  <Link
+                    className="portal-button portal-button--quiet"
+                    href={studentChapterHref(courseId, next)}
+                  >
+                    {data.course.completionPercent ? c.continue : c.start}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
           </header>
           <div className="portal-course-overview">
             <section>
@@ -147,21 +162,9 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 <p className="portal-empty">{c.empty}</p>
               )}
             </section>
-            <aside className="portal-panel">
-              <h2>{c.yourProgress}</h2>
-              {data.enrolled ? (
-                <>
-                  <ProgressBar value={data.course.completionPercent} />
-                  {next ? (
-                    <Link
-                      className="portal-button"
-                      href={studentChapterHref(courseId, next)}
-                    >
-                      {data.course.completionPercent ? c.continue : c.start}
-                    </Link>
-                  ) : null}
-                </>
-              ) : (
+            {data.enrolled ? null : (
+              <aside className="portal-panel">
+                <h2>{c.yourProgress}</h2>
                 <button
                   className="portal-button"
                   disabled={join.busy}
@@ -174,9 +177,9 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 >
                   {join.busy ? c.loading : c.join}
                 </button>
-              )}
-              <PortalError error={join.error} />
-            </aside>
+                <PortalError error={join.error} />
+              </aside>
+            )}
           </div>
         </>
       ) : null}

@@ -925,11 +925,22 @@ body:has(.portal) {
   background: var(--soft);
   border-radius: 8px;
 }
+/* One column: the chapter list takes the width, as the teacher's outline card does.
+   Progress moved into the course header. */
+.portal-course-progress {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 16px;
+}
+.portal-course-progress .portal-progress {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .portal-course-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 304px;
-  gap: 32px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
 }
 .portal-chapter-list {
   list-style: none;
