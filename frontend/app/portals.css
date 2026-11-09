@@ -187,13 +187,37 @@ html[lang="zh-HK"] .portal {
   line-height: 20px;
   color: var(--body);
 }
-/* Only the reader header carries a save state, so only it needs to line up with
-   the reading column rather than the full workspace width. */
+/* Line the reader header up with the player beneath it: the same centred measure
+   below the rail breakpoint, full width above it. */
 .portal-title:has(> p[role="status"]) {
-  max-width: 880px;
+  max-width: 1224px;
+  margin-inline: auto;
 }
 .portal-title:has(> p[role="status"]) .portal-progress {
   max-width: none;
+}
+/* Past the rail breakpoint the progress block takes the rail column, so the band
+   beside the title carries content instead of blank canvas. */
+@media (min-width: 1360px) {
+  .portal-title:has(> p[role="status"]) {
+    max-width: none;
+    grid-template-columns: 220px minmax(0, 1fr) clamp(340px, 24vw, 420px);
+    column-gap: 40px;
+    align-items: start;
+  }
+  .portal-title:has(> p[role="status"]) > h1 {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+  .portal-title:has(> p[role="status"]) .portal-progress {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .portal-title:has(> p[role="status"]) > p[role="status"] {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: start;
+  }
 }
 .portal-student-home {
   display: grid;
