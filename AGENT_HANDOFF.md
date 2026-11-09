@@ -208,8 +208,12 @@ L2 是对已有内容的修改流程：读选中内容，再提出 patch；接�
 
 ```bash
 cd /Users/taylor/Workspace/python/COMP5241/COMP5241-Project/backend
-../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 \
+  --reload --reload-dir app --reload-dir config
 ```
+
+`--reload` 是必须的，否则改完后端代码仍在跑旧行为（曾因此误判功能没生效，并在一次验证中真的改到了数据库）。
+只监听 `app/` 和 `config/`：数据库在 `backend/.local/`，若整体监听，每次写库都会触发重启。
 
 前端：
 
