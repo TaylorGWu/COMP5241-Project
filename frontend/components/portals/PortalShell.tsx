@@ -18,6 +18,7 @@ export function PortalShell({
   children,
   action,
   title,
+  menuExtra,
 }: {
   admin?: boolean;
   children: ReactNode;
@@ -25,6 +26,8 @@ export function PortalShell({
   action?: ReactNode;
   /** Current page, shown as a breadcrumb after the brand. */
   title?: string;
+  /** Extra line inside the account menu. */
+  menuExtra?: ReactNode;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -34,7 +37,7 @@ export function PortalShell({
         <a href="#portal-content" className="portal-skip">
           {c.skip}
         </a>
-        <PublicHeader simple action={action} title={title} />
+        <PublicHeader simple action={action} title={title} menuExtra={menuExtra} />
         <main id="portal-content" className="portal-shell">
           {children}
         </main>

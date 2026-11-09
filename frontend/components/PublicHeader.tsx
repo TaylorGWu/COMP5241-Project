@@ -14,12 +14,15 @@ export function PublicHeader({
   simple = false,
   action,
   title,
+  menuExtra,
 }: {
   simple?: boolean;
   /** Page-level control, shown in the bar just before the account menu. */
   action?: ReactNode;
   /** Current page, rendered as a breadcrumb after the brand. */
   title?: string;
+  /** Extra line inside the account menu, above its links. */
+  menuExtra?: ReactNode;
 }) {
   const { locale } = useI18n();
   const copy = publicCopy(locale);
@@ -33,7 +36,7 @@ export function PublicHeader({
       {home ? <Link href="#home-workflow" className="public-text-link home-how-link">{homepageCopy(locale).how}</Link> : null}
       {(!simple || pathname === "/profile") && user ? <Link href={roleDestination(user)} className="public-text-link" data-workspace-entry>{copy.dashboard}</Link> : null}
       {action}
-      {user ? <AccountActions /> : <><Link href={simple && pathname === "/login" ? "/" : "/login"} className="public-text-link">{simple && pathname === "/login" ? copy.home : copy.login}</Link>{!simple ? <Link href={home ? "/register/instructor" : "/register"} className="public-button public-button--small">{home ? homepageCopy(locale).create : copy.start}</Link> : null}</>}
+      {user ? <AccountActions menuExtra={menuExtra} /> : <><Link href={simple && pathname === "/login" ? "/" : "/login"} className="public-text-link">{simple && pathname === "/login" ? copy.home : copy.login}</Link>{!simple ? <Link href={home ? "/register/instructor" : "/register"} className="public-button public-button--small">{home ? homepageCopy(locale).create : copy.start}</Link> : null}</>}
     </nav>
   </header>;
 }

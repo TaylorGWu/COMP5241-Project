@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "@/components/AccountProvider";
@@ -11,12 +11,12 @@ import { teacherProfileCopy, type TeacherProfile } from "@/lib/teacher-profile";
 import { authJson, roleDestination, type Account } from "@/lib/auth";
 
 /** One account disclosure shared by signed-in public and teacher navigation. */
-export function AccountActions() {
+export function AccountActions({ menuExtra }: { menuExtra?: ReactNode }) {
   const { user } = useAccount();
-  return user ? <AccountMenu key={user.id} user={user} /> : null;
+  return user ? <AccountMenu key={user.id} user={user} menuExtra={menuExtra} /> : null;
 }
 
-function AccountMenu({ user }: { user: Account }) {
+function AccountMenu({ user, menuExtra }: { user: Account; menuExtra?: ReactNode }) {
   const { logout } = useAccount();
   const router = useRouter(); const pathname = usePathname();
   const { locale } = useI18n(); const c = publicCopy(locale);
@@ -71,6 +71,7 @@ function AccountMenu({ user }: { user: Account }) {
     </button>
     {open ? <div id={panelId} role="group" aria-labelledby={triggerId} className="account-menu-panel" data-account-menu-panel>
       <div className="account-menu-summary"><strong className="account-menu-name">{user.name}</strong><span>{user.email}</span></div>
+      {menuExtra}
       <div className="account-menu-links">
         <Link href={destination} onClick={close} aria-current={pathname === destination ? "page" : undefined}>{user.role === "instructor" && user.status !== "approved" ? teacherProfileCopy(locale).qualification : c.workspace}</Link>
         {user.role === "instructor" ? <Link href="/profile" onClick={close} aria-current={pathname === "/profile" ? "page" : undefined}>{teacherProfileCopy(locale).title}</Link> : null}

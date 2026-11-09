@@ -30,7 +30,14 @@ export function StudentPortal() {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   return (
-    <PortalShell>
+    <PortalShell
+      // The menu is navigation: one line that jumps to the goals panel on the page.
+      menuExtra={
+        <a className="account-menu-goals" href="#learning-goals">
+          {c.profile}
+        </a>
+      }
+    >
       <PortalError error={resource.error} retry={resource.reload} />
       {resource.loading && !resource.data ? (
         <PortalLoading />
@@ -257,7 +264,7 @@ function StudentHomeContent({
           )}
         </div>
       <aside className="portal-sidebar">
-        <section className="portal-panel">
+        <section className="portal-panel" id="learning-goals">
           <h2>{c.profile}</h2>
           {data.profile.background ||
           data.profile.goal ||

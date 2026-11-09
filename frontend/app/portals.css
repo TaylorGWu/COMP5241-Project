@@ -2378,3 +2378,21 @@ body:has(.portal) {
     transition: none !important;
   }
 }
+
+/* One line in the account menu that leads to the goals panel. */
+.account-menu-goals {
+  display: block;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+}
+.account-menu-goals:hover {
+  background: var(--soft);
+}
+/* Anchored panel should not hide under the sticky bar. */
+#learning-goals {
+  scroll-margin-top: 88px;
+}
