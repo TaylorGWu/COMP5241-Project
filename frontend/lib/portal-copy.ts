@@ -102,6 +102,7 @@ const en = {
   tutor: "AI tutor",
   tutorAsk: "Your question",
   tutorSend: "Ask",
+  tutorEnterHint: "Enter to send · Shift+Enter for a new line",
   tutorPlaceholder: "e.g. why is a state not the same as a move?",
   tutorThinking: "Thinking…",
   practiceHint:
@@ -267,6 +268,7 @@ const zhHK: Copy = {
   tutor: "AI 助教",
   tutorAsk: "你的問題",
   tutorSend: "提問",
+  tutorEnterHint: "Enter 送出 · Shift+Enter 換行",
   tutorPlaceholder: "例如：為什麼「狀態」不等於「動作」？",
   tutorThinking: "思考中…",
   practiceHint:
@@ -428,6 +430,7 @@ const zhCN: Copy = {
   tutor: "AI 助教",
   tutorAsk: "你的问题",
   tutorSend: "提问",
+  tutorEnterHint: "Enter 发送 · Shift+Enter 换行",
   tutorPlaceholder: "例如：为什么「状态」不等于「动作」？",
   tutorThinking: "思考中…",
   practiceHint:

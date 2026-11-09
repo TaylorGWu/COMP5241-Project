@@ -1021,44 +1021,79 @@ html[lang="zh-HK"] .portal {
   border-radius: 8px;
   overflow: hidden;
 }
+/* One card per exchange: the newest open, the rest folded to their question. */
 .portal-tutor__log {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 .portal-tutor__turn {
-  display: grid;
-  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--canvas);
+  overflow: hidden;
+}
+.portal-tutor__turn[open] {
+  background: var(--surface);
 }
 .portal-tutor__question {
-  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
   color: var(--ink);
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.portal-tutor__question::-webkit-details-marker {
+  display: none;
+}
+.portal-tutor__question::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--body);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform .16s ease;
+}
+.portal-tutor__turn[open] .portal-tutor__question::after {
+  transform: rotate(-90deg);
+}
+.portal-tutor__question:hover {
+  color: var(--blue-deep);
 }
 .portal-tutor__said {
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--soft);
+  padding: 0 12px 12px;
   color: var(--ink);
   font-size: 14px;
   line-height: 22px;
   white-space: pre-wrap;
 }
 .portal-tutor__said--error {
-  background: var(--amber-soft, var(--soft));
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--soft);
 }
 .portal-tutor__form {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+}
+.portal-tutor__key {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 16px;
 }
 .portal-tutor__form textarea {
   width: 100%;
-  min-height: 88px;
+  min-height: 76px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--canvas);
   color: var(--ink);
   font: inherit;

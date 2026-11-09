@@ -5,6 +5,7 @@ import {
   useState,
   useRef,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import Link from "next/link";
 import { SlideFrame } from "@/components/SlideCanvas";
@@ -85,6 +86,9 @@ function useNarrowViewport() {
   }, []);
   return narrow;
 }
+
+//: How many question/answer pairs the panel keeps before it clears itself.
+const TUTOR_HISTORY = 5;
 
 const SLIDE_WIDTH = 966;
 const THUMB_WIDTH = 800;
@@ -279,10 +283,23 @@ function Lesson({
   const tutor = usePortalWrite();
   const askTutor = (event: FormEvent) => {
     event.preventDefault();
+    ask();
+  };
+  /** Enter sends, Shift+Enter is a new line. */
+  const askOnEnter = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    ask();
+  };
+  const ask = () => {
     const text = question.trim();
     if (!text || !slide) return;
     const id = `${Date.now()}`;
-    setAsked((current) => [...current, { id, question: text }]);
+    // History is capped: the sixth question clears the previous five rather than
+    // growing the panel without limit.
+    setAsked((current) =>
+      [...(current.length >= TUTOR_HISTORY ? [] : current), { id, question: text }],
+    );
     setQuestion("");
     void tutor.run(
       async (signal) => {
@@ -544,16 +561,22 @@ function Lesson({
                 {tutor.error}
               </p>
             ) : null}
-            {asked.length ? (
-              asked.map((entry) => (
-                <div key={entry.id} className="portal-tutor__turn">
-                  <p className="portal-tutor__question">{entry.question}</p>
-                  <p className="portal-tutor__said">
-                    {entry.answer ?? c.tutorThinking}
-                  </p>
-                </div>
-              ))
-            ) : null}
+            {asked.map((entry, turn) => (
+              /* Only the newest answer stays open; asking again folds the rest,
+                 and any of them can be reopened. */
+              <details
+                key={entry.id}
+                className="portal-tutor__turn"
+                open={turn === asked.length - 1}
+              >
+                <summary className="portal-tutor__question">
+                  {entry.question}
+                </summary>
+                <p className="portal-tutor__said">
+                  {entry.answer ?? c.tutorThinking}
+                </p>
+              </details>
+            ))}
           </div>
           <form className="portal-tutor__form" onSubmit={askTutor}>
             <label>
@@ -561,9 +584,11 @@ function Lesson({
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={askOnEnter}
                 placeholder={c.tutorPlaceholder}
                 rows={3}
                 maxLength={600}
+                aria-keyshortcuts="Enter"
               />
             </label>
             <button
@@ -573,6 +598,7 @@ function Lesson({
             >
               {tutor.busy ? c.tutorThinking : c.tutorSend}
             </button>
+            <p className="portal-tutor__key">{c.tutorEnterHint}</p>
           </form>
         </aside>
       </div>
