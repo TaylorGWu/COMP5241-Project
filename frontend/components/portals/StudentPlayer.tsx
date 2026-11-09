@@ -313,7 +313,7 @@ function Lesson({
   };
   const ask = () => {
     const text = question.trim();
-    if (!text || !slide) return;
+    if (!text || !slide || tutor.busy) return;
     const id = `${Date.now()}`;
     // History is capped: the sixth question clears the previous five rather than
     // growing the panel without limit.
@@ -615,6 +615,8 @@ function Lesson({
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 onKeyDown={askOnEnter}
+                disabled={tutor.busy}
+                aria-busy={tutor.busy}
                 placeholder={c.tutorPlaceholder}
                 rows={3}
                 maxLength={600}
