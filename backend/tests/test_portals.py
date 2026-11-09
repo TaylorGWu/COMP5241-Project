@@ -172,6 +172,11 @@ def test_published_course_enrollment_learning_and_analytics():
         resumed = student.get(chapter_url).json()
         assert resumed['progress']['lastSlideId'] == 's1'
         assert resumed['results']['q1']['selectedOptionId'] == 'A'
+        # A single-chapter course has no neighbours to offer.
+        assert resumed['previousChapter'] is None and resumed['nextChapter'] is None
+        summary = student.get(f'/api/student/courses/{course_id}').json()['course']
+        assert (summary['totalSlides'], summary['visitedSlides']) == (1, 1)
+        assert (summary['totalQuestions'], summary['answeredQuestions'], summary['correctAnswers']) == (1, 1, 1)
         analytics = teacher.get(f'/api/demo/courses/{course_id}/analytics').json()
         assert analytics['enrolledCount'] == 1
         assert analytics['mostMissed'] == []
@@ -434,3 +439,50 @@ def test_weekly_minutes_migration_upgrades_an_existing_profile_table(tmp_path):
         assert (row['background'], row['goal'], row['weekly_minutes']) == ('new', 'learn git', 0)
         assert db.execute('SELECT COUNT(*) FROM auth_schema_versions WHERE version=4').fetchone()[0] == 1
     assert list(tmp_path.glob('upgrade.db.pre-portal-*.bak'))
+
+
+def test_chapter_navigation_follows_the_published_order():
+    # A finished chapter had no way forward, so the reader now returns its
+    # published neighbours and never points at an unpublished one.
+    with TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(teacher, 'nav-teacher@example.test', 'instructor')
+        signed_in(student, 'nav-student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Ordered course', 'durationMin': 30}).json()
+        course_id, first_id = course['id'], course['chapterIds'][0]
+        second = teacher.post(f'/api/demo/courses/{course_id}/chapters', json={'title': 'Second chapter'}).json()
+        second_id = second['id']
+
+        def ready(chapter_id, title):
+            package = {'slideDeck': {'slides': [{'id': 's1', 'order': 1, 'layout': 'bullets', 'title': title, 'bullets': ['A point']}]},
+                       'questionSet': {'questions': []}}
+            return teacher.patch(f'/api/demo/courses/{course_id}/chapters/{chapter_id}', json={'title': title, 'status': 'ready', 'package': package}).status_code
+        assert ready(first_id, 'First chapter') == 200
+        assert ready(second_id, 'Second chapter') == 200
+
+        # Before publishing there is nothing to navigate, so the student cannot see either.
+        assert student.get(f'/api/student/courses/{course_id}/chapters/{first_id}').status_code == 404
+        assert teacher.post(f'/api/demo/courses/{course_id}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{course_id}/enroll', json={}).status_code == 200
+
+        first = student.get(f'/api/student/courses/{course_id}/chapters/{first_id}').json()
+        assert first['previousChapter'] is None
+        assert first['nextChapter'] == {'id': second_id, 'title': 'Second chapter'}
+
+        last = student.get(f'/api/student/courses/{course_id}/chapters/{second_id}').json()
+        assert last['previousChapter'] == {'id': first_id, 'title': 'First chapter'}
+        assert last['nextChapter'] is None
+
+
+def test_course_summary_reports_pages_and_answers_separately():
+    # The percentage blends reading and answers; the raw counts are what let the
+    # interface say "3/8 pages read" without inventing a number.
+    from app.api.routes.student import course_summary
+
+    snapshot = {'id': 'course-x', 'title': 'X', 'description': '', 'courseCode': '', 'subject': '', 'level': '', 'durationMin': 10,
+                'chapters': [{'id': 'c1', 'title': 'One', 'slides': [{'id': 's1'}, {'id': 's2'}],
+                              'questions': [{'id': 'q1', 'type': 'mcq', 'stem': 'S', 'options': [{'id': 'A', 'text': 'a'}, {'id': 'B', 'text': 'b'}], 'answer': 'A'}],
+                              'glossary': [], 'assets': []}]}
+    summary = course_summary(snapshot, 'nobody')
+    assert (summary['totalSlides'], summary['totalQuestions']) == (2, 1)
+    assert (summary['visitedSlides'], summary['answeredQuestions'], summary['correctAnswers']) == (0, 0, 0)
+    assert summary['enrolled'] is False

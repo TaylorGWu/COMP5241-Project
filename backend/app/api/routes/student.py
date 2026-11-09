@@ -114,14 +114,29 @@ async def join(request: Request, body: Join):
 def course_summary(snapshot, user_id):
     chapters = snapshot['chapters']
     is_enrolled = learning.enrolled(snapshot['id'], user_id)
-    states = [learning.state(snapshot['id'], chapter, user_id)[0] for chapter in chapters] if is_enrolled else []
+    # One state read per chapter already ran for the percentage; keep the answers
+    # from the same call so the learner can see pages read and answers correct.
+    pairs = [learning.state(snapshot['id'], chapter, user_id) for chapter in chapters] if is_enrolled else []
+    states = [progress for progress, _ in pairs]
+    answers = [results for _, results in pairs]
     last = (None, None)
     if is_enrolled:
         valid = {(chapter['id'], slide['id']) for chapter in chapters for slide in chapter['slides']}
         with get_auth_store().connection() as db:
             visits = db.execute('SELECT chapter_id,slide_id FROM portal_visits WHERE course_id=? AND user_id=? ORDER BY visited_at DESC', (snapshot['id'], user_id)).fetchall()
         last = next(((row['chapter_id'], row['slide_id']) for row in visits if (row['chapter_id'], row['slide_id']) in valid), last)
-    return {key: snapshot[key] for key in ('id', 'title', 'description', 'courseCode', 'subject', 'level', 'durationMin')} | {'chapterCount': len(chapters), 'enrolled': is_enrolled, 'completionPercent': round(sum(s['completionPercent'] for s in states) / len(states)) if states else 0, 'lastChapterId': last[0], 'lastSlideId': last[1]}
+    return {key: snapshot[key] for key in ('id', 'title', 'description', 'courseCode', 'subject', 'level', 'durationMin')} | {
+        'chapterCount': len(chapters),
+        'enrolled': is_enrolled,
+        'completionPercent': round(sum(s['completionPercent'] for s in states) / len(states)) if states else 0,
+        'lastChapterId': last[0],
+        'lastSlideId': last[1],
+        'totalSlides': sum(len(chapter['slides']) for chapter in chapters),
+        'visitedSlides': sum(len(set(s['visitedSlideIds'])) for s in states),
+        'totalQuestions': sum(len(learning.mcqs(chapter)) for chapter in chapters),
+        'answeredQuestions': sum(len(chapter_answers) for chapter_answers in answers),
+        'correctAnswers': sum(1 for chapter_answers in answers for item in chapter_answers.values() if item['correct']),
+    }
 
 
 def overview(snapshot, user_id):
@@ -163,7 +178,9 @@ async def chapter(course_id: str, chapter_id: str, request: Request):
     user = await student_user(request)
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
     progress, results = learning.state(course_id, chapter, user['id'])
-    return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results}
+    previous, following = learning.chapter_neighbours(course_id, chapter_id)
+    return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results,
+            'previousChapter': previous, 'nextChapter': following}
 
 
 @router.post('/courses/{course_id}/chapters/{chapter_id}/progress')

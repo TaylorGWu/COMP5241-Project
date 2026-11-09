@@ -301,6 +301,13 @@ function CourseCard({ course }: { course: Course }) {
         {course.chapterCount} {c.chapters} · {course.durationMin} {c.minutes}
       </p>
       {course.enrolled ? (
+        <p className="portal-meta">
+          {course.visitedSlides}/{course.totalSlides} {c.pagesRead} ·{" "}
+          {course.answeredQuestions}/{course.totalQuestions}{" "}
+          {c.questionsAnswered}
+        </p>
+      ) : null}
+      {course.enrolled ? (
         <ProgressBar value={course.completionPercent} />
       ) : null}
       <Link className="portal-text-link" href={studentCourseHref(course.id)}>

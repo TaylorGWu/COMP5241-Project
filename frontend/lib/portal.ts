@@ -14,6 +14,11 @@ export type Course = {
   completionPercent: number;
   lastChapterId: string | null;
   lastSlideId: string | null;
+  totalSlides: number;
+  visitedSlides: number;
+  totalQuestions: number;
+  answeredQuestions: number;
+  correctAnswers: number;
 };
 export type ChapterSummary = {
   id: string;
@@ -76,6 +81,8 @@ export type ChapterDetail = {
   };
   progress: Progress;
   results: Record<string, Result>;
+  previousChapter: { id: string; title: string } | null;
+  nextChapter: { id: string; title: string } | null;
 };
 export type AdminUser = {
   id: string;

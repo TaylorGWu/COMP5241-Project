@@ -44,6 +44,13 @@ export function StudentCourse({ courseId }: { courseId: string }) {
                 .join(" · ")}{" "}
               · {data.course.durationMin} {c.minutes}
             </p>
+            {data.enrolled ? (
+              <p className="portal-meta">
+                {data.course.visitedSlides}/{data.course.totalSlides}{" "}
+                {c.pagesRead} · {data.course.answeredQuestions}/
+                {data.course.totalQuestions} {c.questionsAnswered}
+              </p>
+            ) : null}
           </header>
           <div className="portal-course-overview">
             <section>

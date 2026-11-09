@@ -11,7 +11,7 @@ const out = fs.mkdtempSync(path.join(os.tmpdir(), 'coursework-student-next-step-
 
 const slideOne = { id:'s1', order:1, layout:'bullets', title:'Branches isolate work', bullets:['A branch keeps work separate'], quizInstruction:'', statusGroups:[], visuals:[] };
 const slideTwo = { id:'s2', order:2, layout:'bullets', title:'Check yourself', bullets:['Which answer fits?'], quizInstruction:'', statusGroups:[], visuals:[] };
-const course = { id:'sample', title:'Software engineering', description:'Requirements, design and testing.', courseCode:'COMP5241', subject:'Computing', level:'Beginner', durationMin:45, chapterCount:1, chapterIds:['one'], status:'published', enrolled:true, completionPercent:20, lastChapterId:'one', lastSlideId:'s2' };
+const course = { id:'sample', title:'Software engineering', description:'Requirements, design and testing.', courseCode:'COMP5241', subject:'Computing', level:'Beginner', durationMin:45, chapterCount:1, chapterIds:['one'], status:'published', enrolled:true, completionPercent:20, lastChapterId:'one', lastSlideId:'s2', totalSlides:2, visitedSlides:2, totalQuestions:4, answeredQuestions:2, correctAnswers:1 };
 const question = { id:'q1', stem:'Why create a branch?', revision:'a'.repeat(64), options:[{id:'A',text:'Isolate work'},{id:'B',text:'Delete history'}] };
 
 function chapterPayload(reviewSlideId) {
@@ -19,6 +19,8 @@ function chapterPayload(reviewSlideId) {
     chapter: { id:'one', title:'Example chapter', slides:[slideOne, slideTwo], questions:[question], glossary:[] },
     progress: { visitedSlideIds:['s1','s2'], lastSlideId:'s2', completionPercent:60, completed:false },
     results: { q1: { questionId:'q1', selectedOptionId:'B', correct:false, correctOptionId:'A', explanation:'A branch isolates work.', attemptId:'a1', reviewSlideId } },
+    previousChapter: null,
+    nextChapter: null,
   };
 }
 
@@ -55,6 +57,9 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await budget.inputValue(), '60', 'The budget input is prefilled from the server');
       // A goal recommendation must not also appear as the resume card.
       assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 1);
+      // Reading and answering are reported separately rather than blended away.
+      await page.getByText(/2\/2 pages read/).first().waitFor();
+      await page.getByText(/2\/4 questions answered/).first().waitFor();
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS goal reason, weekly budget, single next-step entry');
@@ -125,7 +130,7 @@ function chapterPayload(reviewSlideId) {
         if (api === '/api/student/courses/sample/chapters/one') return route.fulfill({ json: {
           chapter:{ id:'one', title:'Example chapter', slides:[slideOne, slideTwo], questions:three, glossary:[] },
           progress:{ visitedSlideIds:['s1'], lastSlideId:'s1', completionPercent:20, completed:false },
-          results:{} } });
+          results:{}, previousChapter:null, nextChapter:null } });
         return route.fulfill({ json: {} });
       });
       await page.goto(base + '/student/courses/sample/chapters/one');
@@ -149,6 +154,37 @@ function chapterPayload(reviewSlideId) {
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS practice list expands one question at a time');
+    }
+
+    // ---- 5. a chapter footer points at the next published chapter ----
+    {
+      const context = await browser.newContext({ viewport:{width:1440,height:1000}, reducedMotion:'reduce' });
+      const page = await context.newPage(); const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      const user = { id:'u1', name:'Learner', email:'learner@example.test', role:'student', status:'active', active:true, createdAt:1700000000 };
+      await page.route('**/api/**', route => {
+        const api = new URL(route.request().url()).pathname;
+        if (api === '/api/auth/me') return route.fulfill({ json: { user, csrfToken:'fixture' } });
+        if (api === '/api/student/home') return route.fulfill({ json: { courses:[course], profile:{ background:'', goal:'', weeklyMinutes:0 }, recommendation:null } });
+        if (api.endsWith('/progress')) return route.fulfill({ json: { progress:{ visitedSlideIds:['s1'], lastSlideId:'s1', completionPercent:60, completed:false } } });
+        if (api === '/api/student/courses/sample/chapters/one') return route.fulfill({ json: {
+          chapter:{ id:'one', title:'Example chapter', slides:[slideOne, slideTwo], questions:[], glossary:[] },
+          progress:{ visitedSlideIds:['s1'], lastSlideId:'s1', completionPercent:60, completed:false },
+          results:{},
+          previousChapter:null,
+          nextChapter:{ id:'two', title:'Linear regression' } } });
+        return route.fulfill({ json: {} });
+      });
+      await page.goto(base + '/student/courses/sample/chapters/one');
+      await page.getByRole('heading', { name:'Example chapter' }).waitFor();
+      const next = page.locator('a[href="/student/courses/sample/chapters/two"]');
+      assert.equal(await next.count(), 1, 'The footer links to the next chapter');
+      assert.ok((await next.innerText()).includes('Next chapter'), 'The link is labelled');
+      assert.ok((await next.innerText()).includes('Linear regression'), 'The next chapter title is shown');
+      assert.equal(await page.getByText('Previous chapter').count(), 0, 'A first chapter offers no previous link');
+      assert.deepEqual(errors, []);
+      await context.close();
+      console.log('PASS chapter footer links to the next chapter');
     }
 
     console.log('Student next-step, weekly budget and review link passed.');

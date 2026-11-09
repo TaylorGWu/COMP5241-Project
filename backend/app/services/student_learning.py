@@ -74,6 +74,25 @@ def question_revision(db, user_id, digest):
     return hmac.new(key.encode(), digest.encode(), hashlib.sha256).hexdigest()
 
 
+def chapter_neighbours(course_id, chapter_id):
+    """Previous and next learnable chapter in the published snapshot.
+
+    The snapshot only contains ready chapters, so these are exactly the chapters
+    a learner can open; unpublished ones never become a dead end.
+    """
+    chapters = available(course_id)['chapters']
+    index = next((position for position, chapter in enumerate(chapters) if chapter['id'] == chapter_id), None)
+    if index is None:
+        return None, None
+
+    def reference(chapter):
+        return {'id': chapter['id'], 'title': chapter['title']}
+
+    previous = reference(chapters[index - 1]) if index > 0 else None
+    following = reference(chapters[index + 1]) if index + 1 < len(chapters) else None
+    return previous, following
+
+
 def review_slide(chapter, question):
     """A teaching slide that covers the same objective, for reviewing a wrong answer.
 
