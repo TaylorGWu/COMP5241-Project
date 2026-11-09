@@ -202,7 +202,9 @@ async def chapter(course_id: str, chapter_id: str, request: Request):
     progress, results = learning.state(course_id, chapter, user['id'])
     previous, following = learning.chapter_neighbours(course_id, chapter_id)
     return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results,
-            'previousChapter': previous, 'nextChapter': following}
+            'previousChapter': previous, 'nextChapter': following,
+            # The top bar shows the course this chapter belongs to, like the teacher's.
+            'courseTitle': available(course_id).get('title', '')}
 
 
 @router.post('/courses/{course_id}/chapters/{chapter_id}/progress')

@@ -17,11 +17,14 @@ export function PortalShell({
   admin = false,
   children,
   action,
+  title,
 }: {
   admin?: boolean;
   children: ReactNode;
   /** Page-level control placed in the top bar, like the teacher workspace. */
   action?: ReactNode;
+  /** Current page, shown as a breadcrumb after the brand. */
+  title?: string;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -31,7 +34,7 @@ export function PortalShell({
         <a href="#portal-content" className="portal-skip">
           {c.skip}
         </a>
-        <PublicHeader simple action={action} />
+        <PublicHeader simple action={action} title={title} />
         <main id="portal-content" className="portal-shell">
           {children}
         </main>

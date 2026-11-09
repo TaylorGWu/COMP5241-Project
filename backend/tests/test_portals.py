@@ -636,6 +636,9 @@ def test_tutor_answers_from_the_published_slide_only(monkeypatch):
         assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
         path = f'/api/student/courses/{cid}/chapters/{chapter_id}/tutor'
 
+        # The top bar names the course the chapter belongs to.
+        assert student.get(f'/api/student/courses/{cid}/chapters/{chapter_id}').json()['courseTitle'] == 'Tutor course'
+
         reply = student.post(path, json={'slideId': 's1', 'question': 'What is a state?'})
         assert reply.status_code == 200, reply.text
         assert reply.json()['answer']

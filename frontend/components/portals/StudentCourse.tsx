@@ -33,6 +33,7 @@ export function StudentCourse({ courseId }: { courseId: string }) {
     : null;
   return (
     <PortalShell
+      title={data?.course.title}
       action={
         <Link
           className="portal-button portal-button--quiet portal-button--back"

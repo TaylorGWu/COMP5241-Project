@@ -86,6 +86,7 @@ export type ChapterDetail = {
   results: Record<string, Result>;
   previousChapter: { id: string; title: string } | null;
   nextChapter: { id: string; title: string } | null;
+  courseTitle?: string;
 };
 export type AdminUser = {
   id: string;

@@ -170,6 +170,7 @@ export function StudentPlayer({
   const copy = portalCopy(locale);
   return (
     <PortalShell
+      title={resource.data?.courseTitle}
       action={
         <Link
           href={studentCourseHref(courseId)}

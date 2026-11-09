@@ -13,10 +13,13 @@ import { homepageCopy } from "@/lib/homepage-copy";
 export function PublicHeader({
   simple = false,
   action,
+  title,
 }: {
   simple?: boolean;
   /** Page-level control, shown in the bar just before the account menu. */
   action?: ReactNode;
+  /** Current page, rendered as a breadcrumb after the brand. */
+  title?: string;
 }) {
   const { locale } = useI18n();
   const copy = publicCopy(locale);
@@ -25,6 +28,7 @@ export function PublicHeader({
   const home = pathname === "/";
   return <header className="public-header">
     <Link href="/" className="public-brand"><span>CW</span>Coursework<span className="brand-period" aria-hidden="true">.</span></Link>
+    {title ? <span className="public-crumb" title={title}>{title}</span> : null}
     <nav aria-label="Main navigation">
       {home ? <Link href="#home-workflow" className="public-text-link home-how-link">{homepageCopy(locale).how}</Link> : null}
       {(!simple || pathname === "/profile") && user ? <Link href={roleDestination(user)} className="public-text-link" data-workspace-entry>{copy.dashboard}</Link> : null}

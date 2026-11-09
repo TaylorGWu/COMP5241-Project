@@ -225,6 +225,37 @@ html[lang="zh-HK"] .portal {
   background: var(--blue-soft);
   color: var(--ink);
 }
+/* The crumb sits beside the brand, so the bar packs from the left and the account
+   menu takes the free space instead of being spread evenly. */
+.portal .public-header {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.portal .public-header nav {
+  margin-left: auto;
+}
+/* Brand, then a slash and the page you are on - the teacher's top bar shape. */
+.portal .public-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: min(52ch, 46vw);
+  margin-left: 4px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.portal .public-crumb::before {
+  content: "/";
+  flex: 0 0 auto;
+  color: var(--body);
+  font-weight: 400;
+}
 .portal-title {
   display: grid;
   gap: 12px;
