@@ -173,37 +173,6 @@ export function StudentPlayer({
       title={resource.data?.courseTitle}
       action={
         <>
-          {/* Chapter jumps live in the top bar beside the back control, so the tab
-              row belongs to the page's own views. */}
-          {resource.data?.previousChapter || resource.data?.nextChapter ? (
-            <nav className="portal-chapter-nav portal-chapter-nav--bar" aria-label={copy.outline}>
-              {resource.data.previousChapter ? (
-                <Link
-                  className="portal-button portal-button--quiet portal-chapter-nav__bar-link"
-                  href={studentChapterHref(courseId, resource.data.previousChapter.id)}
-                  title={resource.data.previousChapter.title}
-                >
-                  <PortalIcon name="chevron" /> {copy.previousChapter}{" "}
-                  <span className="portal-chapter-nav__title">
-                    {resource.data.previousChapter.title}
-                  </span>
-                </Link>
-              ) : null}
-              {resource.data.nextChapter ? (
-                <Link
-                  className="portal-button portal-button--quiet portal-chapter-nav__bar-link"
-                  href={studentChapterHref(courseId, resource.data.nextChapter.id)}
-                  title={resource.data.nextChapter.title}
-                >
-                  {copy.nextChapter}{" "}
-                  <span className="portal-chapter-nav__title">
-                    {resource.data.nextChapter.title}
-                  </span>{" "}
-                  <PortalIcon name="arrow" />
-                </Link>
-              ) : null}
-            </nav>
-          ) : null}
           <Link
             href={studentCourseHref(courseId)}
             className="portal-button portal-button--quiet portal-button--back"
@@ -457,6 +426,34 @@ function Lesson({
               </button>
             ) : null}
           </nav>
+          {/* Chapter jumps sit in the tab row, against its right edge. */}
+          {data.previousChapter || data.nextChapter ? (
+            <nav className="portal-chapter-nav portal-chapter-nav--inline" aria-label={c.outline}>
+              {data.previousChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
+                  href={studentChapterHref(courseId, data.previousChapter.id)}
+                >
+                  <PortalIcon name="arrow" /> {c.previousChapter}{" "}
+                  <span className="portal-chapter-nav__title">
+                    {data.previousChapter.title}
+                  </span>
+                </Link>
+              ) : null}
+              {data.nextChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
+                  href={studentChapterHref(courseId, data.nextChapter.id)}
+                >
+                  {c.nextChapter}{" "}
+                  <span className="portal-chapter-nav__title">
+                    {data.nextChapter.title}
+                  </span>{" "}
+                  <PortalIcon name="arrow" />
+                </Link>
+              ) : null}
+            </nav>
+          ) : null}
           </div>
           {view === "slides" ? (
           <section aria-label={c.outline}>
