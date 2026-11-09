@@ -141,21 +141,27 @@ function Lesson({
   const safeSlide = slide ? studentRenderSlide(slide, c.quizGuide) : undefined;
   return (
     <>
-      <Link href={studentCourseHref(courseId)} className="portal-text-link">
-        {c.courseBack}
-      </Link>
       <header className="portal-title">
-        <h1>{data.chapter.title}</h1>
-        <ProgressBar value={data.progress.completionPercent} />
-        <p role="status">
-          {saving
-            ? c.savingProgress
-            : progressError
-              ? ""
-              : data.progress.completed
-                ? c.finished
-                : c.saved}
-        </p>
+        <div className="portal-title-head">
+          <h1>{data.chapter.title}</h1>
+          <Link href={studentCourseHref(courseId)} className="portal-text-link">
+            {c.courseBack}
+          </Link>
+        </div>
+        {/* Bar and save state travel together, so a taller title cannot strand
+            the label below the fold of the header row. */}
+        <div className="portal-title-status">
+          <ProgressBar value={data.progress.completionPercent} />
+          <p role="status">
+            {saving
+              ? c.savingProgress
+              : progressError
+                ? ""
+                : data.progress.completed
+                  ? c.finished
+                  : c.saved}
+          </p>
+        </div>
       </header>
       <PortalError error={progressError} retry={() => setRetry((n) => n + 1)} />
       <div className="portal-player">

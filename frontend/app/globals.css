@@ -884,7 +884,9 @@ main :is(input, select, textarea)::placeholder { color: color-mix(in srgb, var(-
 .global-system-settings__trigger { border-color: color-mix(in srgb, var(--color-line) 82%, var(--color-blue)); }
 
 /* The internal lab inherits the same controls without disguising itself as product UI. */
-main:has(> header > div > h1) { border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); box-shadow: 0 12px 32px rgb(23 32 51 / .045); }
+/* Prototype pages get a single card. Portal shells manage their own surfaces,
+   and their header markup now nests the title, so they must stay excluded. */
+main:not(.portal-shell):has(> header > div > h1) { border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); box-shadow: 0 12px 32px rgb(23 32 51 / .045); }
 
 @media (max-width: 760px) {
   .course-create-page .teacher-nav { margin-bottom: .8rem; }
