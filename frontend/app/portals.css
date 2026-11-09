@@ -838,7 +838,8 @@ html[lang="zh-HK"] .portal {
    its own rail so the extra width carries content instead of blank margin.
    Header and content read the same variable so they cannot drift apart. */
 .portal:has(.portal-player) {
-  --reader-shell: 1560px;
+  /* The slide is the point of the page, so the reader gets the widest shell. */
+  --reader-shell: 1720px;
 }
 .portal:has(.portal-player) .public-header,
 .portal-shell:has(.portal-player) {
@@ -846,10 +847,10 @@ html[lang="zh-HK"] .portal {
 }
 .portal-player {
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  gap: 40px;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 32px;
   align-items: start;
-  max-width: 1224px;
+  max-width: none;
   margin-inline: auto;
 }
 .portal-outline {
@@ -866,7 +867,7 @@ html[lang="zh-HK"] .portal {
 }
 @media (min-width: 1360px) {
   .portal-player {
-    grid-template-columns: 220px minmax(0, 1fr) clamp(340px, 24vw, 420px);
+    grid-template-columns: 208px minmax(0, 1fr) clamp(300px, 21vw, 360px);
     max-width: none;
   }
   .portal-tutor {
@@ -949,14 +950,20 @@ html[lang="zh-HK"] .portal {
   display: grid;
   /* An auto-sized column lets a nowrap row push the whole page sideways. */
   grid-template-columns: minmax(0, 1fr);
-  gap: 40px;
+  gap: 24px;
 }
-/* Three views of one chapter, so the tab row sits with the content it switches. */
+/* Views and chapter links on one bar above the content. */
+.portal-reading-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
 .portal-tabs--reading {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: -16px;
 }
 /* Below the stage breakpoint the slide is read, not projected: it reflows to the
    column so the type stays legible on a phone. */
@@ -1144,7 +1151,7 @@ html[lang="zh-HK"] .portal {
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
-  margin-bottom: -16px;
+  margin-left: auto;
 }
 .portal-chapter-nav > span {
   display: none;

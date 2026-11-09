@@ -389,6 +389,9 @@ function Lesson({
           </div>
         </aside>
         <div className="portal-reading" ref={readingRef} tabIndex={-1}>
+          {/* Tabs and the chapter links share one bar: moving between chapters is
+              navigation, so it belongs on the same line as the views. */}
+          <div className="portal-reading-bar">
           <nav className="portal-tabs portal-tabs--reading" aria-label={c.outline}>
             <button
               type="button"
@@ -450,6 +453,7 @@ function Lesson({
               )}
             </nav>
           ) : null}
+          </div>
           {view === "slides" ? (
           <section aria-label={c.outline}>
             {safeSlide ? (
