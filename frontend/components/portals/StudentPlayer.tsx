@@ -266,6 +266,39 @@ function Lesson({
       request.abort();
     };
   }, [courseId, chapterId, slide, c.progressFailed, retry]);
+  // One question at a time, kept on screen with its answer: the learner can see
+  // what the answer was grounded in without leaving the slide.
+  const [question, setQuestion] = useState("");
+  const [asked, setAsked] = useState<
+    { id: string; question: string; answer?: string }[]
+  >([]);
+  const tutor = usePortalWrite();
+  const askTutor = (event: FormEvent) => {
+    event.preventDefault();
+    const text = question.trim();
+    if (!text || !slide) return;
+    const id = `${Date.now()}`;
+    setAsked((current) => [...current, { id, question: text }]);
+    setQuestion("");
+    void tutor.run(
+      async (signal) => {
+        const reply = await portalApi.tutor(
+          courseId,
+          chapterId,
+          slide.id,
+          text,
+          signal,
+        );
+        setAsked((current) =>
+          current.map((entry) =>
+            entry.id === id ? { ...entry, answer: reply.answer } : entry,
+          ),
+        );
+        return reply;
+      },
+      () => undefined,
+    );
+  };
   const safeSlide = slide ? studentRenderSlide(slide, c.quizGuide) : undefined;
   const figure = slide ? studentSlideFigure(slide) : undefined;
   return (
@@ -387,43 +420,6 @@ function Lesson({
               </dl>
             </section>
           ) : null}
-          {data.previousChapter || data.nextChapter ? (
-            <nav
-              className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
-            >
-              {data.previousChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
-                  href={studentChapterHref(courseId, data.previousChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    <PortalIcon name="arrow" /> {c.previousChapter}
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.previousChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-              {data.nextChapter ? (
-                <Link
-                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
-                  href={studentChapterHref(courseId, data.nextChapter.id)}
-                >
-                  <span className="portal-chapter-nav__label">
-                    {c.nextChapter} <PortalIcon name="arrow" />
-                  </span>
-                  <span className="portal-chapter-nav__title">
-                    {data.nextChapter.title}
-                  </span>
-                </Link>
-              ) : (
-                <span />
-              )}
-            </nav>
-          ) : null}
-        </div>
         <section id="portal-practice" className="portal-practice">
           <h2>{c.practice}</h2>
           <p>{c.practiceHint}</p>
@@ -463,6 +459,96 @@ function Lesson({
             <p>{c.noQuestions}</p>
           )}
         </section>
+          {data.previousChapter || data.nextChapter ? (
+            <nav
+              className={`portal-chapter-nav${data.previousChapter ? "" : " portal-chapter-nav--first"}${data.nextChapter ? "" : " portal-chapter-nav--last"}`}
+            >
+              {data.previousChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--prev"
+                  href={studentChapterHref(courseId, data.previousChapter.id)}
+                >
+                  <span className="portal-chapter-nav__label">
+                    <PortalIcon name="arrow" /> {c.previousChapter}
+                  </span>
+                  <span className="portal-chapter-nav__title">
+                    {data.previousChapter.title}
+                  </span>
+                </Link>
+              ) : (
+                <span />
+              )}
+              {data.nextChapter ? (
+                <Link
+                  className="portal-chapter-nav__link portal-chapter-nav__link--next"
+                  href={studentChapterHref(courseId, data.nextChapter.id)}
+                >
+                  <span className="portal-chapter-nav__label">
+                    {c.nextChapter} <PortalIcon name="arrow" />
+                  </span>
+                  <span className="portal-chapter-nav__title">
+                    {data.nextChapter.title}
+                  </span>
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          ) : null}
+        </div>
+        <aside className="portal-tutor">
+          <h2>{c.tutor}</h2>
+          <p className="portal-tutor__hint">{c.tutorHint}</p>
+          <p className="portal-tutor__grounded">
+            <strong>{c.tutorGrounded}: </strong>
+            {slide?.title ?? "—"}
+          </p>
+          {(data.objectives ?? []).length ? (
+            <ul className="portal-tutor__objectives">
+              {(data.objectives ?? []).map((objective) => (
+                <li key={objective.id}>{objective.text}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="portal-tutor__log" aria-live="polite">
+            {tutor.error ? (
+              <p className="portal-tutor__said portal-tutor__said--error">
+                {tutor.error}
+              </p>
+            ) : null}
+            {asked.length ? (
+              asked.map((entry) => (
+                <div key={entry.id} className="portal-tutor__turn">
+                  <p className="portal-tutor__question">{entry.question}</p>
+                  <p className="portal-tutor__said">
+                    {entry.answer ?? c.tutorThinking}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="portal-tutor__empty">{c.tutorEmpty}</p>
+            )}
+          </div>
+          <form className="portal-tutor__form" onSubmit={askTutor}>
+            <label>
+              <span className="sr-only">{c.tutorAsk}</span>
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder={c.tutorPlaceholder}
+                rows={3}
+                maxLength={600}
+              />
+            </label>
+            <button
+              type="submit"
+              className="portal-button"
+              disabled={tutor.busy || question.trim().length < 2}
+            >
+              {tutor.busy ? c.tutorThinking : c.tutorSend}
+            </button>
+          </form>
+        </aside>
       </div>
     </>
   );

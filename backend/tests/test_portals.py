@@ -581,3 +581,67 @@ def test_migration_delivers_a_published_course_that_had_no_snapshot():
             assert row is not None, 'The published course is delivered again'
             assert json.loads(row['snapshot'])['chapters'][0]['id'] == chapter_id
             assert db.execute('SELECT 1 FROM auth_schema_versions WHERE version=5').fetchone()
+
+
+def test_tutor_context_stays_inside_the_published_slide():
+    from app.services import tutor
+
+    snapshot = {
+        'title': 'Course',
+        'learningObjectives': [{'id': 'LO1', 'text': 'Find paths'}, {'id': 'LO2', 'text': 'Reason'}],
+        'chapters': [{
+            'id': 'c1', 'title': 'Search',
+            'slides': [{'id': 's1', 'title': 'State space', 'bullets': ['States', 'Edges'], 'objectiveIds': ['LO2']}],
+        }],
+    }
+    context = tutor.context_for(snapshot, 'c1', 's1')
+    assert context['slide']['title'] == 'State space'
+    assert [item['id'] for item in context['objectives']] == ['LO2'], 'Only the objectives this slide serves'
+    messages = tutor.build_messages(context, 'What is a state?')
+    assert messages[0]['role'] == 'system'
+    assert 'State space' in messages[1]['content']
+    assert 'Student state-of-the-art' not in messages[1]['content']
+    for missing in [('c1', 'nope'), ('nope', 's1')]:
+        try:
+            tutor.context_for(snapshot, *missing)
+        except KeyError:
+            continue
+        raise AssertionError('A slide outside the publication must not resolve')
+
+
+def test_tutor_answers_from_the_published_slide_only(monkeypatch):
+    from app.llm import client as llm_client
+    from app.llm.client import ChatMessage
+
+    captured = {}
+
+    class Stub:
+        async def complete(self, *, model, messages, tools=None, temperature=0.0):
+            captured['messages'] = messages
+            return ChatMessage(content='A state is a situation plus the moves out of it.')
+
+    monkeypatch.setattr(llm_client, 'build_deepseek_client', lambda: Stub())
+
+    with TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(teacher, 'tutor-teacher@example.test', 'instructor')
+        signed_in(student, 'tutor-student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Tutor course', 'learningObjectives': ['Model a problem as states']}).json()
+        cid, chapter_id = course['id'], course['chapterIds'][0]
+        package = {
+            'slideDeck': {'slides': [{'id': 's1', 'order': 1, 'layout': 'bullets', 'title': 'State space', 'bullets': ['States', 'Edges'], 'objectiveIds': ['LO1']}]},
+            'questionSet': {'questions': []},
+        }
+        assert teacher.patch(f'/api/demo/courses/{cid}/chapters/{chapter_id}', json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+        path = f'/api/student/courses/{cid}/chapters/{chapter_id}/tutor'
+
+        reply = student.post(path, json={'slideId': 's1', 'question': 'What is a state?'})
+        assert reply.status_code == 200, reply.text
+        assert reply.json()['answer']
+        prompt = captured['messages'][1]['content']
+        assert 'State space' in prompt and 'Model a problem as states' in prompt
+        assert 'What is a state?' in prompt
+
+        # A slide that is not in the publication cannot be asked about.
+        assert student.post(path, json={'slideId': 's9', 'question': 'Anything?'}).status_code == 404

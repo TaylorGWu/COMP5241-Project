@@ -21,6 +21,7 @@ function chapterPayload(reviewSlideId) {
     results: { q1: { questionId:'q1', selectedOptionId:'B', correct:false, correctOptionId:'A', explanation:'A branch isolates work.', attemptId:'a1', reviewSlideId } },
     previousChapter: null,
     nextChapter: null,
+    objectives: [{ id: 'LO1', text: 'Explain why a branch isolates work' }],
   };
 }
 
@@ -163,14 +164,18 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await page.locator('.portal-question[data-open]').count(), 1, 'Opening one closes the other');
       assert.equal(await page.locator('.portal-question-toggle').nth(2).getAttribute('aria-expanded'), 'true');
       assert.equal(await page.locator('.portal-question-toggle').first().getAttribute('aria-expanded'), 'false');
-      // A wide viewport puts practice in its own rail instead of stretching the
-      // slide into the spare width.
-      const rail = await page.evaluate(() => {
+      // Practice reads under the slide it belongs to; the rail is for help.
+      const layout = await page.evaluate(() => {
         const reading = document.querySelector('.portal-reading').getBoundingClientRect();
         const practice = document.querySelector('.portal-practice').getBoundingClientRect();
-        return { beside: practice.left >= reading.right - 1, aligned: Math.abs(practice.top - reading.top) < 40 };
+        const tutor = document.querySelector('.portal-tutor').getBoundingClientRect();
+        return {
+          underSlide: practice.left >= reading.left - 1 && practice.right <= reading.right + 1 && practice.top > reading.top + 40,
+          tutorBeside: tutor.left >= reading.right - 1,
+        };
       });
-      assert.ok(rail.beside && rail.aligned, 'Practice forms a rail beside the slide at 1440px');
+      assert.ok(layout.underSlide, 'Practice sits under the slide at 1440px');
+      assert.ok(layout.tutorBeside, 'The tutor is the rail at 1440px');
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS practice list expands one question at a time');

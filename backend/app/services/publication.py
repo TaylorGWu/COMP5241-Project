@@ -50,9 +50,13 @@ def build_snapshot(repository, course):
                          'questions': questions if isinstance(questions, list) else [],
                          'glossary': glossary if isinstance(glossary, list) else [],
                          'assets': [asset for asset in assets if isinstance(asset, dict)] if isinstance(assets, list) else []})
+    # Learning objectives travel with the snapshot: the learner-facing tutor may only
+    # use what was published, never the teacher's working copy.
+    objectives = [dict(item) for item in (course.learning_objectives or []) if isinstance(item, dict)]
     return {'id': course.id, 'title': course.title, 'description': course.description,
             'courseCode': course.course_code, 'subject': course.subject, 'level': course.level,
-            'durationMin': course.duration_min, 'chapters': chapters}
+            'durationMin': course.duration_min, 'learningObjectives': objectives,
+            'chapters': chapters}
 
 
 def publish(repository, course_id, instructor_id):

@@ -49,10 +49,40 @@ def _deliver_published_courses(db):
     return delivered
 
 
+def _publish_objectives(db):
+    """v6: give every existing snapshot the course objectives.
+
+    The learner tutor may only read what was published, so the objectives have to
+    live in the snapshot. Chapters are left exactly as they are - this only adds the
+    field, it does not re-cut the published content.
+    """
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='portal_publications'").fetchone():
+        return 0
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='courses'").fetchone():
+        return 0
+    repaired = 0
+    rows = db.execute('SELECT p.course_id, p.snapshot, c.payload_json FROM portal_publications p JOIN courses c ON c.id=p.course_id').fetchall()
+    for row in rows:
+        try:
+            snapshot = json.loads(row['snapshot'])
+            if 'learningObjectives' in snapshot:
+                continue
+            course = json.loads(row['payload_json'])
+            snapshot['learningObjectives'] = [
+                dict(item) for item in (course.get('learning_objectives') or []) if isinstance(item, dict)
+            ]
+            db.execute('UPDATE portal_publications SET snapshot=? WHERE course_id=?',
+                       (json.dumps(snapshot, ensure_ascii=False), row['course_id']))
+            repaired += 1
+        except (TypeError, ValueError, KeyError):
+            continue
+    return repaired
+
+
 def migrate(store, *, initial_upgrade=False):
     with store.connection() as db:
         present = {row[0] for row in db.execute('SELECT version FROM auth_schema_versions')}
-        if {3, 4, 5} <= present:
+        if {3, 4, 5, 6} <= present:
             return
         if not initial_upgrade:
             backup_path = store.path.with_name(f"{store.path.name}.pre-portal-{time.time_ns()}.bak")
@@ -78,3 +108,6 @@ def migrate(store, *, initial_upgrade=False):
         if 5 not in present:
             _deliver_published_courses(db)
             db.execute("INSERT INTO auth_schema_versions VALUES(5, strftime('%s','now'))")
+        if 6 not in present:
+            _publish_objectives(db)
+            db.execute("INSERT INTO auth_schema_versions VALUES(6, strftime('%s','now'))")

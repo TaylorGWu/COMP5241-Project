@@ -11,6 +11,7 @@ tasks:
   verify_answer: { provider: gemini,      tier: cheap,   temperature: 0.0 }
   mermaid:       { provider: deepseek,    tier: cheap,   temperature: 0.0 }
   vision:        { provider: deepseek,    tier: flash }
+  tutor:         { provider: deepseek,    tier: default, temperature: 0.3 }
   embed:         { provider: siliconflow, model: bge-m3 }
   image:         { provider: cloudflare, model: "@cf/black-forest-labs/flux-1-schnell" }
   tts:           { provider: edge,        voice: zh-CN-XiaoxiaoNeural }

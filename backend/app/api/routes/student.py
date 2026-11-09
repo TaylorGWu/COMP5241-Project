@@ -100,6 +100,11 @@ class Visit(BaseModel):
     slideId: str = Field(min_length=1, max_length=128)
 
 
+class TutorAsk(BaseModel):
+    slideId: str = Field(min_length=1, max_length=64)
+    question: str = Field(min_length=2, max_length=600)
+
+
 class Attempt(BaseModel):
     model_config = ConfigDict(extra='forbid')
     questionId: str = Field(min_length=1, max_length=128)
@@ -196,8 +201,14 @@ async def chapter(course_id: str, chapter_id: str, request: Request):
     chapter = learning.get_chapter(course_id, chapter_id, user['id'])
     progress, results = learning.state(course_id, chapter, user['id'])
     previous, following = learning.chapter_neighbours(course_id, chapter_id)
+    # The learner tutor is grounded in the objectives this chapter actually serves,
+    # so the page shows the same list it is answering from.
+    snapshot = available(course_id)
+    served = {str(item) for slide in chapter.get('slides', []) for item in slide.get('objectiveIds', [])}
+    published = [item for item in snapshot.get('learningObjectives', []) if isinstance(item, dict)]
+    objectives = [item for item in published if str(item.get('id')) in served] or published
     return {'chapter': learning.safe_chapter(course_id, chapter, user['id']), 'progress': progress, 'results': results,
-            'previousChapter': previous, 'nextChapter': following}
+            'previousChapter': previous, 'nextChapter': following, 'objectives': objectives}
 
 
 @router.post('/courses/{course_id}/chapters/{chapter_id}/progress')
@@ -215,6 +226,32 @@ async def attempt(course_id: str, chapter_id: str, request: Request, body: Attem
     result, progress = learning.attempt(course_id, chapter, user['id'], body.questionId, body.optionId, body.submissionId, body.questionRevision)
     return {'result': result, 'progress': progress}
 
+
+@router.post('/courses/{course_id}/chapters/{chapter_id}/tutor')
+async def tutor_reply(course_id: str, chapter_id: str, request: Request, body: TutorAsk):
+    """Answer a question about one slide, from the published snapshot only."""
+    from app.config import settings
+    from app.llm.client import build_deepseek_client
+    from app.services import tutor
+    from app.llm.router import get_router
+
+    user = await student_user(request)
+    learning.get_chapter(course_id, chapter_id, user['id'])  # enrollment + publication check
+    snapshot = available(course_id)
+    try:
+        context = tutor.context_for(snapshot, chapter_id, body.slideId)
+    except KeyError as error:
+        raise HTTPException(404, 'That slide is no longer published') from error
+    if not settings.deepseek_api_key:
+        raise HTTPException(503, 'No model key is configured for the tutor')
+    task = get_router().for_task('tutor')
+    reply = await tutor.answer(
+        build_deepseek_client(), settings.deepseek_model, context, body.question,
+        temperature=task.temperature,
+    )
+    if not reply:
+        raise HTTPException(502, 'The tutor did not answer. Try again.')
+    return {'answer': reply}
 
 @router.get('/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.{extension}')
 async def asset(course_id: str, chapter_id: str, asset_id: str, extension: str, request: Request):

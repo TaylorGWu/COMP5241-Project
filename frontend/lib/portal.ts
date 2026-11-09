@@ -86,6 +86,7 @@ export type ChapterDetail = {
   results: Record<string, Result>;
   previousChapter: { id: string; title: string } | null;
   nextChapter: { id: string; title: string } | null;
+  objectives: { id: string; text: string }[];
 };
 export type AdminUser = {
   id: string;
@@ -273,6 +274,20 @@ export const portalApi = {
     json<{ courseId: string }>("/api/student/join", "POST", { code }, signal),
   chapter: (id: string, chapter: string, signal?: AbortSignal) =>
     authJson<ChapterDetail>(chapterPath(id, chapter), { signal }),
+  /** Ask about the slide in front of the learner; the server grounds the answer. */
+  tutor: (
+    id: string,
+    chapter: string,
+    slideId: string,
+    question: string,
+    signal?: AbortSignal,
+  ) =>
+    json<{ answer: string }>(
+      `${chapterPath(id, chapter)}/tutor`,
+      "POST",
+      { slideId, question },
+      signal,
+    ),
   progress: (
     id: string,
     chapter: string,
