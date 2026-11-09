@@ -109,12 +109,10 @@ function StudentHomeContent({
   };
   return (
     <>
-      <header className="portal-title">
-        <h1>{tab === "learning" ? c.learning : c.courses}</h1>
-      </header>
-      {/* Two destinations: what this learner is taking, and what they could take. */}
-      {/* Tabs and the catalogue filter share one row so the header is not a
-          mostly empty band. */}
+      {/* The tab names the page, so a visible title would only repeat it. The
+          heading stays for document structure and screen readers. */}
+      <h1 className="sr-only">{tab === "learning" ? c.learning : c.courses}</h1>
+      {/* Two destinations side by side with the catalogue filter. */}
       <div className="portal-tabs-row">
         <nav className="portal-tabs" aria-label={c.learning}>
           <button
