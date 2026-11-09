@@ -63,7 +63,6 @@ function StudentHomeContent({
   );
   const [code, setCode] = useState("");
   const profile = usePortalWrite();
-  const invite = usePortalWrite();
   const enrolled = data.courses.filter((course) => course.enrolled);
   const recommendation = data.courses.find(
     (course) => course.id === data.recommendation?.courseId,
@@ -100,13 +99,6 @@ function StudentHomeContent({
           signal,
         ),
       reload,
-    );
-  };
-  const join = (e: FormEvent) => {
-    e.preventDefault();
-    void invite.run(
-      (signal) => portalApi.join(code.trim(), signal),
-      (result) => router.push(studentCourseHref(result.courseId)),
     );
   };
   return (
@@ -341,27 +333,7 @@ function StudentHomeContent({
           </details>
           <PortalError error={profile.error} />
         </section>
-        <section className="portal-panel">
-          <h2>{c.invite}</h2>
-          <form onSubmit={join}>
-            <label>
-              {c.code}
-              <input
-                required
-                maxLength={100}
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-            </label>
-            <button
-              className="portal-button portal-button--secondary"
-              disabled={invite.busy || !code.trim()}
-            >
-              {invite.busy ? c.loading : c.join}
-            </button>
-            <PortalError error={invite.error} />
-          </form>
-        </section>
+
       </aside>
       </div>
     </>

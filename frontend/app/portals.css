@@ -528,10 +528,13 @@ body:has(.portal) {
   grid-template-columns: minmax(0, 1fr);
   gap: 32px;
 }
+/* The invite box is gone, and the goals panel now sits with the controls at the top
+   instead of under the course cards. */
 .portal-student-home > .portal-sidebar {
   grid-column: 1;
+  order: -1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-content: start;
 }
