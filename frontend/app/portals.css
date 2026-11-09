@@ -930,8 +930,9 @@ body:has(.portal) {
 .portal-course-progress {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   margin-top: 16px;
+  max-width: 560px;
 }
 .portal-course-progress .portal-progress {
   flex: 1 1 auto;

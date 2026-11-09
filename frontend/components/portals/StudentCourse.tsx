@@ -35,12 +35,22 @@ export function StudentCourse({ courseId }: { courseId: string }) {
     <PortalShell
       title={data?.course.title}
       action={
-        <Link
-          className="portal-button portal-button--quiet portal-button--back"
-          href="/student"
-        >
-          <PortalIcon name="chevron" /> {c.back}
-        </Link>
+        <>
+          {data?.enrolled && next ? (
+            <Link
+              className="portal-button portal-button--primary"
+              href={studentChapterHref(data.course.id, next)}
+            >
+              {data.course.completionPercent ? c.continue : c.start}
+            </Link>
+          ) : null}
+          <Link
+            className="portal-button portal-button--quiet portal-button--back"
+            href="/student"
+          >
+            <PortalIcon name="chevron" /> {c.back}
+          </Link>
+        </>
       }
     >
       <PortalError error={resource.error} retry={resource.reload} />
@@ -104,14 +114,6 @@ export function StudentCourse({ courseId }: { courseId: string }) {
             {data.enrolled && data.chapters.length ? (
               <div className="portal-course-progress">
                 <ProgressBar value={data.course.completionPercent} />
-                {next ? (
-                  <Link
-                    className="portal-button portal-button--quiet"
-                    href={studentChapterHref(courseId, next)}
-                  >
-                    {data.course.completionPercent ? c.continue : c.start}
-                  </Link>
-                ) : null}
               </div>
             ) : null}
           </header>
