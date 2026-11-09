@@ -71,6 +71,8 @@ function chapterPayload(reviewSlideId) {
       // Derived activity: days plus a relative time, never a made-up duration.
       await page.getByText(/6 study days/).first().waitFor();
       await page.getByText(/Last studied/).first().waitFor();
+      // Two courses do not need a filter; it would only ever match everything.
+      assert.equal(await page.locator('.portal-search').count(), 0, 'No filter for a tiny catalogue');
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS goal reason, weekly budget, single next-step entry');
@@ -198,6 +200,28 @@ function chapterPayload(reviewSlideId) {
       assert.deepEqual(errors, []);
       await context.close();
       console.log('PASS chapter footer links to the next chapter');
+    }
+
+    // ---- 6. the course filter appears once the catalogue is worth filtering ----
+    {
+      const context = await browser.newContext({ viewport:{width:1440,height:1000}, reducedMotion:'reduce' });
+      const page = await context.newPage();
+      const user = { id:'u1', name:'Learner', email:'learner@example.test', role:'student', status:'active', active:true, createdAt:1700000000 };
+      const many = [1,2,3,4,5].map(n => ({...course, id:`c${n}`, title:`Course ${n}`, enrolled:false}));
+      await page.route('**/api/**', route => {
+        const api = new URL(route.request().url()).pathname;
+        if (api === '/api/auth/me') return route.fulfill({ json: { user, csrfToken:'fixture' } });
+        if (api === '/api/student/home') return route.fulfill({ json: { courses:many, profile:{ background:'', goal:'', weeklyMinutes:0 }, recommendation:null } });
+        return route.fulfill({ json: {} });
+      });
+      await page.goto(base + '/student');
+      await page.getByRole('heading', { name:'My learning' }).waitFor();
+      assert.equal(await page.locator('.portal-search').count(), 1, 'Five courses are worth filtering');
+      await page.locator('.portal-search input').fill('Course 3');
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.portal-course').count(), 1, 'The filter narrows the list');
+      await context.close();
+      console.log('PASS course filter appears only when the catalogue is large enough');
     }
 
     console.log('Student next-step, weekly budget and review link passed.');

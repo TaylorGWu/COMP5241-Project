@@ -78,11 +78,16 @@ function StudentHomeContent({
   const reason = data.recommendation
     ? reasons[data.recommendation.reasonCode]
     : "";
-  const visible = data.courses.filter((course) =>
-    `${course.title} ${course.description} ${course.subject} ${course.courseCode}`
-      .toLocaleLowerCase()
-      .includes(search.toLocaleLowerCase()),
-  );
+  // A filter over a handful of courses cannot do anything useful, so it only
+  // appears once scanning the list stops being trivial.
+  const searchable = data.courses.length > 3;
+  const visible = searchable
+    ? data.courses.filter((course) =>
+        `${course.title} ${course.description} ${course.subject} ${course.courseCode}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
+      )
+    : data.courses;
   const save = (e: FormEvent) => {
     e.preventDefault();
     void profile.run(
@@ -167,14 +172,16 @@ function StudentHomeContent({
             <h2>{c.discover}</h2>
             <span>{visible.length}</span>
           </div>
-          <label className="portal-search">
-            {c.search}
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
+          {searchable ? (
+            <label className="portal-search">
+              {c.search}
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+          ) : null}
           {visible.length ? (
             <div
               className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
