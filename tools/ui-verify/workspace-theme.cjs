@@ -63,7 +63,7 @@ const adminCourse = { id:'sample', title:course.title, courseCode:course.courseC
         await page.getByRole('button',{name:'Clear filters'}).click();
         assert.equal(await page.locator('.course-library-card').count(),2);
       } else if(role==='student') {
-        await page.locator('.portal-resume-course').waitFor();
+        await page.locator('.portal-course').first().waitFor();
         assert.ok(await page.locator('a[href="/student/courses/sample"]').count()>0);
       } else {
         await page.locator('.portal-metric').first().waitFor();
