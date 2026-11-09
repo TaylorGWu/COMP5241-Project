@@ -3,6 +3,8 @@ import { test } from "node:test";
 import {
   studentChapterHref,
   relativeTime,
+  courseMatchesQuery,
+  matchingChapterTitles,
   progressPercent,
   resumeChapter,
   optionText,
@@ -262,4 +264,29 @@ test("last-activity reads naturally in every locale and never says \"in\"", () =
   assert.match(relativeTime(now - 40 * 86400, now, "en"), /last month/);
   // A clock skew must not produce a future statement.
   assert.equal(relativeTime(now + 30, now, "en"), "now");
+});
+
+test("course search covers chapter titles and narrows on every term", () => {
+  const base = {
+    title: "Artificial Intelligence Concepts",
+    description: "Search, knowledge representation and reasoning.",
+    subject: "AI & Data",
+    courseCode: "COMP5511",
+    chapterTitles: ["Introduction to Search", "Neural networks and learning"],
+  };
+  // Course metadata still works, case-insensitively.
+  assert.equal(courseMatchesQuery(base, "comp5511"), true);
+  assert.equal(courseMatchesQuery(base, "REASONING"), true);
+  // The point of the change: a chapter title is searchable.
+  assert.equal(courseMatchesQuery(base, "neural"), true);
+  assert.equal(matchingChapterTitles(base, "neural").length, 1);
+  // Every term must appear, so extra words narrow instead of widening.
+  assert.equal(courseMatchesQuery(base, "neural"), true);
+  assert.equal(courseMatchesQuery(base, "neural quantum"), false);
+  // An empty query keeps the whole catalogue.
+  assert.equal(courseMatchesQuery(base, "   "), true);
+  // Chinese has no spaces; a substring must still hit.
+  const chinese = {...base, chapterTitles: ["知識表示與推理"]};
+  assert.equal(courseMatchesQuery(chinese, "推理"), true);
+  assert.deepEqual(matchingChapterTitles(chinese, "知識"), ["知識表示與推理"]);
 });

@@ -486,6 +486,8 @@ def test_course_summary_reports_pages_and_answers_separately():
     assert (summary['totalSlides'], summary['totalQuestions']) == (2, 1)
     assert (summary['visitedSlides'], summary['answeredQuestions'], summary['correctAnswers']) == (0, 0, 0)
     assert summary['enrolled'] is False
+    # Chapter titles ship with the summary so the catalogue can search them.
+    assert summary['chapterTitles'] == ['One']
 
 
 def test_next_step_ignores_function_words():

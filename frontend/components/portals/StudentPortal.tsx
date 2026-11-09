@@ -8,6 +8,8 @@ import { PortalIcon } from "./PortalIcon";
 import {
   portalApi,
   relativeTime,
+  courseMatchesQuery,
+  matchingChapterTitles,
   studentCourseHref,
   studentChapterHref,
   type StudentHome,
@@ -78,16 +80,9 @@ function StudentHomeContent({
   const reason = data.recommendation
     ? reasons[data.recommendation.reasonCode]
     : "";
-  // A filter over a handful of courses cannot do anything useful, so it only
-  // appears once scanning the list stops being trivial.
-  const searchable = data.courses.length > 3;
-  const visible = searchable
-    ? data.courses.filter((course) =>
-        `${course.title} ${course.description} ${course.subject} ${course.courseCode}`
-          .toLocaleLowerCase()
-          .includes(search.toLocaleLowerCase()),
-      )
-    : data.courses;
+  const visible = data.courses.filter((course) =>
+    courseMatchesQuery(course, search),
+  );
   const save = (e: FormEvent) => {
     e.preventDefault();
     void profile.run(
@@ -172,7 +167,7 @@ function StudentHomeContent({
             <h2>{c.discover}</h2>
             <span>{visible.length}</span>
           </div>
-          {searchable ? (
+          {data.courses.length ? (
             <label className="portal-search">
               {c.search}
               <input
@@ -187,7 +182,7 @@ function StudentHomeContent({
               className={`portal-course-grid${visible.length === 1 ? " portal-course-grid--single" : ""}`}
             >
               {visible.map((course) => (
-                <CourseCard key={course.id} course={course} />
+                <CourseCard key={course.id} course={course} query={search} />
               ))}
             </div>
           ) : (
@@ -300,7 +295,7 @@ function StudentHomeContent({
     </div>
   );
 }
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({ course, query }: { course: Course; query: string }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   return (
@@ -314,6 +309,12 @@ function CourseCard({ course }: { course: Course }) {
         <Link href={studentCourseHref(course.id)}>{course.title}</Link>
       </h3>
       <p className="portal-course-description">{course.description}</p>
+      {matchingChapterTitles(course, query).length ? (
+        <p className="portal-meta">
+          {c.matchedChapters}{" "}
+          {matchingChapterTitles(course, query).join(" · ")}
+        </p>
+      ) : null}
       <p className="portal-meta">
         {course.chapterCount} {c.chapters} · {course.durationMin} {c.minutes}
       </p>

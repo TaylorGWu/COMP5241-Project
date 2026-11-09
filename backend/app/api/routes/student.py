@@ -141,6 +141,7 @@ def course_summary(snapshot, user_id):
         last = next(((row['chapter_id'], row['slide_id']) for row in visits if (row['chapter_id'], row['slide_id']) in valid), last)
     return {key: snapshot[key] for key in ('id', 'title', 'description', 'courseCode', 'subject', 'level', 'durationMin')} | {
         'chapterCount': len(chapters),
+        'chapterTitles': [chapter['title'] for chapter in chapters],
         'enrolled': is_enrolled,
         'completionPercent': round(sum(s['completionPercent'] for s in states) / len(states)) if states else 0,
         'lastChapterId': last[0],

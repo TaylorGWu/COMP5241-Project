@@ -21,6 +21,7 @@ export type Course = {
   correctAnswers: number;
   studyDays: number;
   lastStudiedAt: number | null;
+  chapterTitles: string[];
 };
 export type ChapterSummary = {
   id: string;
@@ -113,6 +114,51 @@ export type AdminCourse = {
  * carried activity, never a duration, because sparse timestamps cannot measure
  * time spent without inventing a number.
  */
+type SearchableCourse = Pick<
+  Course,
+  "title" | "description" | "subject" | "courseCode" | "chapterTitles"
+>;
+
+function queryTerms(query: string): string[] {
+  return query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Course search over the fields a learner can actually type: course metadata
+ * plus chapter titles, so "neural" finds a course whose chapter names it.
+ * Every term must appear somewhere, so extra words narrow rather than widen.
+ */
+export function courseMatchesQuery(
+  course: SearchableCourse,
+  query: string,
+): boolean {
+  const terms = queryTerms(query);
+  if (!terms.length) return true;
+  const haystack = [
+    course.title,
+    course.description,
+    course.subject,
+    course.courseCode,
+    ...(course.chapterTitles ?? []),
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
+/** Chapter titles that explain a match, so a hit is never unexplained. */
+export function matchingChapterTitles(
+  course: SearchableCourse,
+  query: string,
+): string[] {
+  const terms = queryTerms(query);
+  if (!terms.length) return [];
+  return (course.chapterTitles ?? []).filter((title) => {
+    const value = title.toLocaleLowerCase();
+    return terms.some((term) => value.includes(term));
+  });
+}
+
 export function relativeTime(
   pastSeconds: number,
   nowSeconds: number,
