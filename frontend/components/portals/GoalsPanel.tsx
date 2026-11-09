@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
 import { portalApi, type StudentHome } from "@/lib/portal";
 import { PortalError, usePortalWrite } from "./PortalShell";
+import { PortalIcon } from "./PortalIcon";
 
 /** The learner's background, goal and weekly budget.
  *
@@ -100,6 +101,11 @@ export function GoalsPanel({
           <button type="submit" className="portal-button" disabled={write.busy}>
             {write.busy ? c.saving : c.save}
           </button>
+          {write.saved ? (
+            <p className="portal-save-feedback" role="status">
+              <PortalIcon name="check" /> {c.saved}
+            </p>
+          ) : null}
         </form>
         <PortalError error={write.error} />
       </div>

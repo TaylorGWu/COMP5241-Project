@@ -50,9 +50,11 @@ function chapterPayload(reviewSlideId) {
       assert.equal(await reason.count(), 1, 'The reason code is rendered as copy, not a rebuilt sentence');
       assert.equal(await page.getByText(/Your background:/).count(), 0, 'The old templated reason paragraph is gone');
       // Weekly budget is visible in the saved profile summary.
+      // The goals now live in the account menu; open it to read the budget.
+      await page.locator('.account-actions button').first().click();
+      await page.locator('.account-menu-goals-panel > summary').click();
       assert.equal(await page.getByText('60 min').count() >= 1, true, 'The weekly time budget is shown');
-      // The editor exposes the budget field so it can be changed.
-      await page.getByText('Edit learning goals').click();
+      // Opening the panel reveals the editor; the summary sits above the fields.
       const budget = page.getByLabel('Weekly study budget');
       assert.equal(await budget.inputValue(), '60', 'The budget input is prefilled from the server');
       // Saving confirms beside the button and then clears itself, rather than

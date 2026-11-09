@@ -34,7 +34,7 @@ export function StudentPortal() {
     <PortalShell
       // The menu is navigation: one line that jumps to the goals panel on the page.
       menuExtra={
-        resource.data ? (
+        resource.data?.profile ? (
           <GoalsPanel profile={resource.data.profile} reload={resource.reload} />
         ) : null
       }
