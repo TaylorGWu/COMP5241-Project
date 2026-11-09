@@ -89,7 +89,7 @@ function ProfileEditor() {
     setFile(next); setPreview(URL.createObjectURL(next));
   };
   const labels = c.subjectNames as Record<string, string>;
-  return <main className="public-page teacher-profile-page" onClickCapture={event => {
+  return <main className="public-page teacher-profile-page profile-page" onClickCapture={event => {
     const target = event.target instanceof Element ? event.target.closest("a, [data-account-logout]") : null;
     if (!target || (target instanceof HTMLAnchorElement && target.hash && target.pathname === location.pathname)) return;
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

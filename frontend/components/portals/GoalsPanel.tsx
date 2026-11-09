@@ -9,17 +9,15 @@ import { PortalIcon } from "./PortalIcon";
 
 /** The learner's background, goal and weekly budget.
  *
- *  It lives in the account menu rather than on the home page: it is set once and
- *  then read, so it does not deserve a card next to the courses. */
+ *  It is the whole profile page, split into the two questions the recommendation
+ *  actually reads, so the form explains itself instead of being one anonymous
+ *  card. The write endpoint is unchanged. */
 export function GoalsPanel({
   profile,
   reload,
-  alwaysOpen = false,
 }: {
   profile: StudentHome["profile"];
   reload: () => void;
-  /** On the profile page the panel is the page, so it starts open. */
-  alwaysOpen?: boolean;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -46,75 +44,76 @@ export function GoalsPanel({
     );
   };
 
-  const filled =
-    profile.background || profile.goal || profile.weeklyMinutes > 0;
-
   return (
-    <details
-      className={`account-menu-goals-panel${alwaysOpen ? " account-menu-goals-panel--page" : ""}`}
-      open={alwaysOpen || undefined}
-    >
-      <summary>{c.profile}</summary>
-      <div className="account-menu-goals-body">
-        {filled ? (
-          <dl>
-            <div>
-              <dt>{c.background}</dt>
-              <dd>{profile.background || c.notProvided}</dd>
-            </div>
-            <div>
-              <dt>{c.goal}</dt>
-              <dd>{profile.goal || c.notProvided}</dd>
-            </div>
-            <div>
-              <dt>{c.weeklyMinutes}</dt>
-              <dd>
-                {profile.weeklyMinutes
-                  ? `${profile.weeklyMinutes} ${c.minutes}`
-                  : c.notProvided}
-              </dd>
-            </div>
-          </dl>
-        ) : (
-          <p>{c.profileHint}</p>
-        )}
-        <form onSubmit={save}>
-          <label>
-            {c.background}
+    <form className="teacher-profile-form" onSubmit={save}>
+      <section id="student-profile-about" className="profile-section">
+        <h2>{c.aboutYou}</h2>
+        <p className="profile-optional">{c.profileHint}</p>
+        <div className="profile-fields-grid">
+          <div className="profile-field">
+            <label htmlFor="student-background">{c.background}</label>
             <textarea
+              id="student-background"
               maxLength={500}
+              rows={4}
               value={background}
+              disabled={write.busy}
               onChange={(event) => setBackground(event.target.value)}
             />
-          </label>
-          <label>
-            {c.goal}
+            <span className="profile-count">{background.length} / 500</span>
+          </div>
+          <div className="profile-field">
+            <label htmlFor="student-goal">{c.goal}</label>
             <textarea
+              id="student-goal"
               maxLength={500}
+              rows={4}
               value={goal}
+              disabled={write.busy}
               onChange={(event) => setGoal(event.target.value)}
             />
-          </label>
-          <label>
-            {c.weeklyMinutes}
+            <span className="profile-count">{goal.length} / 500</span>
+          </div>
+        </div>
+      </section>
+      <section id="student-profile-plan" className="profile-section">
+        <h2>{c.studyPlan}</h2>
+        <p className="profile-optional" id="student-weekly-hint">
+          {c.weeklyMinutesHint}
+        </p>
+        <div className="profile-fields-grid">
+          <div className="profile-field">
+            <label htmlFor="student-weekly-minutes">{c.weeklyMinutes}</label>
             <input
+              id="student-weekly-minutes"
               inputMode="numeric"
               maxLength={4}
               value={minutes}
-              onChange={(event) => setMinutes(event.target.value.replace(/\D/g, ""))}
+              disabled={write.busy}
+              aria-describedby="student-weekly-hint"
+              onChange={(event) =>
+                setMinutes(event.target.value.replace(/\D/g, ""))
+              }
             />
-          </label>
-          <button type="submit" className="portal-button" disabled={write.busy}>
-            {write.busy ? c.saving : c.save}
-          </button>
+            <span className="profile-count">{c.minutesPerWeek}</span>
+          </div>
+        </div>
+      </section>
+      <footer className="profile-save-bar">
+        <div>
+          <PortalError error={write.error} />
           {write.saved ? (
             <p className="portal-save-feedback" role="status">
               <PortalIcon name="check" /> {c.saved}
             </p>
-          ) : null}
-        </form>
-        <PortalError error={write.error} />
-      </div>
-    </details>
+          ) : write.error ? null : (
+            <p>{c.saveHint}</p>
+          )}
+        </div>
+        <button type="submit" className="portal-button" disabled={write.busy}>
+          {write.busy ? c.saving : c.save}
+        </button>
+      </footer>
+    </form>
   );
 }

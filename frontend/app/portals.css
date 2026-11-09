@@ -2392,10 +2392,6 @@ body:has(.portal) {
 .account-menu-goals:hover {
   background: var(--soft);
 }
-/* Anchored panel should not hide under the sticky bar. */
-#learning-goals {
-  scroll-margin-top: 88px;
-}
 
 /* The course header uses two columns: the title and its description on the left, the
    course's facts on the right, so the right half of the page is not left empty. */
@@ -2431,93 +2427,7 @@ body:has(.portal) {
   }
 }
 
-/* The goals panel inside the account menu: a summary row that expands in place. */
-.account-menu-goals-panel > summary {
-  display: flex;
-  align-items: center;
-  padding: 10px 18px;
-  border-top: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 550;
-  cursor: pointer;
-  list-style: none;
-}
-.account-menu-goals-panel > summary::-webkit-details-marker {
-  display: none;
-}
-.account-menu-goals-panel > summary::after {
-  content: "›";
-  margin-left: auto;
-  color: var(--body);
-  transform: rotate(90deg);
-}
-.account-menu-goals-panel[open] > summary::after {
-  transform: rotate(-90deg);
-}
-.account-menu-goals-panel > summary:hover {
-  background: var(--soft);
-}
-.account-menu-goals-body {
-  display: grid;
-  gap: 10px;
-  padding: 4px 18px 14px;
-}
-.account-menu-goals-body dl {
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-.account-menu-goals-body dt {
-  color: var(--body);
-  font-size: 11px;
-  line-height: 15px;
-}
-.account-menu-goals-body dd {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13px;
-  line-height: 18px;
-}
-.account-menu-goals-body p {
-  margin: 0;
-  color: var(--body);
-  font-size: 12px;
-  line-height: 17px;
-}
-.account-menu-goals-body form {
-  display: grid;
-  gap: 8px;
-}
-.account-menu-goals-body label {
-  display: grid;
-  gap: 3px;
-  color: var(--body);
-  font-size: 11px;
-}
-.account-menu-goals-body textarea,
-.account-menu-goals-body input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--canvas);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-}
-.account-menu-goals-body textarea {
-  min-height: 52px;
-  resize: vertical;
-}
-.account-menu-goals-body .portal-button {
-  justify-content: center;
-}
-
-/* The goals page: one card, already open. */
-.portal .portal-profile {
-  max-width: 720px;
-}
+/* The goals page: the teacher profile's two-column editor, reusing its skin. */
 .portal .portal-profile h1 {
   margin: 0 0 6px;
   font-size: clamp(1.375rem, 1.8vw, 1.75rem);
@@ -2525,29 +2435,25 @@ body:has(.portal) {
   font-weight: 600;
   letter-spacing: -0.02em;
 }
-.portal .portal-profile__intro {
-  margin: 0 0 20px;
-  color: var(--body);
-  font-size: 14px;
-  line-height: 20px;
+.portal .portal-profile .profile-identity .teacher-photo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 24px;
 }
-.portal .portal-profile__card {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  padding: 8px 0 20px;
+/* The teacher aside can lean on a title attribute; a learner's longer email
+   should still be readable, so it wraps instead of truncating. */
+.portal .portal-profile .profile-identity-email {
+  font-size: 12px;
+  line-height: 16px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
-.portal .account-menu-goals-panel--page > summary,
-.portal .account-menu-goals-panel--page dl {
-  display: none;
-}
-.portal .account-menu-goals-panel--page .account-menu-goals-body {
-  padding: 12px 20px 0;
-}
-.portal .account-menu-goals-panel--page textarea,
-.portal .account-menu-goals-panel--page input {
-  font-size: 14px;
-  padding: 8px 10px;
+.portal .portal-profile .profile-save-bar .portal-button {
+  min-height: 44px;
+  padding-inline: 18px;
 }
 
 /* The course's primary action sits with its facts, in the header's right column. */
