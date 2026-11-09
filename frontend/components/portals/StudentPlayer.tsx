@@ -87,7 +87,7 @@ function useNarrowViewport() {
 }
 
 const SLIDE_WIDTH = 966;
-const THUMB_WIDTH = 320;
+const THUMB_WIDTH = 800;
 
 function ScaledSlide({
   slide,
@@ -296,6 +296,9 @@ function Lesson({
                   onClick={() => setIndex(i)}
                   aria-current={i === index ? "step" : undefined}
                 >
+                  <span className="portal-outline__number">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
                   {/* The rail shows the same slide the stage shows, so the list
                       and the canvas can never disagree. */}
                   <ScaledSlide
@@ -303,13 +306,13 @@ function Lesson({
                     diagramUrl={studentSlideFigure(entry)}
                     thumbnail
                   />
-                  <span className="portal-outline__label">
-                    <span>{i + 1}</span>
-                    <span>{entry.title}</span>
-                    {data.progress.visitedSlideIds.includes(entry.id) ? (
-                      <small>{c.complete}</small>
-                    ) : null}
-                  </span>
+                  <span className="portal-outline__title">{entry.title}</span>
+                  {data.progress.visitedSlideIds.includes(entry.id) ? (
+                    <span className="portal-outline__done">
+                      <PortalIcon name="check" />
+                      <span className="sr-only">{c.complete}</span>
+                    </span>
+                  ) : null}
                 </button>
               </li>
             ))}

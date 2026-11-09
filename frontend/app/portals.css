@@ -852,9 +852,6 @@ html[lang="zh-HK"] .portal {
   min-width: 0;
   position: sticky;
   top: 24px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .portal-outline h2 {
   font-size: 18px;
@@ -867,49 +864,57 @@ html[lang="zh-HK"] .portal {
   display: grid;
   gap: 4px;
 }
-/* Each entry is the slide itself, like the teacher's deck index. */
+/* Each entry is one row: number, the slide itself, then its title - the same
+   index the teacher gets, so the list and the canvas cannot disagree. */
 .portal-outline button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  text-align: left;
-  width: 100%;
-  gap: 8px;
-  padding: 8px;
-  background: transparent;
-  border-color: transparent;
-  font-weight: 400;
-  line-height: 22px;
-}
-.portal-outline .portal-stage--thumb {
-  max-width: 148px;
-}
-.portal-outline__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-weight: 400;
 }
-.portal-outline__label {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  gap: 4px 8px;
-  font-size: 13px;
-  line-height: 20px;
-}
-.portal-outline__label > span:first-child {
+.portal-outline__number {
+  flex: 0 0 auto;
   color: var(--body);
-  font-variant-numeric: tabular-nums;
-}
-.portal-outline button[aria-current] {
-  color: var(--blue);
-  background: var(--blue-soft);
-  border-color: var(--line);
-}
-.portal-outline__label small {
-  grid-column: 2;
   font-size: 11px;
   line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.portal-outline .portal-stage--thumb {
+  width: 76px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.portal-outline__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.portal-outline__done {
+  flex: 0 0 auto;
+  display: inline-flex;
   color: var(--green);
+}
+.portal-outline__done .portal-icon {
+  width: 14px;
+  height: 14px;
+}
+.portal-outline button[aria-current] {
+  color: var(--blue-deep);
+  background: var(--blue-soft);
+  border-color: transparent;
 }
 .portal-reading {
   min-width: 0;
@@ -1754,10 +1759,18 @@ html[lang="zh-HK"] .portal {
      becomes one horizontally scrollable strip so the slide is the next thing. */
   .portal-outline {
     position: static;
+    /* The strip scrolls itself. `overflow: hidden` alone still let the strip's
+       width count towards the document, so the page could be dragged sideways;
+       paint containment is what actually clips it. */
+    contain: paint;
   }
   .portal-outline ol {
     display: flex;
     gap: 8px;
+    /* A flex item refuses to shrink below its content unless told to, which would
+       push the whole page sideways instead of scrolling the strip. */
+    min-width: 0;
+    width: 100%;
     overflow-x: auto;
     scroll-snap-type: x proximity;
     padding-bottom: 4px;
@@ -1776,20 +1789,6 @@ html[lang="zh-HK"] .portal {
     gap: 8px;
     width: auto;
     max-width: 260px;
-  }
-  .portal-outline__label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .portal-outline__label > span:nth-child(2) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .portal-outline__label small {
-    white-space: nowrap;
   }
   .portal-sidebar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
