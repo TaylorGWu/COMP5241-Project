@@ -2430,3 +2430,86 @@ body:has(.portal) {
     grid-column: 1;
   }
 }
+
+/* The goals panel inside the account menu: a summary row that expands in place. */
+.account-menu-goals-panel > summary {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  list-style: none;
+}
+.account-menu-goals-panel > summary::-webkit-details-marker {
+  display: none;
+}
+.account-menu-goals-panel > summary::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--body);
+  transform: rotate(90deg);
+}
+.account-menu-goals-panel[open] > summary::after {
+  transform: rotate(-90deg);
+}
+.account-menu-goals-panel > summary:hover {
+  background: var(--soft);
+}
+.account-menu-goals-body {
+  display: grid;
+  gap: 10px;
+  padding: 4px 18px 14px;
+}
+.account-menu-goals-body dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.account-menu-goals-body dt {
+  color: var(--body);
+  font-size: 11px;
+  line-height: 15px;
+}
+.account-menu-goals-body dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 18px;
+}
+.account-menu-goals-body p {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 17px;
+}
+.account-menu-goals-body form {
+  display: grid;
+  gap: 8px;
+}
+.account-menu-goals-body label {
+  display: grid;
+  gap: 3px;
+  color: var(--body);
+  font-size: 11px;
+}
+.account-menu-goals-body textarea,
+.account-menu-goals-body input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.account-menu-goals-body textarea {
+  min-height: 52px;
+  resize: vertical;
+}
+.account-menu-goals-body .portal-button {
+  justify-content: center;
+}

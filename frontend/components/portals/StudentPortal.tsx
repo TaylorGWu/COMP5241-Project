@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
 import { PortalIcon } from "./PortalIcon";
+import { GoalsPanel } from "./GoalsPanel";
 import {
   portalApi,
   relativeTime,
@@ -33,9 +34,9 @@ export function StudentPortal() {
     <PortalShell
       // The menu is navigation: one line that jumps to the goals panel on the page.
       menuExtra={
-        <a className="account-menu-goals" href="#learning-goals">
-          {c.profile}
-        </a>
+        resource.data ? (
+          <GoalsPanel profile={resource.data.profile} reload={resource.reload} />
+        ) : null
       }
     >
       <PortalError error={resource.error} retry={resource.reload} />
@@ -63,13 +64,7 @@ function StudentHomeContent({
   const [tab, setTab] = useState<"learning" | "courses">(() =>
     data.courses.some((course) => course.enrolled) ? "learning" : "courses",
   );
-  const [background, setBackground] = useState(data.profile.background);
-  const [goal, setGoal] = useState(data.profile.goal);
-  const [minutes, setMinutes] = useState(
-    data.profile.weeklyMinutes ? String(data.profile.weeklyMinutes) : "",
-  );
   const [code, setCode] = useState("");
-  const profile = usePortalWrite();
   const enrolled = data.courses.filter((course) => course.enrolled);
   const recommendation = data.courses.find(
     (course) => course.id === data.recommendation?.courseId,
@@ -93,21 +88,6 @@ function StudentHomeContent({
       (level === "all" || course.level === level) &&
       (subject === "all" || course.subject === subject),
   );
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    void profile.run(
-      (signal) =>
-        portalApi.profile(
-          {
-            background: background.trim(),
-            goal: goal.trim(),
-            weeklyMinutes: minutes.trim() === "" ? 0 : Number(minutes),
-          },
-          signal,
-        ),
-      reload,
-    );
-  };
   return (
     <>
       {/* The tab names the page, so a visible title would only repeat it. The
@@ -263,85 +243,6 @@ function StudentHomeContent({
             </section>
           )}
         </div>
-      <aside className="portal-sidebar">
-        <section className="portal-panel" id="learning-goals">
-          <h2>{c.profile}</h2>
-          {data.profile.background ||
-          data.profile.goal ||
-          data.profile.weeklyMinutes ? (
-            <dl className="portal-goal-summary">
-              <div>
-                <dt>{c.background}</dt>
-                <dd>{data.profile.background || c.notProvided}</dd>
-              </div>
-              <div>
-                <dt>{c.goal}</dt>
-                <dd>{data.profile.goal || c.notProvided}</dd>
-              </div>
-              <div>
-                <dt>{c.weeklyMinutes}</dt>
-                <dd>
-                  {data.profile.weeklyMinutes
-                    ? `${data.profile.weeklyMinutes} ${c.minutes}`
-                    : c.notProvided}
-                </dd>
-              </div>
-            </dl>
-          ) : (
-            <p>{c.profileHint}</p>
-          )}
-          <details
-            className="portal-goals-editor"
-            open={!data.profile.background && !data.profile.goal}
-          >
-            <summary>{c.editGoals}</summary>
-            <form onSubmit={save}>
-              <label>
-                {c.background}
-                <textarea
-                  maxLength={500}
-                  value={background}
-                  onChange={(event) => setBackground(event.target.value)}
-                />
-              </label>
-              <label>
-                {c.goal}
-                <textarea
-                  maxLength={500}
-                  value={goal}
-                  onChange={(event) => setGoal(event.target.value)}
-                />
-              </label>
-              <label>
-                {c.weeklyMinutes}
-                <input
-                  type="number"
-                  min={0}
-                  max={6000}
-                  step={15}
-                  inputMode="numeric"
-                  value={minutes}
-                  onChange={(event) => setMinutes(event.target.value)}
-                />
-              </label>
-              <p className="portal-meta">{c.weeklyMinutesHint}</p>
-              <div className="portal-form-actions">
-                <button className="portal-button" disabled={profile.busy}>
-                  {profile.busy ? c.saving : c.save}
-                </button>
-                {profile.saved ? (
-                  <span role="status" className="portal-save-feedback">
-                    <PortalIcon name="check" />
-                    {c.saved}
-                  </span>
-                ) : null}
-              </div>
-            </form>
-          </details>
-          <PortalError error={profile.error} />
-        </section>
-
-      </aside>
       </div>
     </>
   );
