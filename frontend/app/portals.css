@@ -482,10 +482,19 @@ html[lang="zh-HK"] .portal {
   color: var(--blue-deep);
   border-color: transparent;
 }
+/* The cards get the whole width, as in the teacher library; the goals and the
+   invite box follow underneath instead of squeezing them into a third column. */
 .portal-student-home {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 304px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
+}
+.portal-student-home > .portal-sidebar {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-content: start;
 }
 .portal-main-column,
 .portal-sidebar {
@@ -718,37 +727,71 @@ html[lang="zh-HK"] .portal {
   line-height: 20px;
   color: var(--ink);
 }
-.portal-course {
+/* Card anatomy borrowed from the teacher library: code/status, title, one tag,
+   description, then a ruled footer. It also uses the teacher's card class, so the
+   surface, radius and shadow come from one definition. */
+.portal .portal-course {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  /* Same surface, radius and title scale as the teacher's library card. */
-  border-radius: 14px;
   min-width: 0;
+  padding: 24px;
 }
-.portal-course > .portal-text-link {
-  margin-top: auto;
-  align-self: flex-start;
-  display: inline-flex;
+.portal-course__head {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  padding-top: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+}
+.portal-course__code {
+  color: var(--body);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.portal-course__value {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 .portal-course h3 {
-  font-size: clamp(1.2rem, 1.65vw, 1.48rem);
-  line-height: 1.16;
+  margin: 0;
+  font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+  line-height: 1.18;
   font-weight: 690;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.035em;
 }
 .portal-course h3 a {
   text-decoration: none;
+  color: var(--ink);
 }
-.portal-course h3 a:hover {
-  text-decoration: underline;
+.portal-course__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.portal-course__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.portal-course__action .portal-icon {
+  width: 18px;
+  height: 18px;
+}
+.portal-course__action:hover {
+  color: var(--blue-deep);
 }
 .portal-course-description {
   max-width: 70ch;
