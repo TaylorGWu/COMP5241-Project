@@ -5,24 +5,24 @@
 
 ## 0. 接手先确认目录，避免改错版本
 
-**完整三端不在当前默认项目目录。**
+**完整三端现已切换到当前项目目录，数据库和上传图片也已迁入。**
 
 | 用途 | 目录或标识 |
 | --- | --- |
-| 完整三端工作目录 | `/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project` |
+| 完整三端工作目录 | `/Users/taylor/Workspace/python/COMP5241/COMP5241-Project` |
 | 完整三端开发分支 | `codex/student-admin-portals` |
 | 固定保留分支 | `codex/all-portals-ui-baseline-20261107` |
-| 已保存基线提交 | `b100d84d5219ffaf00bdd853cd1c45d4c5f67635` |
-| 默认旧教师端目录 | `/Users/taylor/Workspace/python/COMP5241/COMP5241-Project` |
-| 默认目录分支 | `codex/local-teacher-sync` |
+| 固定保留基线提交 | `b100d84d5219ffaf00bdd853cd1c45d4c5f67635` |
+| 当前三端分支提交 | `87b5ce8`，已推送 `origin/codex/student-admin-portals` |
+| 之前的三端 worktree | `/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project`，当前为 detached HEAD |
 
-2026-11-09 核对时，完整三端分支仍指向上述基线，写入本交接文件之前工作区干净。
-默认旧目录有用户报告、演示、交接包及部分 UI 改动，不能清理、重置或用它覆盖完整三端。
-另有 `teacher-courses` worktree，也不是完整三端基线。
+当前目录中的用户报告、演示和交接包仍是未跟踪文件，不能清理或重置。
+切换前重叠的未提交改动保存在 `stash@{0}`，包含旧版 `DESIGN.md` 等；不要盲目恢复覆盖新版。
+另有 `teacher-courses` worktree，不是当前三端工作目录。
 
 进入完整三端目录后重新执行 `git status --short`、`git branch --show-current`、
 `git log -3 --oneline`。本文件可能早于之后的改动，以实际检查为准。
-本地基线已提交；前序会话未执行远程推送，本次交接也没有推送，远程是否存在相同提交须另查。
+固定基线保留在本地，完整三端分支已推送 GitHub；后续接手仍须核对最新提交。
 
 如果 harness 不能访问本机文件系统，需要用户提供完整代码或推送相应分支。
 只读取本 Markdown 不代表已经取得代码、数据库或模型配置。
@@ -193,33 +193,28 @@ L2 是对已有内容的修改流程：读选中内容，再提出 patch；接�
 
 ## 8. 本机运行与配置
 
-本次只检查服务状态，没有启动服务。交接时 3000 和 8000 端口未发现监听；接手后先检查，不随意 kill 其他进程。
+服务状态会变化；接手后先检查 3000 和 8000 端口，不随意 kill 其他进程。
 用户指定前端继续使用 3000。
 
 已核对的本机路径：
 
-- Python 虚拟环境只在默认旧目录的 `.venv`，完整 worktree 没有自己的 `.venv`。
-- 模型本地配置存在于默认目录 `backend/env.yaml`；完整 worktree 当次未发现该文件。
-- 现有三端数据库：`/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/backend/.local/student-admin-workspace.db`。
-- 现有上传目录：`/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/backend/var/uploads`。
-- 默认数据库路径是 `.local/teacher-workspace.db`，不要误启一个空库后认定课程丢失。
+- 当前项目的 `.venv` 和 `backend/env.yaml` 保留在原位置。
+- 当前三端数据库：`/Users/taylor/Workspace/python/COMP5241/COMP5241-Project/backend/.local/teacher-workspace.db`。
+- 当前上传目录：`/Users/taylor/Workspace/python/COMP5241/COMP5241-Project/backend/var/uploads`。
+- 迁移前当前目录的旧数据库备份为 `backend/.local/teacher-workspace.pre-three-portals-20261109.db`；原 worktree 的三端数据库和图片也仍保留。
+- 迁移后 SQLite 完整性检查为 ok，源库与目标均为 7 门课程、15 个章节、5 个用户，上传目录比对一致。这是当时结果，后续数据可能变化。
 
-此前为了复用本机私密配置，同时运行完整三端后端，使用以下方式。
-它从旧目录读取本地配置，但 **app 代码通过 `--app-dir` 指向完整三端**：
+现在可直接从当前完整三端目录启动，默认读取迁入的数据库和本地配置：
 
 ```bash
 cd /Users/taylor/Workspace/python/COMP5241/COMP5241-Project/backend
-TEACHER_WORKSPACE_DB=/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/backend/.local/student-admin-workspace.db \
-UPLOAD_DIR=/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/backend/var/uploads \
-../.venv/bin/uvicorn \
-  --app-dir /Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/backend \
-  app.main:app --host 127.0.0.1 --port 8000
+../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 前端：
 
 ```bash
-cd /Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project/frontend
+cd /Users/taylor/Workspace/python/COMP5241/COMP5241-Project/frontend
 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
@@ -269,7 +264,7 @@ SMOKE_BASE=http://127.0.0.1:3000 node tools/ui-verify/workspace-theme.cjs
 
 ## 10. 报告和用户沟通的历史背景
 
-- 教师端报告之前多轮打磨，保留了实现原理、截图、数据库、AI revision 和导出说明。材料在默认旧目录 `docs/discussion/teacher-side-report/` 等位置，许多文件未进 Git，不要清理。
+- 教师端报告之前多轮打磨，材料在当前目录 `docs/discussion/teacher-side-report/` 等位置，许多文件未进 Git，不要清理。
 - 用户要求措辞自然、像在读港硕，不写夸张营销句或生硬排比。解释 agent 时要明确“模型返回调用意图，后端运行函数”。
 - 组员给过 `software.docx` 初稿。它的学生/管理员章节尚未补齐，FR/MoSCoW 仍写部分已有功能未实现，应结合最终版本更新。
 - 引言是否重写、竞品是否调整，用户后来表示不是重点；不要再把这些当成必须先解决的阻碍。
@@ -282,8 +277,8 @@ SMOKE_BASE=http://127.0.0.1:3000 node tools/ui-verify/workspace-theme.cjs
 ## 11. 尚未完成或未确认的事情
 
 1. 组员最终 ZIP 尚未交到本会话，未进行代码审查或整合。
-2. 本地固定基线已经保存；远程推送、正式 PR 和最终部署未由本会话完成。
-3. 数据库与上传文件不在 Git 快照里，移机/整合前需安全备份和验证。
+2. 三端分支已推送 GitHub；正式 PR 和最终部署尚未确认。
+3. 数据库与上传文件已迁入当前目录，但不在 Git 快照里；移机/整合前需安全备份和验证。
 4. 报告、视频、PPT、真人测试和最终课程提交是否完成，需要用户或组员给当前状态，不能按旧对话猜测。
 5. 全量测试、生产安全、负载与教学效果未由本交接验证，不能保证全部功能稳或承诺成绩。
 

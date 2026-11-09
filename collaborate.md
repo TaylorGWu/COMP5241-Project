@@ -6,10 +6,10 @@
 
 - 当前完整代码分支：`codex/student-admin-portals`。
 - 本地保留分支：`codex/all-portals-ui-baseline-20261107`。以该分支的提交为固定基线，不在上面继续开发。
-- 完整工作目录：`/Users/taylor/.codex/worktrees/student-admin-portals/COMP5241-Project`。
-- 原教师端工作目录的 `codex/local-teacher-sync` 不是完整三端基线，不能拿它的旧学生、管理员页面覆盖完整实现。
+- 完整工作目录：`/Users/taylor/Workspace/python/COMP5241/COMP5241-Project`。
+- 该目录现已切换到完整三端分支；旧 `codex/local-teacher-sync` 不是完整三端基线。
 
-这次先保存本地 Git 快照。推送远程时使用独立分支，不直接推到 `main`；推送、PR 或正式合并另行执行，并记录提交号。
+本地基线已保存，`codex/student-admin-portals` 已推送远程；不要直接推到 `main`。PR 或正式合并另行执行并记录提交号。
 
 代码快照不包含真实 API 密钥、`backend/env.yaml`、运行中的 SQLite 数据库或上传资料。数据库和上传目录保持原样；后续整合数据前另外备份。
 
@@ -101,4 +101,4 @@ UI 的项目规范在根目录 [DESIGN.md](DESIGN.md)，具体参数和整合清
 
 整合结束时，说明最终分支与提交号、引入的功能及来源、数据迁移情况、UI 变更、测试结果和仍存在的问题。确认可运行后，再安排推送远程、PR 或最终提交。不得覆盖 `main` 或未经确认上传密钥与私人资料。
 
-当前状态：已保留本地完整三端基线并记录本流程；尚未收到、审查或合并组员最终 ZIP。远程推送不在本次操作范围内。
+当前状态：完整三端代码已推送 GitHub；数据库与图片已迁入当前项目目录。尚未收到、审查或合并组员最终 ZIP。
