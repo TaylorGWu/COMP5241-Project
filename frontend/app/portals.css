@@ -246,6 +246,10 @@ body:has(.portal) {
 .portal .public-header nav {
   margin-left: auto;
 }
+/* The teacher bar reads "Coursework"; the public site's full stop stays there. */
+.portal .brand-period {
+  display: none;
+}
 /* Brand, then a slash and the page you are on - the teacher's top bar shape. */
 .portal .public-crumb {
   display: inline-flex;
