@@ -31,7 +31,7 @@ const adminCourse = { id:'sample', title:course.title, courseCode:course.courseC
           '/api/demo/courses/sample/analytics':{averageScore:0,enrolledCount:0,mostMissed:[]},
           '/api/demo/courses/sample/chapters/one':sampleChapter,
           '/api/demo/courses/sample/chapters/one/activate':{...sampleChapter,patches:[]},
-          '/api/student/home':{courses:[course],profile:{background:'Computer science student',goal:'Understand software design'},recommendation:{courseId:'sample',reason:'Matches your learning goal.'}},
+          '/api/student/home':{courses:[course],profile:{background:'Computer science student',goal:'Understand software design',weeklyMinutes:60},recommendation:{courseId:'sample',reason:'Matches your learning goal.',reasonCode:'goal'}},
           '/api/admin/overview':{users:3,courses:1,publishedCourses:1,pendingApplications:0,enrollments:1,userRoles:[{role:'student',count:1},{role:'instructor',count:1},{role:'admin',count:1}],courseStates:[{state:'published',count:1},{state:'unpublished',count:0},{state:'suspended',count:0}],courseEnrollments:[{courseId:'sample',title:course.title,courseCode:course.courseCode,count:1}]},
           '/api/admin/users':{users:[user]},
           '/api/admin/courses':{courses:[adminCourse]},
