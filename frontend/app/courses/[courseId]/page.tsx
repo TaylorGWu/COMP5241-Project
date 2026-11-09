@@ -140,6 +140,11 @@ export default function CourseDetailPage() {
           <div className="course-meta"><span>{course.courseCode || course.subject}</span><span>{course.audience}</span><span>{course.durationMin} min</span>{course.description?.trim().toLowerCase() === "short course" ? <span>{course.description.trim()}</span> : null}</div>
         </div>
       </header>
+      {course.status === "published" ? (
+        <p className="mt-5 rounded-sm border border-amber/30 bg-amber-soft px-4 py-3 text-sm text-amber">
+          Published content is read-only. Unpublish this course to change its chapters or details.
+        </p>
+      ) : null}
       {error ? <div className="mt-5"><ErrorBar message={error} onDismiss={() => setError("")} /></div> : null}
       {notice ? <p role="status" className="mt-5 rounded-sm border border-green/30 bg-green-soft px-4 py-3 text-sm text-green">{notice}</p> : null}
       <div className="course-workspace">

@@ -15,7 +15,7 @@ from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
-from app.services.course_repository import Chapter, Course
+from app.services.course_repository import Chapter, Course, ensure_editable
 
 
 def _json_value(value: Any) -> Any:
@@ -271,6 +271,7 @@ class SQLiteCourseRepository:
             raise ValueError(f"cannot update {sorted(unexpected)}")
         with self._connection() as connection:
             course = self._require_course(connection, course_id)
+            ensure_editable(course, fields=set(changes))
             for key, value in changes.items():
                 if key == "title" and not str(value).strip():
                     raise ValueError("title is required")
@@ -291,6 +292,7 @@ class SQLiteCourseRepository:
             raise ValueError("chapter title is required")
         with self._connection() as connection:
             course = self._require_course(connection, course_id)
+            ensure_editable(course)
             chapter = Chapter(
                 id=self._next_id(connection, "chapters", "chapter-"),
                 course_id=course.id,
@@ -316,6 +318,7 @@ class SQLiteCourseRepository:
         if unexpected:
             raise ValueError(f"cannot update {sorted(unexpected)}")
         with self._connection() as connection:
+            ensure_editable(self._require_course(connection, course_id))
             chapter = self._require_chapter(connection, course_id, chapter_id)
             for key, value in changes.items():
                 if key == "title" and not str(value).strip():
@@ -330,6 +333,7 @@ class SQLiteCourseRepository:
     def reorder_chapters(self, course_id: str, chapter_ids: list[str]) -> list[Chapter]:
         with self._connection() as connection:
             course = self._require_course(connection, course_id)
+            ensure_editable(course)
             if set(chapter_ids) != set(course.chapter_ids) or len(chapter_ids) != len(course.chapter_ids):
                 raise ValueError("chapter_ids must contain every chapter exactly once")
             course.chapter_ids = list(chapter_ids)
@@ -348,6 +352,7 @@ class SQLiteCourseRepository:
     def delete_chapter(self, course_id: str, chapter_id: str) -> None:
         with self._connection() as connection:
             course = self._require_course(connection, course_id)
+            ensure_editable(course)
             self._require_chapter(connection, course_id, chapter_id)
             if len(course.chapter_ids) == 1:
                 raise ValueError("cannot delete the last chapter")

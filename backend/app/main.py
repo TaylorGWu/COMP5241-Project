@@ -4,13 +4,23 @@
 API 契约见 docs/design/course-generation-design.md §13。
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import admin, auth, demo, health, student
 from app.config import settings
+from app.services.course_repository import CourseLockedError
 
 app = FastAPI(title="COMP5241 API", version="0.1.0")
+
+
+@app.exception_handler(CourseLockedError)
+async def published_course_locked(_request: Request, error: CourseLockedError) -> JSONResponse:
+    """Published content is read-only, so changing it is a conflict, not a typo."""
+    return JSONResponse(status_code=409, content={"detail": str(error)})
+
+
 app.add_middleware(auth.RequestLimitMiddleware)
 
 app.add_middleware(

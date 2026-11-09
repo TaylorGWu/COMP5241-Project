@@ -92,6 +92,7 @@ def test_stale_question_revision_is_rejected_before_first_submission():
         assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
         old = student.get(url).json()['chapter']['questions'][0]['revision']
         question['stem'] = 'Changed?'
+        assert teacher.post(f'/api/demo/courses/{cid}/unpublish').status_code == 200
         assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
         assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
         payload = {'questionId': 'q1', 'optionId': 'A', 'submissionId': 'first', 'questionRevision': old}
@@ -99,6 +100,7 @@ def test_stale_question_revision_is_rejected_before_first_submission():
         assert student.get(url).json()['results'] == {}
         question['options'][0]['id'] = 'C'
         question['answer'] = 'C'
+        assert teacher.post(f'/api/demo/courses/{cid}/unpublish').status_code == 200
         assert teacher.patch(path, json={'status': 'ready', 'package': package}).status_code == 200
         assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
         assert student.post(url + '/attempts', json=payload).status_code == 409
@@ -183,8 +185,11 @@ def test_published_course_enrollment_learning_and_analytics():
         assert analytics['enrolledCount'] == 1
         assert analytics['mostMissed'] == []
         package['questionSet']['questions'][0]['stem'] = 'A changed question?'
-        assert teacher.patch(path, json={'package': package, 'status': 'ready'}).status_code == 200
+        # Published content is locked, so a learner never sees a half-edited course.
+        assert teacher.patch(path, json={'package': package, 'status': 'ready'}).status_code == 409
         assert student.get(chapter_url).json()['chapter']['questions'][0]['stem'] == 'Branch?'
+        assert teacher.post(f'/api/demo/courses/{course_id}/unpublish').status_code == 200
+        assert teacher.patch(path, json={'package': package, 'status': 'ready'}).status_code == 200
         assert teacher.post(f'/api/demo/courses/{course_id}/publish').status_code == 200
         changed = student.get(chapter_url).json()
         assert changed['chapter']['questions'][0]['stem'] == 'A changed question?'
@@ -302,6 +307,7 @@ def test_last_location_follows_latest_visit_and_removed_slides_do_not_count():
             student.post(f'/api/student/courses/{cid}/chapters/{chapter_id}/progress', json={'slideId': slide_id})
         summary = student.get('/api/student/home').json()['courses'][0]
         assert summary['lastChapterId'] == first
+        teacher.post(f'/api/demo/courses/{cid}/unpublish')
         teacher.patch(f'/api/demo/courses/{cid}/chapters/{first}', json={'status': 'ready', 'package': {'slideDeck': {'slides': [{'id': 's3', 'title': 'New', 'layout': 'bullets'}]}}})
         teacher.post(f'/api/demo/courses/{cid}/publish')
         summary = student.get('/api/student/home').json()['courses'][0]
@@ -340,11 +346,16 @@ def test_empty_publication_is_rejected_without_replacing_previous_snapshot():
         teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': [{'id': 's1', 'title': 'Original'}]}}})
         assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
         assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+        assert teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': []}}}).status_code == 409
+        assert teacher.post(f'/api/demo/courses/{cid}/unpublish').status_code == 200
         teacher.patch(chapter_path, json={'status': 'ready', 'package': {'slideDeck': {'slides': []}}})
         assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 409
-        assert teacher.get(f'/api/demo/courses/{cid}').json()['status'] == 'published'
-        chapter = student.get(f'/api/student/courses/{cid}/chapters/{chapter_id}').json()['chapter']
-        assert chapter['slides'][0]['title'] == 'Original'
+        assert teacher.get(f'/api/demo/courses/{cid}').json()['status'] == 'draft'
+        # The failed publication left the previously delivered snapshot untouched.
+        from app.services.auth import get_auth_store
+        with get_auth_store().connection() as db:
+            snapshot = json.loads(db.execute('SELECT snapshot FROM portal_publications WHERE course_id=?', (cid,)).fetchone()['snapshot'])
+        assert snapshot['chapters'][0]['slides'][0]['title'] == 'Original'
 
 
 def test_malformed_asset_metadata_is_unavailable_without_breaking_chapter():

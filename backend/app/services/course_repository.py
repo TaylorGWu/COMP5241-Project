@@ -78,6 +78,31 @@ class CourseVersion:
     after: dict[str, Any]
 
 
+class CourseLockedError(RuntimeError):
+    """Raised when content is changed on a course that is already published."""
+
+
+#: Fields a learner actually receives in the publication snapshot.
+CONTENT_FIELDS = frozenset({
+    "title", "description", "audience", "language", "duration_min",
+    "learning_objectives", "course_code", "subject", "level",
+})
+
+
+def ensure_editable(course: Any, *, fields: set[str] | None = None) -> None:
+    """Published content is read-only; unpublish before changing it.
+
+    Learners read a frozen snapshot, so allowing edits after publication leaves
+    two versions of the same course. Locking the content removes that drift
+    instead of asking the teacher to remember to republish.
+    """
+    if getattr(course, "status", None) != "published":
+        return
+    if fields is not None and not (set(fields) & CONTENT_FIELDS):
+        return  # unpublishing and roster changes stay possible
+    raise CourseLockedError("This course is published. Unpublish it before changing the content.")
+
+
 @dataclass
 class Enrollment:
     id: str
