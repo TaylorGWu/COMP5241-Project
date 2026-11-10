@@ -45,8 +45,11 @@ export function AdminPortal() {
   }, [destination]);
   return (
     <PortalShell admin>
-      <header className="portal-title">
+      <header className="portal-title portal-admin__head">
         <h1>{c.admin}</h1>
+        {/* One line beside the title: it says what the section is for, and the row
+            would otherwise be a band of empty canvas. */}
+        <p>{c.adminIntro}</p>
       </header>
       <div className="portal-admin">
         <nav className="portal-section-nav" aria-label={c.admin}>

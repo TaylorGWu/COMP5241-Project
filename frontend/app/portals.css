@@ -2518,3 +2518,18 @@ body:has(.portal) {
 .portal .portal-chapter-nav__link--prev .portal-icon {
   transform: rotate(180deg);
 }
+
+/* Admin header: title and its one-line purpose, so the row is not a blank band. */
+.portal .portal-admin__head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.portal .portal-admin__head p {
+  margin: 0;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 20px;
+}

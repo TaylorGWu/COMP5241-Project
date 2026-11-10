@@ -2,6 +2,7 @@ import type { Locale } from "./i18n-config";
 const en = {
   learning: "My learning",
   admin: "Administration",
+  adminIntro: "People, courses and published content across the platform.",
   overview: "Overview",
   userDistribution: "Account roles",
   courseDistribution: "Course status",
@@ -182,6 +183,7 @@ type Copy = typeof en;
 const zhHK: Copy = {
   learning: "我的學習",
   admin: "平台管理",
+  adminIntro: "平台上的用户、课程与已发布内容。",
   overview: "總覽",
   userDistribution: "帳戶角色分佈",
   courseDistribution: "課程狀態分佈",
@@ -353,6 +355,7 @@ const zhHK: Copy = {
 const zhCN: Copy = {
   learning: "我的学习",
   admin: "平台管理",
+  adminIntro: "平台上的用户、课程与已发布内容。",
   overview: "总览",
   userDistribution: "账户角色分布",
   courseDistribution: "课程状态分布",
