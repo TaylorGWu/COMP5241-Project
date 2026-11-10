@@ -60,16 +60,8 @@ export function AdminDashboard({
   const maxEnrollment = Math.max(1, ...enrolled.map((course) => course.count));
   return (
     <section className="portal-dashboard">
-      <div className="portal-section-heading">
-        <h2>{c.overview}</h2>
-        <button
-          type="button"
-          disabled={resource.loading}
-          onClick={resource.reload}
-        >
-          {resource.loading ? c.loading : c.refresh}
-        </button>
-      </div>
+      {/* No heading or Refresh here: the section tab already names this view, and
+          the page reloads when a tab is opened. */}
       <PortalError error={resource.error} retry={resource.reload} />
       {resource.loading ? (
         <PortalLoading />
