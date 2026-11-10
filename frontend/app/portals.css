@@ -44,7 +44,9 @@ body:has(.portal) {
 .portal-shell {
   max-width: 1280px;
   margin: auto;
-  padding: 24px 32px 80px;
+  /* Top padding is small: the bar above already separates the page, and 24px extra
+     pushed every title down for no reason. */
+  padding: 8px 32px 80px;
 }
 /* Portal element sizes are defaults, not law: :where() keeps them at zero
    specificity so the slide renderer's own type scale can win inside a slide. */
