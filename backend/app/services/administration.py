@@ -105,3 +105,31 @@ def audit():
                 if course_id in titles:
                     events.append(dict(id=row['id'], kind='patch', actor=None, courseId=course_id, title=titles[course_id], status=row['status'], at=None, model=None, reason=None))
         return sorted(events, key=lambda event: event['at'] or 0, reverse=True)
+
+
+def ai_changes(limit=60):
+    """Recent patches: what the model proposed, why, and whether a teacher kept it."""
+    with get_auth_store().connection() as db:
+        courses = {r['id']: json.loads(r['payload_json']) for r in db.execute('SELECT id,payload_json FROM courses')}
+        chapters = {}
+        for row in db.execute('SELECT id,course_id,payload_json FROM chapters'):
+            chapters[row['id']] = json.loads(row['payload_json']).get('title', '')
+        rows = db.execute('SELECT rowid,* FROM patches ORDER BY rowid DESC LIMIT ?', (limit,)).fetchall()
+        result = []
+        for row in rows:
+            course_id, _, chapter_id = row['scope_id'].partition(':')
+            course = courses.get(course_id, {})
+            result.append(dict(
+                id=row['id'],
+                courseId=course_id,
+                courseTitle=course.get('title', ''),
+                chapterId=chapter_id or None,
+                chapterTitle=chapters.get(chapter_id, ''),
+                kind=row['kind'],
+                target=row['target_id'],
+                status=row['status'],
+                author=row['author'],
+                reason=(row['reason'] or '')[:300],
+                diff=(row['diff'] or '')[:600],
+            ))
+        return result

@@ -181,6 +181,20 @@ export function replacePortalRecord<T extends { id: string }>(
 ): T[] {
   return records.map((record) => (record.id === updated.id ? updated : record));
 }
+export type AiChange = {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  chapterId: string | null;
+  chapterTitle: string;
+  kind: string;
+  target: string;
+  status: "proposed" | "applied" | "rejected";
+  author: "ai" | "teacher";
+  reason: string;
+  diff: string;
+};
+
 export type AuditEvent = {
   id: string;
   kind: string;
@@ -213,7 +227,12 @@ export type Overview = {
 export type AdminCourseFilter =
   "all" | "published" | "unpublished" | "suspended" | "enrolled";
 export type AdminSection =
-  "overview" | "applications" | "users" | "courses" | "activity";
+  | "overview"
+  | "applications"
+  | "users"
+  | "courses"
+  | "aiChanges"
+  | "activity";
 export type AdminDestination = {
   section: AdminSection;
   role?: AccountRole;
@@ -320,6 +339,8 @@ export const portalApi = {
     authJson<{ courses: AdminCourse[] }>("/api/admin/courses", { signal }),
   audit: (signal?: AbortSignal) =>
     authJson<{ events: AuditEvent[] }>("/api/admin/audit", { signal }),
+  aiChanges: (signal?: AbortSignal) =>
+    authJson<{ changes: AiChange[] }>("/api/admin/ai-changes", { signal }),
   user: (
     id: string,
     body: { role?: AccountRole; active?: boolean },

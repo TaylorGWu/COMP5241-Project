@@ -59,6 +59,7 @@ export function AdminPortal() {
               "applications",
               "users",
               "courses",
+              "aiChanges",
               "activity",
             ] as const
           ).map((key) => (
@@ -68,7 +69,9 @@ export function AdminPortal() {
               aria-current={section === key ? "page" : undefined}
               onClick={() => navigate({ section: key })}
             >
-              <PortalIcon name={key === "courses" ? "book" : key} />
+              <PortalIcon
+                name={key === "courses" ? "book" : key === "aiChanges" ? "spark" : key}
+              />
               {c[key]}
             </button>
           ))}
@@ -95,6 +98,8 @@ export function AdminPortal() {
               initialFilter={destination.courseFilter}
               initialCourseId={destination.courseId}
             />
+          ) : section === "aiChanges" ? (
+            <AdminAiChanges />
           ) : (
             <AdminActivity />
           )}
@@ -514,6 +519,71 @@ function CourseRow({
     </li>
   );
 }
+function AdminAiChanges() {
+  const { locale } = useI18n();
+  const c = portalCopy(locale);
+  const resource = usePortalResource(portalApi.aiChanges);
+  const [search, setSearch] = useState("");
+  const rows =
+    resource.data?.changes.filter((change) =>
+      `${change.courseTitle} ${change.chapterTitle} ${change.reason} ${change.status}`
+        .toLocaleLowerCase()
+        .includes(search.toLocaleLowerCase()),
+    ) ?? [];
+  return (
+    <section>
+      <div className="portal-section-heading">
+        <h2>{c.aiChanges}</h2>
+        <button type="button" onClick={resource.reload} disabled={resource.loading}>
+          {c.refresh}
+        </button>
+      </div>
+      <p>{c.aiChangesHint}</p>
+      <div className="portal-admin-filters">
+        <label>
+          {c.search}
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={c.aiChangesSearch}
+          />
+        </label>
+      </div>
+      <PortalError error={resource.error} retry={resource.reload} />
+      {resource.loading ? <PortalLoading /> : null}
+      <ol className="portal-ai-log">
+        {rows.map((change) => (
+          <li key={change.id}>
+            <div className="portal-ai-log__head">
+              <span className={`portal-ai-log__who portal-ai-log__who--${change.author}`}>
+                {change.author === "ai" ? c.aiAuthor : c.humanAuthor}
+              </span>
+              <strong>{change.courseTitle}</strong>
+              {change.chapterTitle ? <span>{change.chapterTitle}</span> : null}
+              <span className={`portal-ai-log__state portal-ai-log__state--${change.status}`}>
+                {change.status === "proposed"
+                  ? c.patchProposed
+                  : change.status === "applied"
+                    ? c.patchApplied
+                    : c.patchRejected}
+              </span>
+            </div>
+            {change.reason ? <p className="portal-ai-log__reason">{change.reason}</p> : null}
+            {change.diff ? (
+              <details className="portal-ai-log__diff">
+                <summary>{c.viewDiff}</summary>
+                <pre>{change.diff}</pre>
+              </details>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      {!resource.loading && rows.length === 0 ? <p className="portal-empty">{c.empty}</p> : null}
+    </section>
+  );
+}
+
 function AdminActivity() {
   const { locale } = useI18n();
   const c = portalCopy(locale);

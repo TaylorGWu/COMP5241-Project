@@ -55,6 +55,12 @@ async def audit(request: Request):
     return {'events': administration.audit()}
 
 
+@router.get('/ai-changes')
+async def ai_changes(request: Request):
+    await admin_user(request)
+    return {'changes': administration.ai_changes()}
+
+
 @router.get('/overview')
 async def overview(request: Request):
     await admin_user(request)

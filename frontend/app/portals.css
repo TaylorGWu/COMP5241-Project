@@ -2533,3 +2533,82 @@ body:has(.portal) {
   font-size: 14px;
   line-height: 20px;
 }
+
+/* Admin: the AI change log, one row per patch the model proposed. */
+.portal .portal-ai-log {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.portal .portal-ai-log > li {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+.portal .portal-ai-log__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--body);
+}
+.portal .portal-ai-log__head strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+.portal .portal-ai-log__who {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--soft);
+}
+.portal .portal-ai-log__who--ai {
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+}
+.portal .portal-ai-log__state {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.portal .portal-ai-log__state--proposed {
+  background: var(--soft);
+  color: var(--body);
+}
+.portal .portal-ai-log__state--applied {
+  background: var(--green-soft, var(--soft));
+  color: var(--green, var(--ink));
+}
+.portal .portal-ai-log__state--rejected {
+  background: #f6e7e4;
+  color: #8a3b2f;
+}
+.portal .portal-ai-log__reason {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--body);
+}
+.portal .portal-ai-log__diff summary {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--blue-deep);
+  cursor: pointer;
+}
+.portal .portal-ai-log__diff pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--canvas);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
