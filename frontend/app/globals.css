@@ -909,3 +909,32 @@ main:not(.portal-shell):has(> header > div > h1) { border: 1px solid var(--color
   .course-workspace { gap: 1.2rem; }
   .course-library-card__footer { align-items: flex-start; flex-direction: column; }
 }
+
+/* Course detail header, right column: the at-a-glance counts that fill the
+   space beside the title. Numbers carry the weight; labels stay quiet. */
+.course-detail .course-header__stats {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2.2rem;
+  margin: 0;
+  padding: 0 0 .35rem;
+}
+.course-detail .course-header__stats div { min-width: 4.5rem; }
+.course-detail .course-header__stats dt {
+  color: var(--color-body);
+  font-size: .72rem;
+  font-weight: 560;
+  letter-spacing: .02em;
+}
+.course-detail .course-header__stats dd {
+  margin: .3rem 0 0;
+  color: var(--color-ink);
+  font-size: 1.6rem;
+  font-weight: 680;
+  letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 760px) {
+  .course-detail .course-header__stats { gap: 1.2rem; }
+  .course-detail .course-header__stats dd { font-size: 1.3rem; }
+}

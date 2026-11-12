@@ -132,6 +132,10 @@ export default function CourseDetailPage() {
       ? `${ready} of ${chapters.length} chapters are ready. Build the remaining chapters before publishing.`
       : "Build and review a chapter first. AI drafts stay private until you publish.";
   const publishDisabled = busy || (course?.status !== "published" && ready === 0);
+  // The header's right column: what the teacher authored, counted from the
+  // loaded chapters. Slides and questions are the content they review.
+  const totalSlides = chapters.reduce((sum, chapter) => sum + (chapter.package?.slideDeck?.slides?.length ?? 0), 0);
+  const totalQuestions = chapters.reduce((sum, chapter) => sum + (chapter.package?.questionSet?.questions?.length ?? 0), 0);
   const tabs: { value: Tab; label: string }[] = [
     { value: "curriculum", label: "Curriculum" },
     { value: "students", label: "Students" },
@@ -150,6 +154,11 @@ export default function CourseDetailPage() {
           {course.description && course.description.trim().toLowerCase() !== "short course" ? <p className="course-summary">{course.description}</p> : null}
           <div className="course-meta"><span>{course.courseCode || course.subject}</span><span>{course.audience}</span><span>{course.durationMin} min</span>{course.description?.trim().toLowerCase() === "short course" ? <span>{course.description.trim()}</span> : null}</div>
         </div>
+        <dl className="course-header__stats">
+          <div><dt>Chapters</dt><dd>{chapters.length}</dd></div>
+          <div><dt>Slides</dt><dd>{totalSlides}</dd></div>
+          <div><dt>Questions</dt><dd>{totalQuestions}</dd></div>
+        </dl>
       </header>
       {course.status === "published" ? (
         <p className="mt-5 rounded-sm border border-amber/30 bg-amber-soft px-4 py-3 text-sm text-amber">
