@@ -127,6 +127,7 @@ const en = {
   practiceHint:
     "Choose an answer, then check it for an explanation. Reading every slide and attempting every question completes this chapter.",
   quizGuide: "Use the practice questions below to check your understanding.",
+  revealExplanation: "Show explanation",
   check: "Check answer",
   correct: "Correct",
   incorrect: "Not quite",
@@ -312,6 +313,7 @@ const zhHK: Copy = {
   practiceHint:
     "選擇答案後查看解析。閱讀所有課件並作答每道題目，即可完成本章。",
   quizGuide: "請透過下方練習檢查理解。",
+  revealExplanation: "查看解析",
   check: "檢查答案",
   correct: "答對了",
   incorrect: "還差一點",
@@ -493,6 +495,7 @@ const zhCN: Copy = {
   practiceHint:
     "选择答案后查看解析。阅读所有课件并作答每道题目，即可完成本章。",
   quizGuide: "请通过下方练习检查理解。",
+  revealExplanation: "查看解析",
   check: "检查答案",
   correct: "答对了",
   incorrect: "还差一点",

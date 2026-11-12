@@ -93,21 +93,22 @@ test("answer labels map IDs to current option text", () => {
   );
   assert.equal(optionText([], "removed"), "removed");
 });
-test("student rendering supplies only safe content and useful quiz guidance", () => {
-  const slide = studentRenderSlide(
-    {
-      id: "s",
-      order: 1,
-      layout: "quiz",
-      title: "Practice",
-      bullets: ["private answer"],
-      speakerNotes: "private notes",
-      visuals: [],
-    },
-    "Answer the questions below",
-  );
-  assert.deepEqual(slide.bullets, ["Answer the questions below"]);
+test("student rendering keeps quiz options and never exposes teacher notes", () => {
+  const slide = studentRenderSlide({
+    id: "s",
+    order: 1,
+    layout: "quiz",
+    title: "Practice",
+    bullets: ["A. An option", "B. Another option"],
+    quizInstruction: "Pick one.",
+    quizExplanation: "The correct answer is A.",
+    speakerNotes: "private notes",
+    visuals: [],
+  });
+  assert.deepEqual(slide.bullets, ["A. An option", "B. Another option"]);
+  assert.equal(slide.quizInstruction, "Pick one.");
   assert.equal(slide.speakerNotes, "");
+  assert.equal(slide.quizExplanation, undefined);
   assert.deepEqual(slide.sourceRefs, []);
   assert.deepEqual(slide.objectiveIds, []);
 });

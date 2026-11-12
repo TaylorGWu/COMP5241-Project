@@ -58,6 +58,8 @@ export type StudentSlide = Pick<
 > & {
   bullets?: string[];
   visuals: { id: string; kind: string; altText: string; url: string | null }[];
+  /** The slide's worked answer, sent for the explicit reveal only. */
+  quizExplanation?: string;
 };
 export type Question = {
   id: string;
@@ -403,50 +405,25 @@ export function optionText(
   return options.find((o) => o.id === id)?.text ?? id;
 }
 /** Assets render separately so unavailable images never become invented fallback diagrams. */
+/** The learner-facing slide as IR: teaching content and quiz options only.
+    Quiz bullets are the lettered options (the worked answer travels in the
+    separate quizExplanation field, never through this renderer), so thumbnails,
+    the tutor preview and the canvas all render the same exercise. */
 export function studentRenderSlide(
   slide: StudentSlide,
-  quizGuide: string,
 ): Slide {
   return {
     id: slide.id,
     order: slide.order,
     // A figure belongs inside the slide, where the teacher reviewed it. Flattening
     // diagram pages to bullets is what made the learner view a second design.
-    layout: slide.layout === "quiz" ? "bullets" : slide.layout,
+    layout: slide.layout,
     title: slide.title,
-    bullets: slide.layout === "quiz" ? [quizGuide] : (slide.bullets ?? []),
+    bullets: slide.bullets ?? [],
     quizInstruction: slide.quizInstruction,
     statusGroups: slide.statusGroups,
     // Only the kind is kept so the renderer knows a figure exists; the asset
     // itself is addressed by URL, and specs stay teacher-side.
-    visuals: slide.visuals.map((visual) => ({
-      id: visual.id,
-      kind: visual.kind,
-    })),
-    speakerNotes: "",
-    objectiveIds: [],
-    sourceRefs: [],
-    origin: "teacher",
-  };
-}
-
-/** The learner-facing quiz page as IR: the slide's own title stays the prompt,
-    the paired question's stem becomes the instruction line, and its options
-    replace the raw bullets - which may themselves contain answers. Used where
-    the learner sees the exercise (main page, thumbnails, tutor preview); the
-    correct option is never marked. */
-export function studentRenderQuizPage(
-  slide: StudentSlide,
-  question: Question,
-): Slide {
-  return {
-    id: slide.id,
-    order: slide.order,
-    layout: "quiz",
-    title: slide.title,
-    bullets: question.options.map((option) => option.text),
-    quizInstruction: question.stem,
-    statusGroups: slide.statusGroups,
     visuals: slide.visuals.map((visual) => ({
       id: visual.id,
       kind: visual.kind,

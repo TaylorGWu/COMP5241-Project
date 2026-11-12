@@ -648,3 +648,30 @@ def test_tutor_answers_from_the_published_slide_only(monkeypatch):
 
         # A slide that is not in the publication cannot be asked about.
         assert student.post(path, json={'slideId': 's9', 'question': 'Anything?'}).status_code == 404
+
+
+def test_quiz_options_reach_the_learner_while_the_answer_stays_gated():
+    # Quiz bullets are the lettered options (verified across the generated
+    # corpus: the worked answer lives in speakerNotes, never in option text).
+    # The old read stripped them as "answers", which erased every exercise.
+    from app.services.student_learning import safe_slide_content
+
+    quiz = safe_slide_content({
+        'id': 's4', 'order': 4, 'layout': 'quiz',
+        'title': 'Which tasks state input and output?',
+        'quizInstruction': 'Pick one and justify it.',
+        'bullets': ['A. Pedestrian detection.', 'B. Traffic signs.'],
+        'speakerNotes': 'The correct answer is A.',
+    })
+    assert quiz['bullets'] == ['A. Pedestrian detection.', 'B. Traffic signs.']
+    assert quiz['quizInstruction'] == 'Pick one and justify it.'
+    assert quiz['quizExplanation'] == 'The correct answer is A.'
+
+    # A teaching slide's notes stay private, and its bullets are untouched.
+    teaching = safe_slide_content({
+        'id': 's2', 'order': 2, 'layout': 'bullets', 'title': 'Concept',
+        'bullets': ['A point'], 'speakerNotes': 'Teacher-only notes',
+    })
+    assert teaching['bullets'] == ['A point']
+    assert 'quizExplanation' not in teaching
+    assert 'speakerNotes' not in teaching

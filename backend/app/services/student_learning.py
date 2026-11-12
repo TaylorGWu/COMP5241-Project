@@ -171,10 +171,15 @@ def safe_slide_content(source):
     if type(source.get('order')) is int:
         slide['order'] = source['order']
     bullets = source.get('bullets', [])
-    # Quiz slide bullets can themselves contain answers; omit them entirely.
-    if source.get('layout') != 'quiz':
-        slide['bullets'] = [item for item in bullets if isinstance(item, str)] if isinstance(bullets, list) else []
+    # Quiz bullets are the lettered options the learner answers from. The
+    # generated corpus keeps worked answers in speakerNotes, never in the
+    # option text, so the options themselves are learner-safe content.
+    slide['bullets'] = [item for item in bullets if isinstance(item, str)] if isinstance(bullets, list) else []
     slide['statusGroups'] = safe_status_groups(source.get('statusGroups', []))
+    # The worked answer must never sit in the page body: the learner reveals
+    # it explicitly, so arriving at a quiz page does not show the solution.
+    if slide.get('layout') == 'quiz' and isinstance(source.get('speakerNotes'), str) and source['speakerNotes'].strip():
+        slide['quizExplanation'] = source['speakerNotes'].strip()
     return slide
 
 

@@ -20,7 +20,6 @@ import {
   studentChapterHref,
   optionText,
   studentRenderSlide,
-  studentRenderQuizPage,
   studentSlideFigure,
   prepareAttempt,
   mergeProgress,
@@ -225,21 +224,6 @@ function Lesson({
   const [saving, setSaving] = useState(false);
   const [retry, setRetry] = useState(0);
   const slide = data.chapter.slides[index];
-  // Quiz pages carry the deck's exercises: pair them with the chapter's
-  // auto-gradable questions in deck order, so the page itself is the exercise.
-  const quizQuestionBySlide = new Map<string, Question>();
-  data.chapter.slides
-    .filter((entry) => entry.layout === "quiz")
-    .forEach((entry, quizIndex) => {
-      const question = data.chapter.questions[quizIndex];
-      if (question) quizQuestionBySlide.set(entry.id, question);
-    });
-  const inlineQuestion = quizQuestionBySlide.get(slide.id);
-  const inlineQuestionIndex = inlineQuestion
-    ? data.chapter.questions.findIndex(
-        (question) => question.id === inlineQuestion.id,
-      )
-    : -1;
   const readingRef = useRef<HTMLDivElement>(null);
   // Open the next question the learner has to answer; a fully answered chapter
   // opens the first one so its feedback stays visible without expanding all.
@@ -359,13 +343,7 @@ function Lesson({
       () => undefined,
     );
   };
-  const safeSlide = slide ? studentRenderSlide(slide, c.quizGuide) : undefined;
-  // The tutor previews what the learner is looking at: on quiz pages that is
-  // the exercise itself, not the guide line.
-  const tutorSlide =
-    slide && inlineQuestion
-      ? studentRenderQuizPage(slide, inlineQuestion)
-      : safeSlide;
+  const safeSlide = slide ? studentRenderSlide(slide) : undefined;
   const figure = slide ? studentSlideFigure(slide) : undefined;
   return (
     <>
@@ -378,11 +356,7 @@ function Lesson({
           {/* No visible heading: the list is self-evident and the label below keeps
               it announced. */}
           <ol aria-label={c.outline}>
-            {data.chapter.slides.map((entry, i) => {
-              // Quiz pages with a paired question preview the exercise the
-              // learner will answer there, not the answer-bearing raw bullets.
-              const thumbnailQuestion = quizQuestionBySlide.get(entry.id);
-              return (
+            {data.chapter.slides.map((entry, i) => (
               <li key={entry.id}>
                 <button
                   type="button"
@@ -404,19 +378,14 @@ function Lesson({
                     ) : null}
                   </span>
                   <ScaledSlide
-                    slide={
-                      thumbnailQuestion
-                        ? studentRenderQuizPage(entry, thumbnailQuestion)
-                        : studentRenderSlide(entry, c.quizGuide)
-                    }
+                    slide={studentRenderSlide(entry)}
                     diagramUrl={studentSlideFigure(entry)}
                     thumbnail
                   />
                   <span className="portal-outline__title">{entry.title}</span>
                 </button>
               </li>
-              );
-            })}
+            ))}
           </ol>
           <div className="portal-outline__actions">
             {/* No jump to the practice panel: it is on screen beside the slide. */}
@@ -491,31 +460,8 @@ function Lesson({
           <section aria-label={c.outline}>
             {safeSlide ? (
               <>
-                {inlineQuestion ? (
-                  <QuizSlidePage
-                    key={`${slide.id}/${inlineQuestion.id}`}
-                    slide={slide}
-                    question={inlineQuestion}
-                    index={inlineQuestionIndex}
-                    result={data.results[inlineQuestion.id]}
-                    courseId={courseId}
-                    chapterId={chapterId}
-                    reload={reload}
-                    onReviewSlide={reviewSlide}
-                    accept={(result) =>
-                      setData((current) => ({
-                        ...current,
-                        progress: mergeProgress(
-                          current.progress,
-                          result.progress,
-                        ),
-                        results: {
-                          ...current.results,
-                          [inlineQuestion.id]: result.result,
-                        },
-                      }))
-                    }
-                  />
+                {slide.layout === "quiz" ? (
+                  <QuizSlidePage slide={slide} />
                 ) : (
                   <>
                     <ScaledSlide slide={safeSlide} diagramUrl={figure} />
@@ -634,9 +580,9 @@ function Lesson({
           <h2>{c.tutor}</h2>
           {/* Only the page itself: the hints, the grounding label and the
               objectives were three lines of explanation around one field. */}
-          {tutorSlide ? (
+          {safeSlide ? (
             <div className="portal-tutor__slide">
-              <ScaledSlide slide={tutorSlide} diagramUrl={figure} thumbnail />
+              <ScaledSlide slide={safeSlide} diagramUrl={figure} thumbnail />
             </div>
           ) : null}
           <div className="portal-tutor__log" aria-live="polite">
@@ -746,36 +692,16 @@ function StudentAsset({ url, alt }: { url: string; alt: string }) {
     </figure>
   );
 }
-/** A quiz page with its paired question is ONE page: the slide's own title,
-    instruction and figures on top, the answerable question in the same
-    surface. It replaces the fixed 16:9 canvas for that page, so the exercise
-    never overflows it. The question opens as a fresh one even when already
-    answered - the correct option and explanation stay hidden until the learner
-    checks again. */
-function QuizSlidePage({
-  slide,
-  question,
-  index,
-  result,
-  courseId,
-  chapterId,
-  accept,
-  reload,
-  onReviewSlide,
-}: {
-  slide: StudentSlide;
-  question: Question;
-  index: number;
-  result?: Result;
-  courseId: string;
-  chapterId: string;
-  accept: (result: Awaited<ReturnType<typeof portalApi.attempt>>) => void;
-  reload: () => void;
-  onReviewSlide: (slideId: string) => void;
-}) {
+/** A quiz page is one exercise: the slide's own title, instruction, options
+    and an explicitly revealed explanation. It replaces the fixed 16:9 canvas
+    for that page so the exercise stays readable. Nothing here is auto-graded -
+    picking an option is a self-check, and the worked answer from the teacher's
+    notes stays hidden until the learner asks for it. */
+function QuizSlidePage({ slide }: { slide: StudentSlide }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
-  const [open, setOpen] = useState(true);
+  const [choice, setChoice] = useState("");
+  const [revealed, setRevealed] = useState(false);
   return (
     <section className="portal-quiz-page">
       <h2 className="portal-quiz-page__title">{slide.title}</h2>
@@ -793,19 +719,38 @@ function QuizSlidePage({
           />
         ) : null,
       )}
-      <Practice
-        question={question}
-        index={index}
-        result={result}
-        courseId={courseId}
-        chapterId={chapterId}
-        accept={accept}
-        reload={reload}
-        onReviewSlide={onReviewSlide}
-        open={open}
-        onToggle={() => setOpen((current) => !current)}
-        startInRedo
-      />
+      <fieldset className="portal-quiz-page__options">
+        <legend className="sr-only">{slide.title}</legend>
+        {(slide.bullets ?? []).map((bullet, index) => (
+          <label className="portal-quiz-option" key={index}>
+            <input
+              type="radio"
+              name={`quiz-${slide.id}`}
+              checked={choice === String(index)}
+              onChange={() => setChoice(String(index))}
+            />
+            <span className="portal-quiz-option__letter">
+              {String.fromCharCode(65 + index)}
+            </span>
+            <span>{bullet}</span>
+          </label>
+        ))}
+      </fieldset>
+      {slide.quizExplanation ? (
+        revealed ? (
+          <div className="portal-quiz-page__explanation" role="status">
+            <p>{slide.quizExplanation}</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="portal-button portal-button--quiet"
+            onClick={() => setRevealed(true)}
+          >
+            {c.revealExplanation}
+          </button>
+        )
+      ) : null}
     </section>
   );
 }
@@ -821,7 +766,6 @@ function Practice({
   onReviewSlide,
   open,
   onToggle,
-  startInRedo = false,
 }: {
   question: Question;
   index: number;
@@ -833,17 +777,12 @@ function Practice({
   onReviewSlide: (slideId: string) => void;
   open: boolean;
   onToggle: () => void;
-  /** Open as a fresh question even when a result exists, so an answered
-      question on a slide never shows its correct option or explanation. */
-  startInRedo?: boolean;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
   const write = usePortalWrite();
-  const [choice, setChoice] = useState(
-    startInRedo ? "" : (result?.selectedOptionId ?? ""),
-  );
-  const [retrying, setRetrying] = useState(startInRedo);
+  const [choice, setChoice] = useState(result?.selectedOptionId ?? "");
+  const [retrying, setRetrying] = useState(false);
   const submission = useRef<AttemptSubmission | null>(null);
   const shown = result && !retrying ? result : null;
   const submit = (event: FormEvent) => {

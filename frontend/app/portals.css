@@ -2620,11 +2620,10 @@ body:has(.portal) {
   word-break: break-word;
 }
 
-/* A quiz page with its paired question renders as ONE page: the slide's title,
-   instruction and figures on top, the answerable question in the same surface.
-   It replaces the fixed 16:9 canvas for that page so the exercise never
-   overflows it. The practice card loses its own border here so the page reads
-   as a single surface. */
+/* A quiz page is one exercise: the slide's own title, instruction and figures
+   on top, its options below, with the worked answer revealed only by request.
+   It replaces the fixed 16:9 canvas for that page so the exercise stays
+   readable, and picks up the portal's own tokens. */
 .portal .portal-quiz-page {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2645,8 +2644,53 @@ body:has(.portal) {
   color: var(--body);
   overflow-wrap: anywhere;
 }
-.portal .portal-quiz-page .portal-question {
-  border: 0;
+.portal .portal-quiz-page__options {
+  display: grid;
+  gap: 10px;
+  margin: 0;
   padding: 0;
-  background: transparent;
+  border: 0;
+  min-width: 0;
+}
+.portal .portal-quiz-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 16px;
+  color: var(--ink);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.portal .portal-quiz-option input {
+  accent-color: var(--blue);
+  margin-top: 4px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.portal .portal-quiz-option:has(input:checked) {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+.portal .portal-quiz-option__letter {
+  font-weight: 600;
+  color: var(--body);
+  flex-shrink: 0;
+}
+.portal .portal-quiz-page__explanation {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.portal .portal-quiz-page__explanation p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
