@@ -2393,17 +2393,24 @@ body:has(.portal) {
 }
 
 /* One line in the account menu that leads to the goals panel. */
+/* One row in the account menu, aligned with the links below it: same 12px inset,
+   same 44px target, no second divider (the summary already draws one). */
 .account-menu-goals {
-  display: block;
-  padding: 10px 18px;
-  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
   color: var(--ink);
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 500;
+  line-height: 1.5;
   text-decoration: none;
 }
 .account-menu-goals:hover {
   background: var(--soft);
+  color: var(--blue-deep);
 }
 
 /* The course header uses two columns: the title and its description on the left, the
