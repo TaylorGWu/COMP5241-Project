@@ -430,6 +430,34 @@ export function studentRenderSlide(
   };
 }
 
+/** The learner-facing quiz page as IR: the slide's own title stays the prompt,
+    the paired question's stem becomes the instruction line, and its options
+    replace the raw bullets - which may themselves contain answers. Used where
+    the learner sees the exercise (main page, thumbnails, tutor preview); the
+    correct option is never marked. */
+export function studentRenderQuizPage(
+  slide: StudentSlide,
+  question: Question,
+): Slide {
+  return {
+    id: slide.id,
+    order: slide.order,
+    layout: "quiz",
+    title: slide.title,
+    bullets: question.options.map((option) => option.text),
+    quizInstruction: question.stem,
+    statusGroups: slide.statusGroups,
+    visuals: slide.visuals.map((visual) => ({
+      id: visual.id,
+      kind: visual.kind,
+    })),
+    speakerNotes: "",
+    objectiveIds: [],
+    sourceRefs: [],
+    origin: "teacher",
+  };
+}
+
 /** The figure a slide should show, already resolved to a learner-readable URL. */
 export function studentSlideFigure(slide: StudentSlide): string | undefined {
   const visual = slide.visuals.find(

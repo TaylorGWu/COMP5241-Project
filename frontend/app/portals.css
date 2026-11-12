@@ -2619,3 +2619,34 @@ body:has(.portal) {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* A quiz page with its paired question renders as ONE page: the slide's title,
+   instruction and figures on top, the answerable question in the same surface.
+   It replaces the fixed 16:9 canvas for that page so the exercise never
+   overflows it. The practice card loses its own border here so the page reads
+   as a single surface. */
+.portal .portal-quiz-page {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 24px 28px;
+  container-type: inline-size;
+}
+.portal .portal-quiz-page__title {
+  margin: 0 0 12px;
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.portal .portal-quiz-page__instruction {
+  margin: 0 0 12px;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+.portal .portal-quiz-page .portal-question {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
