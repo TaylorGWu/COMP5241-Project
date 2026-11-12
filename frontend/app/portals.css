@@ -984,9 +984,27 @@ body:has(.portal) {
   inset: 0;
   border-radius: inherit;
 }
+/* One row per chapter: number and title on the left, the page/question
+   counts and the completion badge pushed to the row's right edge - a
+   single-chapter panel no longer floats three stacked lines in a
+   full-width card. */
+.portal-chapter-list > li {
+  align-items: center;
+}
 .portal-chapter-list > li > div {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+}
+.portal-chapter-list > li > div h3 { margin: 0; }
+.portal-chapter-list > li > div p {
+  margin: 0;
+  color: var(--body);
+  font-size: 14px;
 }
 .portal-chapter-number {
   font-size: 14px;
