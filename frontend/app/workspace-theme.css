@@ -81,9 +81,15 @@ html[lang="zh-HK"] :is(.course-library-page, .course-create-page, .course-detail
   background: var(--workspace-action-hover);
   border-color: var(--workspace-action-hover);
 }
-:is(.course-library-page, .course-create-page, .course-detail) .teacher-nav,
 .portal .public-header {
   min-height: 80px;
+  background: transparent;
+  border-bottom-color: var(--color-line);
+}
+/* The teacher workspace nav returns to its 64px working height: the 80px
+   treatment left too much air above the brand row on course pages. */
+:is(.course-library-page, .course-create-page, .course-detail) .teacher-nav {
+  min-height: 64px;
   background: transparent;
   border-bottom-color: var(--color-line);
 }
