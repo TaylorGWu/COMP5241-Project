@@ -578,11 +578,11 @@ body:has(.portal) {
 }
 @keyframes portal-bell-ring {
   0%, 45%, 100% { transform: rotate(0); }
-  52% { transform: rotate(16deg); }
-  62% { transform: rotate(-14deg); }
-  72% { transform: rotate(10deg); }
-  82% { transform: rotate(-6deg); }
-  92% { transform: rotate(3deg); }
+  52% { transform: rotate(24deg); }
+  62% { transform: rotate(-20deg); }
+  72% { transform: rotate(14deg); }
+  82% { transform: rotate(-8deg); }
+  92% { transform: rotate(4deg); }
 }
 /* The suggestion dialog carries the recommended course as the very card the
    catalogue shows, on the page's own ivory canvas so the card reads as itself.
