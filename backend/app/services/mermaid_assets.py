@@ -22,16 +22,38 @@ class MermaidRenderError(RuntimeError):
 
 
 def _fallback_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Use a local CJK-capable font when present, otherwise Pillow's default."""
+    """A CJK-capable font for the diagram text. macOS and Linux both ship one;
+    without any, Pillow's default would draw tofu, so fontconfig discovery is
+    preferred over a fixed path list."""
+    import shutil
+    import subprocess
+
     for candidate in (
         "/System/Library/Fonts/Hiragino Sans GB.ttc",
         "/System/Library/Fonts/STHeiti Medium.ttc",
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
     ):
         try:
             return ImageFont.truetype(candidate, size)
         except OSError:
             continue
+    fc_match = shutil.which("fc-match")
+    if fc_match:
+        result = subprocess.run(
+            [fc_match, "-f", "%{file}", ":lang=zh-cn"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        if result.returncode == 0:
+            path = result.stdout.strip()
+            if path and Path(path).exists():
+                try:
+                    return ImageFont.truetype(path, size)
+                except OSError:
+                    pass
     return ImageFont.load_default()
 
 
