@@ -18,6 +18,16 @@ def test_complete_labels_and_all_nodes_survive_rendering():
     assert len(root.findall(".//*[@data-node-id]")) == 6
 
 
+def test_actual_newlines_inside_node_labels_survive_parsing_and_wrapping():
+    code = "graph LR; A[新图片] --> B[预处理\n缩放与归一化]; B --> C[预训练模型\n前向推理]"
+    scene = layout_graph(code)
+    nodes = {node.id: node for node in scene.nodes}
+    assert nodes["B"].label == "预处理\n缩放与归一化"
+    assert nodes["B"].lines == ["预处理", "缩放与归一化"]
+    assert nodes["C"].label == "预训练模型\n前向推理"
+    assert nodes["C"].lines == ["预训练模型", "前向推理"]
+
+
 def test_branch_edges_and_conditions_are_not_replaced_with_a_linear_sequence():
     root = ET.fromstring(render_course_svg("graph LR; A[Input] --> B{Accepted?}; B -->|yes| C[Continue]; B -->|no| D[Revise]; D --> B"))
     edges = {(e.attrib["data-source"], e.attrib["data-target"]) for e in root.findall(".//*[@data-source]")}

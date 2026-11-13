@@ -10,7 +10,7 @@ import re
 import unicodedata
 
 _ID = r"[A-Za-z_][\w-]*"
-_SHAPE = r'(?:\["[^"\n]*"\]|\[[^\]\n]*\]|\{"[^"\n]*"\}|\{[^}\n]*\}|\("[^"\n]*"\)|\([^()\n]*\))'
+_SHAPE = r'(?:\["[^"]*"\]|\[[^\]]*\]|\{"[^"]*"\}|\{[^}]*\}|\("[^"]*"\)|\([^()]*\))'
 _NODE = re.compile(rf'(?P<id>{_ID})\s*(?P<shape>{_SHAPE})')
 _EDGE = re.compile(rf'(?P<source>{_ID})(?:\s*{_SHAPE})?\s*(?:--\s*(?P<branch>[^>\n;]+?)\s*-->|-->)\s*(?:\|(?P<pipe>[^|\n]+)\|\s*)?(?P<target>{_ID})(?:\s*{_SHAPE})?')
 FONT = "Manrope, Noto Sans CJK TC, Noto Sans CJK SC, PingFang TC, Hiragino Sans GB, sans-serif"
