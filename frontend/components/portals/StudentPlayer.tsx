@@ -562,8 +562,8 @@ function Lesson({
             <div className="portal-open-questions">
               <h3>{c.openQuestions}</h3>
               <p>{c.openHint}</p>
-              {data.chapter.openQuestions.map((question) => (
-                <OpenQuestion key={question.id || question.position} question={question} />
+              {data.chapter.openQuestions.map((question, openIndex) => (
+                <OpenQuestion key={question.id || openIndex} question={question} index={openIndex} />
               ))}
             </div>
           ) : null}
@@ -767,35 +767,51 @@ function QuizSlidePage({ slide }: { slide: StudentSlide }) {
 }
 
 /** A bank question the platform cannot auto-grade (no choice structure):
-    the learner thinks it through and reveals the teacher's reference answer
-    explicitly. It borrows the practice card shell so both question kinds
-    read as one list. */
-function OpenQuestion({ question }: { question: OpenQuestion }) {
+    the learner expands the row, thinks it through, and reveals the teacher's
+    reference answer explicitly - and can hide it again. It borrows the
+    practice card's accordion shell so both question kinds read as one list. */
+function OpenQuestion({ question, index }: { question: OpenQuestion; index: number }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
+  const [open, setOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
   return (
-    <section className="portal-question portal-open-question">
-      <h3 className="portal-open-question__head">
-        <span className="portal-question-index">{question.position + 1}</span>
-        <span className="portal-open-question__type">{question.type}</span>
-        <span className="portal-question-stem">{question.stem}</span>
-      </h3>
-      {revealed ? (
-        <div className="portal-answer" role="status">
-          <strong>{c.reference}</strong>
-          <p>{question.answer}</p>
-          {question.explanation ? <p>{question.explanation}</p> : null}
-        </div>
-      ) : (
+    <section className="portal-question portal-open-question" data-open={open ? "" : undefined}>
+      <h3 className="portal-question-head">
         <button
           type="button"
-          className="portal-button portal-button--quiet"
-          onClick={() => setRevealed(true)}
+          className="portal-question-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
         >
-          {c.showReference}
+          <span className="portal-question-index">{index + 1}</span>
+          <span className="portal-open-question__stem">
+            <span className="portal-open-question__type">{question.type}</span>
+            {question.stem}
+          </span>
+          <PortalIcon name="chevron" />
         </button>
-      )}
+      </h3>
+      {open ? (
+        revealed ? (
+          <div className="portal-answer" role="status">
+            <strong>{c.reference}</strong>
+            <p>{question.answer}</p>
+            {question.explanation ? <p>{question.explanation}</p> : null}
+            <button type="button" onClick={() => setRevealed(false)}>
+              {c.hideReference}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="portal-button portal-button--quiet"
+            onClick={() => setRevealed(true)}
+          >
+            {c.showReference}
+          </button>
+        )
+      ) : null}
     </section>
   );
 }

@@ -2734,13 +2734,12 @@ body:has(.portal) {
 .portal .portal-open-question > button {
   margin-top: 14px;
 }
-.portal .portal-open-question__head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.portal .portal-open-question__stem {
+  min-width: 0;
 }
 .portal .portal-open-question__type {
-  flex-shrink: 0;
+  display: inline-block;
+  margin-right: 10px;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--soft);
