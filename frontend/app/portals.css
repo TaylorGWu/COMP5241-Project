@@ -529,14 +529,22 @@ body:has(.portal) {
 }
 /* The suggestion lives behind one notification: the bell carries a dot while a
    recommendation stands, and opens the dialog instead of occupying the page. */
+/* The suggestion is a notification pill beside the tabs: bell, label and an
+   attention dot while a recommendation stands. The bell rings until the
+   learner opens what it stands for; reduced motion keeps the dot alone. */
 .portal-tabs-notification {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 38px;
-  padding: 0 .7rem;
-  border: 1px solid transparent;
+  padding: 0 .9rem;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: transparent;
-  color: var(--color-body);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .86rem;
+  font-weight: 600;
 }
 .portal-tabs-notification:hover {
   background: var(--blue-soft);
@@ -546,12 +554,16 @@ body:has(.portal) {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
+.portal-tabs-notification__label {
+  white-space: nowrap;
+}
 .portal-tabs-notification__dot {
   position: absolute;
-  top: 7px;
-  right: 5px;
-  width: 8px;
-  height: 8px;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--canvas);
   border-radius: 50%;
   /* The system's attention red (the delete-action family), not a blue. */
   background: #b42318;

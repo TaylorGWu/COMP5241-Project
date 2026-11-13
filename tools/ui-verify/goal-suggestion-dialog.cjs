@@ -1,7 +1,8 @@
-// The goal save must answer with the current suggestion in a dialog - even
-// when the recommendation did not move - and the My learning bell must carry a
-// dot while a suggestion stands. Uses the disposable preview account on the
-// local backend; it restores the goal it started from.
+// The goal save must NOT interrupt with a dialog: it refreshes the My learning
+// bell, which carries the suggestion as a notification pill and rings until
+// the learner opens it - and rings again when the recommendation changes.
+// Uses the disposable preview account on the local backend; it restores the
+// goal it started from.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.SMOKE_BASE || 'http://localhost:3000';
@@ -33,56 +34,55 @@ const goalField = 'What would you like to learn?';
       await page.getByLabel(goalField, { exact: true }).fill(goal);
       await page.getByRole('button', { name: 'Save goals', exact: true }).click();
       await page.getByText('Saved', { exact: true }).waitFor({ timeout: 10000 });
+      await page.waitForTimeout(600);
+      assert.equal(await page.locator('dialog.portal-suggestion-dialog[open]').count(), 0, 'Saving stays on the form; the bell carries the news');
     };
+    const bell = () => page.locator('.portal-tabs-notification');
     const openDialog = () => page.locator('dialog.portal-suggestion-dialog[open]');
     const suggestedTitle = () => openDialog().locator('.portal-course h3 a').textContent();
     const closeDialog = async () => {
-      await openDialog().waitFor({ state: 'visible', timeout: 10000 });
       await page.getByRole('button', { name: 'Keep browsing' }).click();
       await openDialog().waitFor({ state: 'detached', timeout: 5000 });
     };
-    const dismissIfOpen = async () => {
-      if (await openDialog().count()) await closeDialog();
-    };
 
-    // 1. Every save answers with the suggestion, even an unchanged one.
+    // 1. A save that changes the recommendation rings the bell; the dialog
+    //    opens only from the bell.
     await save('cyber security');
-    await closeDialog();
-    await save('cyber security');
-    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
-    assert.equal(await suggestedTitle(), 'Cyber and Internet Security');
-    await page.getByRole('button', { name: 'Keep browsing' }).click();
-    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
-
-    // 2. A different goal moves the dialog to the other course.
-    await save('big data pipelines');
-    await closeDialog();
-
-    // 3. Moving the goal back re-opens the dialog on the first course.
-    await save('cyber security');
-    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
-    assert.equal(await suggestedTitle(), 'Cyber and Internet Security');
-    await page.getByRole('button', { name: 'Keep browsing' }).click();
-    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
-
-    // 4. On My learning the bell carries the suggestion: dot, dialog on click.
     await page.goto(base + '/student');
-    const bell = page.locator('.portal-tabs-notification');
-    await bell.waitFor();
-    assert.ok(await bell.locator('.portal-tabs-notification__dot').count(), 'A standing suggestion marks the bell with a dot');
-    await bell.click();
+    await bell().waitFor();
+    assert.ok(await bell().locator('.portal-tabs-notification__dot').count(), 'A standing suggestion marks the bell with a dot');
+    assert.ok((await bell().textContent()).includes('Suggested next course'), 'The notification names itself');
+    assert.ok(await bell().getAttribute('data-attention') !== null, 'An unopened suggestion rings the bell');
+    await bell().click();
     await openDialog().waitFor({ state: 'visible', timeout: 10000 });
-    assert.ok((await openDialog().textContent()).includes('Cyber and Internet Security'));
-    await page.getByRole('button', { name: 'Keep browsing' }).click();
-    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
-    assert.equal(await bell.getAttribute('data-attention'), null, 'Opening the suggestion stops the ring');
+    assert.equal(await suggestedTitle(), 'Cyber and Internet Security');
+    await closeDialog();
+    assert.equal(await bell().getAttribute('data-attention'), null, 'Opening the suggestion stops the ring');
 
-    // 5. Restore the goal the account started with.
+    // 2. Saving the same goal again leaves the bell quiet.
+    await page.goto(base + '/student/profile');
+    await save('cyber security');
+    await page.goto(base + '/student');
+    await bell().waitFor();
+    assert.equal(await bell().getAttribute('data-attention'), null, 'An unchanged recommendation does not ring again');
+    assert.ok(await bell().locator('.portal-tabs-notification__dot').count(), 'The suggestion stays on the bell');
+
+    // 3. A different goal rings the bell again, with the other course.
+    await page.goto(base + '/student/profile');
+    await save('big data pipelines');
+    await page.goto(base + '/student');
+    await bell().waitFor();
+    assert.ok(await bell().getAttribute('data-attention') !== null, 'A changed recommendation rings again');
+    await bell().click();
+    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
+    assert.equal(await suggestedTitle(), 'Big Data Computing');
+    await closeDialog();
+
+    // 4. Restore the goal the account started with.
     await page.goto(base + '/student/profile');
     await save(startGoal);
-    await dismissIfOpen();
 
-    console.log('PASS goal-suggestion-dialog: every save answers, the bell carries the suggestion');
+    console.log('PASS goal-suggestion-dialog: save rings the bell, only the bell opens the dialog');
   } catch (error) {
     failures.push(error instanceof Error ? error.message : String(error));
   } finally {

@@ -110,22 +110,27 @@ function StudentHomeContent({
             {c.courses}
           </button>
         </nav>
-        {/* The suggestion is announced in a dialog, not a standing text block;
-            the bell is the only place My learning advertises it. */}
+        {/* The suggestion is a notification the learner can carry in their
+            eye's corner: bell, label and a dot while a recommendation stands.
+            The tooltip names the course; clicking opens it as its own card. */}
         <button
           type="button"
           className="portal-tabs-notification"
           data-attention={
             data.recommendation && !suggestionSeen ? "" : undefined
           }
-          aria-label={c.recommendation}
-          title={c.recommendation}
+          title={
+            (recommendation && recommendation.title) || c.recommendation
+          }
           onClick={() => {
             setShowSuggestion(true);
             setSuggestionSeen(true);
           }}
         >
           <PortalIcon name="bell" />
+          <span className="portal-tabs-notification__label">
+            {c.recommendation}
+          </span>
           {data.recommendation ? (
             <span className="portal-tabs-notification__dot" aria-hidden="true" />
           ) : null}

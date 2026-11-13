@@ -1,14 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
-import {
-  portalApi,
-  type StudentHome,
-} from "@/lib/portal";
+import { portalApi } from "@/lib/portal";
 import {
   PortalError,
   PortalLoading,
@@ -17,11 +13,12 @@ import {
 } from "./PortalShell";
 import { GoalsPanel } from "./GoalsPanel";
 import { PortalIcon } from "./PortalIcon";
-import { SuggestionDialog } from "./SuggestionDialog";
 
 /** The learner's own page: who they are, what they bring to a course and what
  *  they want out of it. It uses the teacher profile's shell so both roles edit
- *  their account in the same recognisable place. */
+ *  their account in the same recognisable place. Saving refreshes the data;
+ *  the refreshed suggestion then rings on the My learning bell - the profile
+ *  itself stays quiet, no dialog interrupts the form. */
 export function StudentProfile() {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -29,24 +26,6 @@ export function StudentProfile() {
   const resource = usePortalResource(portalApi.home);
   const data = resource.data;
   const initial = user?.name.trim().slice(0, 1).toLocaleUpperCase() ?? "";
-  const dataAtSave = useRef<StudentHome | null>(null);
-  const [awaitingSuggestion, setAwaitingSuggestion] = useState(false);
-  const [announce, setAnnounce] = useState(false);
-
-  // Every successful save answers with the current suggestion: the learner
-  // just told the product what they want, so the dialog repeats it back even
-  // when the recommendation did not move. The refetch has landed once `data`
-  // is no longer the object the save started from - the loading flag alone
-  // cannot tell, because it is raised a tick after the save.
-  useEffect(() => {
-    if (!awaitingSuggestion || data === dataAtSave.current) return;
-    setAwaitingSuggestion(false);
-    setAnnounce(true);
-  }, [awaitingSuggestion, data]);
-
-  const suggestedCourse = data?.recommendation
-    ? data.courses.find((course) => course.id === data.recommendation?.courseId)
-    : undefined;
 
   return (
     <PortalShell
@@ -100,18 +79,8 @@ export function StudentProfile() {
             <GoalsPanel
               profile={data.profile}
               reload={resource.reload}
-              onSaved={() => {
-                dataAtSave.current = data;
-                setAwaitingSuggestion(true);
-              }}
             />
           </div>
-          <SuggestionDialog
-            course={suggestedCourse}
-            recommendation={data.recommendation}
-            open={announce}
-            onClose={() => setAnnounce(false)}
-          />
         </section>
       ) : (
         <PortalLoading />
