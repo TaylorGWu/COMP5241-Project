@@ -66,6 +66,19 @@ export type Question = {
   stem: string;
   revision: string;
   options: { id: string; text: string }[];
+  /** The question's place in the teacher's bank, so the two question kinds
+      can interleave in bank order. */
+  position?: number;
+};
+/** A bank question without a choice structure: the learner reveals the
+    teacher's reference answer explicitly; the platform never auto-grades it. */
+export type OpenQuestion = {
+  id: string;
+  type: string;
+  stem: string;
+  answer: string;
+  explanation: string;
+  position: number;
 };
 export type Result = {
   questionId: string;
@@ -82,6 +95,9 @@ export type ChapterDetail = {
     title: string;
     slides: StudentSlide[];
     questions: Question[];
+    /** Bank questions without a choice structure: self-check with the
+        teacher's reference answer, never auto-graded. */
+    openQuestions?: OpenQuestion[];
     glossary: { term: string; plain: string }[];
   };
   progress: Progress;

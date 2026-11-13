@@ -47,13 +47,16 @@ def get_chapter(course_id, chapter_id, user_id):
 
 
 def mcqs(chapter):
+    """Gradeable questions: any bank question whose options and answer
+    validate, whatever its type label - the generator sometimes writes a
+    scenario with options, and structurally it is a choice question."""
     valid = []
     counts = {}
     for q in chapter['questions']:
         if isinstance(q, dict) and isinstance(q.get('id'), str):
             counts[q['id']] = counts.get(q['id'], 0) + 1
     for q in chapter['questions']:
-        if not isinstance(q, dict) or q.get('type') != 'mcq' or not isinstance(q.get('id'), str) or not q['id'].strip() or counts[q['id']] != 1 or not isinstance(q.get('stem'), str) or not isinstance(q.get('answer'), str) or not isinstance(q.get('explanation', ''), str):
+        if not isinstance(q, dict) or not isinstance(q.get('id'), str) or not q['id'].strip() or counts[q['id']] != 1 or not isinstance(q.get('stem'), str) or not isinstance(q.get('answer'), str) or not isinstance(q.get('explanation', ''), str):
             continue
         options = q.get('options')
         if not isinstance(options, list) or len(options) < 2 or any(not isinstance(o, dict) or not isinstance(o.get('id'), str) or not o['id'].strip() or not isinstance(o.get('text'), str) for o in options):
@@ -199,8 +202,22 @@ def safe_chapter(course_id, chapter, user_id):
         slide['visuals'] = visuals
         slides.append(slide)
     with get_auth_store().connection() as db:
-        questions = [{'id': q['id'], 'stem': q.get('stem', ''), 'revision': question_revision(db, user_id, question_hash(q)), 'options': [{'id': o['id'], 'text': o['text']} for o in q['options']]} for q in mcqs(chapter)]
-    return {'id': chapter['id'], 'title': chapter['title'], 'slides': slides, 'questions': questions, 'glossary': [{k: g[k] for k in ('term', 'plain') if isinstance(g.get(k), str)} for g in chapter['glossary'] if isinstance(g, dict)]}
+        graded_by_id = {q['id']: q for q in mcqs(chapter)}
+        questions, open_questions = [], []
+        for position, q in enumerate(chapter['questions']):
+            if not isinstance(q, dict):
+                continue
+            qid = q.get('id') if isinstance(q.get('id'), str) else ''
+            stem = q.get('stem') if isinstance(q.get('stem'), str) else ''
+            qtype = q.get('type') if isinstance(q.get('type'), str) else ''
+            if qid in graded_by_id:
+                graded = graded_by_id[qid]
+                questions.append({'id': qid, 'stem': stem, 'revision': question_revision(db, user_id, question_hash(graded)), 'options': [{'id': o['id'], 'text': o['text']} for o in graded['options']], 'position': position})
+            elif qtype in ('short', 'code', 'scenario') and stem.strip() and isinstance(q.get('answer'), str) and q['answer'].strip():
+                # Open questions are not auto-graded: the learner reveals the
+                # reference answer explicitly, so it travels read-only.
+                open_questions.append({'id': qid, 'type': qtype, 'stem': stem, 'answer': q['answer'].strip(), 'explanation': q['explanation'].strip() if isinstance(q.get('explanation'), str) else '', 'position': position})
+    return {'id': chapter['id'], 'title': chapter['title'], 'slides': slides, 'questions': questions, 'openQuestions': open_questions, 'glossary': [{k: g[k] for k in ('term', 'plain') if isinstance(g.get(k), str)} for g in chapter['glossary'] if isinstance(g, dict)]}
 
 
 def visit(course_id, chapter, user_id, slide_id):

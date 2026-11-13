@@ -675,3 +675,44 @@ def test_quiz_options_reach_the_learner_while_the_answer_stays_gated():
     assert teaching['bullets'] == ['A point']
     assert 'quizExplanation' not in teaching
     assert 'speakerNotes' not in teaching
+
+
+def test_open_questions_reach_the_learner_without_losing_bank_order():
+    # A bank question grades as a choice question when its options and answer
+    # validate, whatever its type label (the generator sometimes writes a
+    # scenario with options). Genuine free-text travels as an open self-check
+    # question with the reference answer, in bank order; one without a
+    # reference answer cannot be revealed, so it is dropped.
+    with TestClient(app) as teacher, TestClient(app) as student:
+        signed_in(teacher, 'openq-teacher@example.test', 'instructor')
+        signed_in(student, 'openq-student@example.test', 'student')
+        course = teacher.post('/api/demo/courses', json={'title': 'Open questions course', 'durationMin': 20}).json()
+        cid, chapter_id = course['id'], course['chapterIds'][0]
+        package = {
+            'slideDeck': {'slides': [{'id': 's1', 'order': 1, 'layout': 'bullets', 'title': 'One', 'bullets': ['a']}]},
+            'questionSet': {'questions': [
+                {'id': 'q1', 'type': 'mcq', 'stem': 'Gradeable?', 'options': [
+                    {'id': 'A', 'text': 'Yes'}, {'id': 'B', 'text': 'No'}], 'answer': 'A', 'explanation': 'It is.'},
+                {'id': 'q2', 'type': 'scenario', 'stem': 'Which definition is testable?', 'options': [
+                    {'id': 'A', 'text': 'Understand the desk.'},
+                    {'id': 'B', 'text': 'Detect laptop and cup, output boxes and labels.'}],
+                 'answer': 'B', 'explanation': 'Observable output.'},
+                {'id': 'q3', 'type': 'short', 'stem': 'What is a label?', 'options': [],
+                 'answer': 'The human-provided correct answer for a sample.', 'explanation': ''},
+                {'id': 'q4', 'type': 'short', 'stem': 'No reference?', 'options': [], 'answer': ''},
+            ]},
+        }
+        assert teacher.patch(f'/api/demo/courses/{cid}/chapters/{chapter_id}',
+                             json={'status': 'ready', 'package': package}).status_code == 200
+        assert teacher.post(f'/api/demo/courses/{cid}/publish').status_code == 200
+        assert student.post(f'/api/student/courses/{cid}/enroll', json={}).status_code == 200
+
+        chapter = student.get(f'/api/student/courses/{cid}/chapters/{chapter_id}').json()['chapter']
+        assert [q['id'] for q in chapter['questions']] == ['q1', 'q2']
+        assert chapter['questions'][0]['position'] == 0
+        assert chapter['questions'][1]['position'] == 1
+        assert [q['id'] for q in chapter['openQuestions']] == ['q3']
+        assert chapter['openQuestions'][0]['position'] == 2
+        assert chapter['openQuestions'][0]['type'] == 'short'
+        assert chapter['openQuestions'][0]['answer'] == 'The human-provided correct answer for a sample.'
+        assert 'answer' not in chapter['questions'][0]

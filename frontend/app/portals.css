@@ -2712,3 +2712,39 @@ body:has(.portal) {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+
+/* Open (non-auto-gradable) bank questions: stem plus an explicitly revealed
+   reference answer. The card borrows the practice card shell so both
+   question kinds read as one list. */
+.portal .portal-open-questions {
+  margin-top: 24px;
+}
+.portal .portal-open-questions h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 640;
+  color: var(--ink);
+}
+.portal .portal-open-questions > p {
+  margin: 4px 0 0;
+  max-width: 75ch;
+  color: var(--body);
+  font-size: 14px;
+}
+.portal .portal-open-question > button {
+  margin-top: 14px;
+}
+.portal .portal-open-question__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.portal .portal-open-question__type {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--body);
+  font-size: 12px;
+  font-weight: 600;
+}

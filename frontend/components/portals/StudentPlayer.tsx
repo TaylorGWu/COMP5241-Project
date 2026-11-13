@@ -26,6 +26,7 @@ import {
   type AttemptSubmission,
   type ChapterDetail,
   type Question,
+  type OpenQuestion,
   type Result,
   type StudentSlide,
 } from "@/lib/portal";
@@ -556,9 +557,19 @@ function Lesson({
                 }
               />
             ))
-          ) : (
+          ) : null}
+          {data.chapter.openQuestions?.length ? (
+            <div className="portal-open-questions">
+              <h3>{c.openQuestions}</h3>
+              <p>{c.openHint}</p>
+              {data.chapter.openQuestions.map((question) => (
+                <OpenQuestion key={question.id || question.position} question={question} />
+              ))}
+            </div>
+          ) : null}
+          {!data.chapter.questions.length && !data.chapter.openQuestions?.length ? (
             <p>{c.noQuestions}</p>
-          )}
+          ) : null}
         </section>
         ) : null}
         </div>
@@ -751,6 +762,40 @@ function QuizSlidePage({ slide }: { slide: StudentSlide }) {
           </button>
         )
       ) : null}
+    </section>
+  );
+}
+
+/** A bank question the platform cannot auto-grade (no choice structure):
+    the learner thinks it through and reveals the teacher's reference answer
+    explicitly. It borrows the practice card shell so both question kinds
+    read as one list. */
+function OpenQuestion({ question }: { question: OpenQuestion }) {
+  const { locale } = useI18n();
+  const c = portalCopy(locale);
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <section className="portal-question portal-open-question">
+      <h3 className="portal-open-question__head">
+        <span className="portal-question-index">{question.position + 1}</span>
+        <span className="portal-open-question__type">{question.type}</span>
+        <span className="portal-question-stem">{question.stem}</span>
+      </h3>
+      {revealed ? (
+        <div className="portal-answer" role="status">
+          <strong>{c.reference}</strong>
+          <p>{question.answer}</p>
+          {question.explanation ? <p>{question.explanation}</p> : null}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="portal-button portal-button--quiet"
+          onClick={() => setRevealed(true)}
+        >
+          {c.showReference}
+        </button>
+      )}
     </section>
   );
 }
