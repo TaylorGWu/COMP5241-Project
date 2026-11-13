@@ -35,7 +35,7 @@ const goalField = 'What would you like to learn?';
       await page.getByText('Saved', { exact: true }).waitFor({ timeout: 10000 });
     };
     const openDialog = () => page.locator('dialog.portal-suggestion-dialog[open]');
-    const suggestedTitle = () => openDialog().locator('.portal-suggestion-dialog__course a').textContent();
+    const suggestedTitle = () => openDialog().locator('.portal-course h3 a').textContent();
     const closeDialog = async () => {
       await openDialog().waitFor({ state: 'visible', timeout: 10000 });
       await page.getByRole('button', { name: 'Keep browsing' }).click();

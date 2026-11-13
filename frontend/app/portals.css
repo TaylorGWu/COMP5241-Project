@@ -571,24 +571,17 @@ body:has(.portal) {
   82% { transform: rotate(5deg); }
   92% { transform: rotate(-3deg); }
 }
-/* The suggestion dialog borrows the catalogue card's anatomy (code head, tags,
-   description) on the dialog's own surface, and answers the goal under a rule.
-   The warm workspace palette supplies soft/line; blue stays the accent. */
-.portal-suggestion-dialog { width: min(460px, calc(100vw - 32px)); margin: auto; padding: 24px 24px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(23 32 51 / 0.05), 0 16px 40px rgb(23 32 51 / 0.16); }
+/* The suggestion dialog carries the recommended course as the very card the
+   catalogue shows, on the page's own ivory canvas so the card reads as itself.
+   The reason rides on the card; nothing is restyled twice. */
+.portal-suggestion-dialog { width: min(520px, calc(100vw - 32px)); margin: auto; padding: 20px 20px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--canvas); color: var(--ink); box-shadow: 0 1px 2px rgb(23 32 51 / 0.05), 0 16px 40px rgb(23 32 51 / 0.16); }
 .portal-suggestion-dialog:focus { outline: none; }
 .portal-suggestion-dialog::backdrop { background: rgb(23 32 51 / 0.44); }
 .portal-suggestion-dialog h2 { font-size: 1.3rem; font-weight: 650; }
-.portal-suggestion-dialog__lead { margin-top: .4rem; color: var(--body); font-size: .95rem; line-height: 1.6; }
-.portal-suggestion-dialog__course { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
-.portal-suggestion-dialog__course h3 { margin: 0; font-size: 1.3rem; line-height: 1.2; font-weight: 690; letter-spacing: -.03em; }
-.portal-suggestion-dialog__course h3 a { color: var(--ink); text-decoration: none; }
-.portal-suggestion-dialog__course .portal-course-description { margin: 0; font-size: .95rem; color: var(--body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.portal-suggestion-dialog__note { display: flex; gap: .55rem; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--body); font-size: .95rem; line-height: 1.55; }
-.portal-suggestion-dialog__note .portal-icon { flex: none; width: 18px; height: 18px; margin-top: 3px; color: var(--blue); }
-.portal-suggestion-dialog__note p { margin: 0; overflow-wrap: anywhere; }
-.portal-suggestion-dialog__note strong { color: var(--ink); font-weight: 600; }
-.portal-suggestion-dialog__empty { margin: 18px 0 4px; color: var(--body); line-height: 1.65; }
-.portal-suggestion-dialog__buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 18px; }
+.portal-suggestion-dialog__lead { margin-top: .4rem; margin-bottom: 14px; color: var(--body); font-size: .95rem; line-height: 1.6; }
+.portal-suggestion-dialog .portal-course { box-shadow: none; }
+.portal-suggestion-dialog__empty { margin: 0; color: var(--body); line-height: 1.65; }
+.portal-suggestion-dialog__buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 16px; }
 @media (prefers-reduced-motion: no-preference) {
   .portal-suggestion-dialog[open] { animation: portal-suggestion-in .18s ease-out; }
   .portal-suggestion-dialog[open]::backdrop { animation: portal-suggestion-fade .18s ease-out; }

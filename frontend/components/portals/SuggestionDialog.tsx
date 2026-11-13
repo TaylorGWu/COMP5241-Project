@@ -1,16 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
-import {
-  studentCourseHref,
-  type Course,
-  type NextStepReason,
-  type StudentHome,
-} from "@/lib/portal";
-import { PortalIcon } from "./PortalIcon";
+import type { Course, NextStepReason, StudentHome } from "@/lib/portal";
+import { CourseCard } from "./CourseCard";
 
 const REASONS: Record<
   NextStepReason,
@@ -28,10 +23,9 @@ const REASONS: Record<
 export const SUGGESTION_SEEN_KEY = "portal.suggestion.seen";
 
 /** The one suggestion, opened where it is asked for: from the My learning bell
- *  or after a goal save. The course block borrows the catalogue card's anatomy,
- *  and the reason is copy keyed by the code the backend sends - never a rebuilt
- *  sentence. With nothing left to suggest, the dialog says so instead of
- *  showing an empty shell. */
+ *  or after a goal save. The recommended course appears as the very card the
+ *  catalogue shows - same anatomy, same way in - and with nothing left to
+ *  suggest, the dialog says so instead of showing an empty shell. */
 export function SuggestionDialog({
   course,
   recommendation,
@@ -48,8 +42,18 @@ export function SuggestionDialog({
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (open) ref.current?.showModal();
-    else ref.current?.close();
+    if (open) {
+      ref.current?.showModal();
+      // showModal focuses the first focusable, which would light up the whole
+      // course card; the dismiss button is the safe landing spot, as in the
+      // slide editor's confirm dialog.
+      const dismiss = ref.current?.querySelector<HTMLButtonElement>(
+        ".portal-suggestion-dialog__buttons button",
+      );
+      dismiss?.focus();
+    } else {
+      ref.current?.close();
+    }
   }, [open]);
 
   useEffect(() => {
@@ -79,32 +83,7 @@ export function SuggestionDialog({
       {course ? (
         <>
           <p className="portal-suggestion-dialog__lead">{c.suggestionLead}</p>
-          <div className="portal-suggestion-dialog__course">
-            <header className="portal-course__head">
-              <span className="portal-course__code">
-                {course.courseCode || course.subject}
-              </span>
-              <span className="portal-course__value">{course.durationMin} min</span>
-            </header>
-            <h3>
-              <Link href={studentCourseHref(course.id)}>{course.title}</Link>
-            </h3>
-            <p className="portal-tags">
-              {[course.subject, course.level]
-                .filter(Boolean)
-                .map((label) => (
-                  <span key={label}>{label}</span>
-                ))}
-            </p>
-            <p className="portal-course-description">{course.description}</p>
-          </div>
-          <div className="portal-suggestion-dialog__note">
-            <PortalIcon name="spark" />
-            <p>
-              <strong>{c.why}: </strong>
-              {reason}
-            </p>
-          </div>
+          <CourseCard course={course} query="" reason={reason} />
         </>
       ) : (
         <p className="portal-suggestion-dialog__empty">{c.suggestionEmpty}</p>
@@ -113,20 +92,11 @@ export function SuggestionDialog({
         <button
           type="button"
           className="portal-button portal-button--secondary"
-          autoFocus
           onClick={() => ref.current?.close()}
         >
           {c.suggestionDismiss}
         </button>
-        {course ? (
-          <Link
-            className="portal-button"
-            href={studentCourseHref(course.id)}
-            onClick={() => ref.current?.close()}
-          >
-            {c.viewCourse}
-          </Link>
-        ) : (
+        {!course ? (
           <Link
             className="portal-button"
             href="/student"
@@ -134,7 +104,7 @@ export function SuggestionDialog({
           >
             {c.browseCourses}
           </Link>
-        )}
+        ) : null}
       </div>
     </dialog>
   );
