@@ -15,9 +15,11 @@ import { PortalIcon } from "./PortalIcon";
 export function GoalsPanel({
   profile,
   reload,
+  onSaved,
 }: {
   profile: StudentHome["profile"];
   reload: () => void;
+  onSaved?: () => void;
 }) {
   const { locale } = useI18n();
   const c = portalCopy(locale);
@@ -40,7 +42,12 @@ export function GoalsPanel({
           },
           signal,
         ),
-      reload,
+      // The suggestion dialog compares the recommendation from before the
+      // save, so the callback runs ahead of the refetch.
+      () => {
+        onSaved?.();
+        reload();
+      },
     );
   };
 
