@@ -36,16 +36,13 @@ def _tokens(text):
 
 
 def next_step(courses, profile):
-    """Pick one explainable next step and say why.
+    """Pick one explainable next course and say why.
 
-    Resuming beats starting again, so an unfinished enrolled course wins first.
-    Otherwise rank new courses by goal overlap, then by whether they fit the
-    learner's weekly time budget. The default is the shortest course.
+    The recommendation answers the learner's profile: rank new courses by goal
+    overlap, then by whether they fit the weekly time budget, with the shortest
+    course as the default. Courses the learner is already taking stay out of it
+    - they keep living in the learning tab, where their progress is shown.
     """
-    ongoing = [item for item in courses if item['enrolled'] and 0 < item['completionPercent'] < 100]
-    if ongoing:
-        best = sorted(ongoing, key=lambda item: (-item['completionPercent'], item['durationMin'], item['id']))[0]
-        return {'courseId': best['id'], 'reasonCode': 'resume', 'reason': 'Continue the course you have already started.'}
     goal = _tokens(profile.get('background', '') + ' ' + profile.get('goal', ''))
     minutes = profile.get('weeklyMinutes') or 0
     ranked = []

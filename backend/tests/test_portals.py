@@ -389,17 +389,18 @@ def test_registered_student_can_sign_in_and_open_portal():
         assert client.get('/api/student/home').status_code == 200
 
 
-def test_next_step_explains_resume_goal_time_and_default():
+def test_next_step_recommends_a_new_course_the_profile_points_to():
     from app.api.routes.student import next_step
 
     def course(**values):
         return {'id': 'x', 'title': '', 'description': '', 'courseCode': '', 'subject': '',
                 'durationMin': 60, 'enrolled': False, 'completionPercent': 0} | values
 
-    # Finishing what you started beats a perfect goal match somewhere else.
-    resume = next_step([course(id='started', enrolled=True, completionPercent=40), course(id='match', title='Git')],
-                       {'background': '', 'goal': 'git', 'weeklyMinutes': 0})
-    assert (resume['courseId'], resume['reasonCode']) == ('started', 'resume')
+    # What the learner already has on the go stays in the learning tab; the
+    # recommendation answers the profile instead of repeating the obvious.
+    redirect = next_step([course(id='started', enrolled=True, completionPercent=40), course(id='match', title='Git')],
+                         {'background': '', 'goal': 'git', 'weeklyMinutes': 0})
+    assert (redirect['courseId'], redirect['reasonCode']) == ('match', 'goal')
     goal = next_step([course(id='match', title='Introduction to Git', durationMin=90), course(id='other', title='Queues', durationMin=20)],
                      {'background': 'commuter', 'goal': 'git', 'weeklyMinutes': 15})
     assert (goal['courseId'], goal['reasonCode']) == ('match', 'goal')
@@ -412,6 +413,9 @@ def test_next_step_explains_resume_goal_time_and_default():
                       {'background': '', 'goal': '', 'weeklyMinutes': 0})
     assert (start['courseId'], start['reasonCode']) == ('short', 'start')
     assert next_step([], {'background': '', 'goal': '', 'weeklyMinutes': 0}) is None
+    # Every published course is already on the learner's plate: no new course to name.
+    assert next_step([course(id='only', enrolled=True, completionPercent=40)],
+                     {'background': '', 'goal': 'git', 'weeklyMinutes': 0}) is None
 
 
 def test_review_slide_skips_the_question_slide_itself():
