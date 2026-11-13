@@ -10,6 +10,7 @@ const paths = {
   check: "m5 12 4 4L19 7",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm5-2 4 4",
   spark: "M12 3v4m0 10v4M3 12h4m10 0h4M6.3 6.3l2.8 2.8m5.8 5.8 2.8 2.8M17.7 6.3l-2.8 2.8m-5.8 5.8-2.8 2.8",
+  bell: "M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0",
 } as const;
 
 export function PortalIcon({ name }: { name: keyof typeof paths }) {

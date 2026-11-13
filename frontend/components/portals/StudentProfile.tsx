@@ -7,8 +7,6 @@ import { useI18n } from "@/lib/i18n";
 import { portalCopy } from "@/lib/portal-copy";
 import {
   portalApi,
-  studentCourseHref,
-  type NextStepReason,
   type StudentHome,
 } from "@/lib/portal";
 import {
@@ -19,16 +17,7 @@ import {
 } from "./PortalShell";
 import { GoalsPanel } from "./GoalsPanel";
 import { PortalIcon } from "./PortalIcon";
-
-const REASONS: Record<
-  NextStepReason,
-  "reasonResume" | "reasonGoal" | "reasonTime" | "reasonStart"
-> = {
-  resume: "reasonResume",
-  goal: "reasonGoal",
-  time: "reasonTime",
-  start: "reasonStart",
-};
+import { SuggestionDialog } from "./SuggestionDialog";
 
 /** The learner's own page: who they are, what they bring to a course and what
  *  they want out of it. It uses the teacher profile's shell so both roles edit
@@ -40,36 +29,24 @@ export function StudentProfile() {
   const resource = usePortalResource(portalApi.home);
   const data = resource.data;
   const initial = user?.name.trim().slice(0, 1).toLocaleUpperCase() ?? "";
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const previousSuggestion = useRef<StudentHome["recommendation"]>(null);
   const dataAtSave = useRef<StudentHome | null>(null);
   const [awaitingSuggestion, setAwaitingSuggestion] = useState(false);
+  const [announce, setAnnounce] = useState(false);
 
-  // A goal save can point the recommendation somewhere new. Compare the
-  // suggestion captured at save time with the refetched one and announce the
-  // change in a dialog; the standing card on My learning stays as the quiet
-  // default for visits that did not change anything. The refetch has landed
-  // once `data` is no longer the object the save started from - the loading
-  // flag alone cannot tell, because it is raised a tick after the save.
+  // Every successful save answers with the current suggestion: the learner
+  // just told the product what they want, so the dialog repeats it back even
+  // when the recommendation did not move. The refetch has landed once `data`
+  // is no longer the object the save started from - the loading flag alone
+  // cannot tell, because it is raised a tick after the save.
   useEffect(() => {
     if (!awaitingSuggestion || data === dataAtSave.current) return;
     setAwaitingSuggestion(false);
-    const current = data?.recommendation ?? null;
-    const previous = previousSuggestion.current;
-    previousSuggestion.current = null;
-    const moved =
-      current !== null &&
-      previous !== null &&
-      (previous.courseId !== current.courseId ||
-        previous.reasonCode !== current.reasonCode);
-    if (moved) dialogRef.current?.showModal();
+    setAnnounce(true);
   }, [awaitingSuggestion, data]);
 
-  const suggestion = data?.recommendation ?? null;
-  const suggestedCourse = suggestion
-    ? data?.courses.find((course) => course.id === suggestion.courseId)
+  const suggestedCourse = data?.recommendation
+    ? data.courses.find((course) => course.id === data.recommendation?.courseId)
     : undefined;
-  const reason = suggestion ? c[REASONS[suggestion.reasonCode]] : "";
 
   return (
     <PortalShell
@@ -124,51 +101,17 @@ export function StudentProfile() {
               profile={data.profile}
               reload={resource.reload}
               onSaved={() => {
-                previousSuggestion.current = data.recommendation ?? null;
                 dataAtSave.current = data;
                 setAwaitingSuggestion(true);
               }}
             />
           </div>
-          <dialog
-            ref={dialogRef}
-            className="portal-suggestion-dialog"
-            aria-labelledby="portal-suggestion-title"
-          >
-            <h2 id="portal-suggestion-title">{c.recommendation}</h2>
-            <p className="portal-suggestion-dialog__lead">{c.suggestionLead}</p>
-            {suggestedCourse ? (
-              <>
-                <h3 className="portal-suggestion-dialog__course">
-                  <Link href={studentCourseHref(suggestedCourse.id)}>
-                    {suggestedCourse.title}
-                  </Link>
-                </h3>
-                <p className="portal-suggestion-dialog__why">
-                  <strong>{c.why}: </strong>
-                  {reason}
-                </p>
-              </>
-            ) : null}
-            <div className="portal-suggestion-dialog__buttons">
-              <button
-                type="button"
-                className="portal-button portal-button--secondary"
-                onClick={() => dialogRef.current?.close()}
-              >
-                {c.suggestionDismiss}
-              </button>
-              {suggestedCourse ? (
-                <Link
-                  className="portal-button"
-                  href={studentCourseHref(suggestedCourse.id)}
-                  onClick={() => dialogRef.current?.close()}
-                >
-                  {c.viewCourse}
-                </Link>
-              ) : null}
-            </div>
-          </dialog>
+          <SuggestionDialog
+            course={suggestedCourse}
+            recommendation={data.recommendation}
+            open={announce}
+            onClose={() => setAnnounce(false)}
+          />
         </section>
       ) : (
         <PortalLoading />

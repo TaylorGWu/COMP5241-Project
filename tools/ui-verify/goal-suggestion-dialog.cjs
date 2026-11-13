@@ -1,6 +1,7 @@
-// The goal save must announce a changed recommendation in a dialog, and stay
-// quiet when saving does not move the suggestion. Uses the disposable preview
-// account on the local backend; it restores the goal it started from.
+// The goal save must answer with the current suggestion in a dialog - even
+// when the recommendation did not move - and the My learning bell must carry a
+// dot while a suggestion stands. Uses the disposable preview account on the
+// local backend; it restores the goal it started from.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.SMOKE_BASE || 'http://localhost:3000';
@@ -35,41 +36,53 @@ const goalField = 'What would you like to learn?';
     };
     const openDialog = () => page.locator('dialog.portal-suggestion-dialog[open]');
     const suggestedTitle = () => openDialog().locator('.portal-suggestion-dialog__course a').textContent();
+    const closeDialog = async () => {
+      await openDialog().waitFor({ state: 'visible', timeout: 10000 });
+      await page.getByRole('button', { name: 'Keep browsing' }).click();
+      await openDialog().waitFor({ state: 'detached', timeout: 5000 });
+    };
     const dismissIfOpen = async () => {
-      if (await openDialog().count()) {
-        await page.getByRole('button', { name: 'Keep browsing' }).click();
-        await openDialog().waitFor({ state: 'detached', timeout: 5000 });
-      }
+      if (await openDialog().count()) await closeDialog();
     };
 
-    // 1. Establish the baseline recommendation for 'cyber security'.
+    // 1. Every save answers with the suggestion, even an unchanged one.
     await save('cyber security');
-    await dismissIfOpen();
-
-    // 2. Saving the same goal again must not nag: no dialog this time.
-    await save('cyber security');
-    await page.waitForTimeout(1200);
-    assert.equal(await openDialog().count(), 0, 'unchanged goal must not open the dialog');
-
-    // 3. A different goal opens the dialog with the other course.
-    await save('big data pipelines');
-    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
-    assert.equal(await suggestedTitle(), 'Big Data Computing');
-    assert.ok((await openDialog().textContent()).includes('It fits the time you have each week.') || (await openDialog().textContent()).includes('It matches words in your background and goal.'));
-    await page.getByRole('button', { name: 'Keep browsing' }).click();
-    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
-
-    // 4. Moving the goal back re-opens the dialog on the first course.
+    await closeDialog();
     await save('cyber security');
     await openDialog().waitFor({ state: 'visible', timeout: 10000 });
     assert.equal(await suggestedTitle(), 'Cyber and Internet Security');
     await page.getByRole('button', { name: 'Keep browsing' }).click();
+    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
+
+    // 2. A different goal moves the dialog to the other course.
+    await save('big data pipelines');
+    await closeDialog();
+
+    // 3. Moving the goal back re-opens the dialog on the first course.
+    await save('cyber security');
+    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
+    assert.equal(await suggestedTitle(), 'Cyber and Internet Security');
+    await page.getByRole('button', { name: 'Keep browsing' }).click();
+    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
+
+    // 4. On My learning the bell carries the suggestion: dot, dialog on click.
+    await page.goto(base + '/student');
+    const bell = page.locator('.portal-tabs-notification');
+    await bell.waitFor();
+    assert.ok(await bell.locator('.portal-tabs-notification__dot').count(), 'A standing suggestion marks the bell with a dot');
+    await bell.click();
+    await openDialog().waitFor({ state: 'visible', timeout: 10000 });
+    assert.ok((await openDialog().textContent()).includes('Cyber and Internet Security'));
+    await page.getByRole('button', { name: 'Keep browsing' }).click();
+    await openDialog().waitFor({ state: 'detached', timeout: 5000 });
+    assert.equal(await bell.getAttribute('data-attention'), null, 'Opening the suggestion stops the ring');
 
     // 5. Restore the goal the account started with.
+    await page.goto(base + '/student/profile');
     await save(startGoal);
     await dismissIfOpen();
 
-    console.log('PASS goal-suggestion-dialog: changed goal opens the dialog, unchanged stays quiet');
+    console.log('PASS goal-suggestion-dialog: every save answers, the bell carries the suggestion');
   } catch (error) {
     failures.push(error instanceof Error ? error.message : String(error));
   } finally {

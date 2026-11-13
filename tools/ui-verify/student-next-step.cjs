@@ -45,9 +45,19 @@ function chapterPayload(reviewSlideId) {
       });
       await page.goto(base + '/student');
       await page.getByRole('heading', { name:'My learning' }).waitFor();
-      const reason = page.getByText('It matches words in your background and goal.');
-      await reason.waitFor();
-      assert.equal(await reason.count(), 1, 'The reason code is rendered as copy, not a rebuilt sentence');
+      // The suggestion is a notification: the bell carries a dot and rings
+      // until the learner opens the dialog it stands for.
+      const bell = page.locator('.portal-tabs-notification');
+      await bell.waitFor();
+      assert.ok(await bell.locator('.portal-tabs-notification__dot').count(), 'A standing suggestion marks the bell');
+      assert.ok(await bell.getAttribute('data-attention') !== null, 'An unopened suggestion rings the bell');
+      await bell.click();
+      await page.locator('dialog.portal-suggestion-dialog[open]').waitFor();
+      assert.equal(await page.getByText('It matches words in your background and goal.').count(), 1, 'The reason code is rendered as copy, not a rebuilt sentence');
+      assert.equal(await page.getByText('Software engineering', { exact:true }).count() >= 1, true, 'The suggested course is named');
+      assert.equal(await bell.getAttribute('data-attention'), null, 'Opening the dialog stops the ring');
+      await page.getByRole('button', { name:'Keep browsing' }).click();
+      await page.locator('dialog.portal-suggestion-dialog[open]').waitFor({ state:'detached' });
       assert.equal(await page.getByText(/Your background:/).count(), 0, 'The old templated reason paragraph is gone');
       // Weekly budget is visible in the saved profile summary.
       // The goals have their own page, reached from the account menu.
@@ -68,8 +78,11 @@ function chapterPayload(reviewSlideId) {
       // The rest of this block is about the home screen.
       await page.goto(base + '/student');
       await page.locator('.portal-tabs').waitFor();
-      // A goal recommendation must not also appear as the resume card.
-      assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 1);
+      // The suggestion lives in the dialog behind the bell, not in a standing
+      // text block; the goal recommendation must not also appear as a resume
+      // card.
+      assert.equal(await page.getByRole('heading', { name:'Suggested next course' }).count(), 0, 'The closed dialog does not stand on the page');
+      assert.ok(await page.locator('.portal-tabs-notification__dot').count(), 'The bell keeps its dot for the standing suggestion');
       // Reading and answering are reported separately rather than blended away.
       await page.getByText(/2\/2 pages read/).first().waitFor();
       await page.getByText(/2\/4 questions answered/).first().waitFor();

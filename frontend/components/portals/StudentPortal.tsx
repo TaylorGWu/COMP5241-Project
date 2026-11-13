@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
@@ -14,16 +14,9 @@ import {
   studentChapterHref,
   type StudentHome,
   type Course,
-  type NextStepReason,
 } from "@/lib/portal";
-import {
-  PortalShell,
-  PortalError,
-  PortalLoading,
-  ProgressBar,
-  usePortalResource,
-  usePortalWrite,
-} from "./PortalShell";
+import { PortalShell, PortalError, PortalLoading, ProgressBar, usePortalResource, usePortalWrite } from "./PortalShell";
+import { SuggestionDialog, SUGGESTION_SEEN_KEY } from "./SuggestionDialog";
 
 export function StudentPortal() {
   const resource = usePortalResource(portalApi.home);
@@ -64,15 +57,23 @@ function StudentHomeContent({
   const recommendation = data.courses.find(
     (course) => course.id === data.recommendation?.courseId,
   );
-  const reasons: Record<NextStepReason, string> = {
-    resume: c.reasonResume,
-    goal: c.reasonGoal,
-    time: c.reasonTime,
-    start: c.reasonStart,
-  };
-  const reason = data.recommendation
-    ? reasons[data.recommendation.reasonCode]
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  // The bell rings until the learner opens the suggestion it stands for; a
+  // changed recommendation rings again. The seen key is browser-local on
+  // purpose - whether a learner noticed a hint is not server data.
+  const [suggestionSeen, setSuggestionSeen] = useState(true);
+  const suggestionKey = data.recommendation
+    ? `${data.recommendation.courseId}|${data.recommendation.reasonCode}`
     : "";
+  useEffect(() => {
+    let stored = "";
+    try {
+      stored = window.localStorage.getItem(SUGGESTION_SEEN_KEY) ?? "";
+    } catch {
+      stored = "";
+    }
+    setSuggestionSeen(suggestionKey === stored);
+  }, [suggestionKey]);
   const levels = [...new Set(data.courses.map((course) => course.level))].sort();
   const subjects = [
     ...new Set(data.courses.map((course) => course.subject)),
@@ -113,6 +114,26 @@ function StudentHomeContent({
             {c.courses}
           </button>
         </nav>
+        {/* The suggestion is announced in a dialog, not a standing text block;
+            the bell is the only place My learning advertises it. */}
+        <button
+          type="button"
+          className="portal-tabs-notification"
+          data-attention={
+            data.recommendation && !suggestionSeen ? "" : undefined
+          }
+          aria-label={c.recommendation}
+          title={c.recommendation}
+          onClick={() => {
+            setShowSuggestion(true);
+            setSuggestionSeen(true);
+          }}
+        >
+          <PortalIcon name="bell" />
+          {data.recommendation ? (
+            <span className="portal-tabs-notification__dot" aria-hidden="true" />
+          ) : null}
+        </button>
         {/* The count rides with the tabs, as the teacher library's line does. */}
         <p className="portal-tabs-count">
           {tab === "learning"
@@ -201,22 +222,6 @@ function StudentHomeContent({
                   </button>
                 </section>
               )}
-              {recommendation &&
-              data.recommendation &&
-              data.recommendation.reasonCode !== "resume" ? (
-                <section className="portal-recommendation">
-                  <h2>{c.recommendation}</h2>
-                  <h3>
-                    <Link href={studentCourseHref(recommendation.id)}>
-                      {recommendation.title}
-                    </Link>
-                  </h3>
-                  <p>
-                    <strong>{c.why}: </strong>
-                    {reason}
-                  </p>
-                </section>
-              ) : null}
             </>
           ) : (
             <section>
@@ -245,6 +250,12 @@ function StudentHomeContent({
             </section>
           )}
         </div>
+        <SuggestionDialog
+          course={recommendation}
+          recommendation={data.recommendation}
+          open={showSuggestion}
+          onClose={() => setShowSuggestion(false)}
+        />
       </div>
     </>
   );

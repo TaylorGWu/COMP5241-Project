@@ -891,14 +891,6 @@ main :is(input, select, textarea)::placeholder { color: color-mix(in srgb, var(-
 .slide-delete-dialog p { margin-top: .75rem; color: var(--color-body); line-height: 1.6; overflow-wrap: anywhere; }
 .slide-delete-dialog__name { font-weight: 600; }
 .slide-delete-dialog__buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.5rem; }
-.portal-suggestion-dialog { width: min(440px, calc(100vw - 32px)); margin: auto; padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); color: var(--color-ink); }
-.portal-suggestion-dialog::backdrop { background: rgb(23 32 51 / .35); }
-.portal-suggestion-dialog h2 { font-size: 1.25rem; font-weight: 650; }
-.portal-suggestion-dialog__lead { margin-top: .75rem; color: var(--color-body); line-height: 1.6; }
-.portal-suggestion-dialog__course { margin-top: 1rem; font-size: 1.05rem; font-weight: 650; }
-.portal-suggestion-dialog__course a { color: inherit; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); }
-.portal-suggestion-dialog__why { margin-top: .5rem; color: var(--color-body); line-height: 1.6; overflow-wrap: anywhere; }
-.portal-suggestion-dialog__buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.5rem; }
 @media (max-width: 640px) { .slide-actions { width: 100%; justify-content: flex-end; } .slide-actions button { min-height: 44px; } .slide-actions__options { right: auto; left: 0; } }
 .studio-shell .studio-slide-stage { border-radius: 14px; }
 .studio-outline__body { border-right-color: color-mix(in srgb, var(--color-line) 88%, var(--color-blue)); }
