@@ -29,10 +29,19 @@ _STOPWORDS = {
     'why', 'who', 'apply', 'use', 'using', 'learn', 'learning',
 }
 
+# CJK text has no spaces for \w+ to split on, so a whole sentence arrives as one
+# token that matches nothing. Character bigrams keep the rule transparent while
+# letting a Chinese goal meet the Chinese course content.
+_CJK = re.compile(r'[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+')
+
 
 def _tokens(text):
-    return {word for word in re.findall(r'\w+', text.casefold())
-            if len(word) > 1 and word not in _STOPWORDS}
+    text = text.casefold()
+    tokens = {word for word in re.findall(r'\w+', _CJK.sub(' ', text))
+              if len(word) > 1 and word not in _STOPWORDS}
+    for run in _CJK.findall(text):
+        tokens.update(run[i:i + 2] for i in range(len(run) - 1))
+    return tokens
 
 
 def next_step(courses, profile):
@@ -49,7 +58,8 @@ def next_step(courses, profile):
     for item in courses:
         if item['enrolled']:
             continue
-        words = _tokens(' '.join(str(item[key]) for key in ('title', 'description', 'courseCode', 'subject')))
+        words = _tokens(' '.join(str(item[key]) for key in ('title', 'description', 'courseCode', 'subject'))
+                        + ' ' + str(item.get('matchText', '')))
         overlap = len(goal & words)
         fits_time = bool(minutes) and item['durationMin'] <= minutes
         ranked.append((min(overlap, 3) * 2 + (1 if fits_time else 0), overlap > 0, fits_time, item['durationMin'], item['id'], item))
@@ -155,6 +165,14 @@ def course_summary(snapshot, user_id):
         'correctAnswers': sum(1 for chapter_answers in answers for item in chapter_answers.values() if item['correct']),
         'studyDays': days,
         'lastStudiedAt': last_studied,
+        # Titles of the chapters and slides the publication carries: the goal
+        # must meet the course in its teaching content, not just the metadata
+        # line, which for generated courses is English while learners write
+        # Chinese.
+        'matchText': ' '.join(
+            [chapter['title'] for chapter in chapters]
+            + [slide['title'] for chapter in chapters for slide in chapter['slides'] if slide.get('title')]
+        ),
     }
 
 

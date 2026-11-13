@@ -522,6 +522,32 @@ def test_next_step_ignores_function_words():
     assert reason['courseId'] == 'se'
 
 
+def test_chinese_goal_matches_chinese_course_text():
+    # The catalogue's teaching content is written in Chinese, so a Chinese goal
+    # must be able to find it. Whole-run tokens never would.
+    from app.api.routes.student import next_step
+
+    course = {'id': 'sec', 'title': 'Cyber and Internet Security',
+              'description': '本课程介绍网络安全基础：資料外洩、加密與防火牆。',
+              'courseCode': 'COMP5355', 'subject': 'Computing Foundations',
+              'durationMin': 45, 'enrolled': False, 'completionPercent': 0}
+    reason = next_step([course], {'background': '', 'goal': '我想了解資料外洩和漏洞', 'weeklyMinutes': 0})
+    assert (reason['courseId'], reason['reasonCode']) == ('sec', 'goal')
+
+
+def test_slide_titles_join_the_match_corpus():
+    # Course metadata alone is English; the Chinese goal meets the course in
+    # the titles of the slides the publication already carries.
+    from app.api.routes.student import next_step
+
+    course = {'id': 'cv', 'title': 'computer vision', 'description': 'learn cv knowledge',
+              'courseCode': 'cs4321', 'subject': 'Software Engineering', 'durationMin': 45,
+              'enrolled': False, 'completionPercent': 0,
+              'matchText': '让计算机看懂图片到底要交出什么 从原始像素到一条可验证的处理链'}
+    reason = next_step([course], {'background': '', 'goal': '我想学习图像识别和像素处理', 'weeklyMinutes': 0})
+    assert (reason['courseId'], reason['reasonCode']) == ('cv', 'goal')
+
+
 def test_course_summary_reports_study_days_and_last_activity():
     # Derived facts only: how many days carried activity and when it last
     # happened. No duration is claimed because the timestamps cannot measure it.
