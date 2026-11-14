@@ -123,8 +123,8 @@ Instructor creates and publishes a Git Basics mini-course
 | 优先级 | 范围 |
 | --- | --- |
 | **Must** | 基于角色的登录、课程目录、课程播放器、MCQ、进度跟踪、教师创建/编辑/发布课程、基本分析、一项 AI 课程草稿功能 |
-| **Should** | 学生入门引导与推荐、CSV 学生导入、情景式活动 |
-| **Could** | AI 需求获取角色扮演、徽章、学习者自建的私人学习路径 |
+| **Should** | 学生入门引导与推荐、CSV 学生导入 |
+| **Could** | 徽章、学习者自建的私人学习路径 |
 | **Won't for this release** | 支付、直播课、社交动态/论坛、不受限制的 AI 导师、复杂的推荐算法 |
 
 ### 任务
@@ -278,7 +278,7 @@ Instructor creates and publishes a course
 | 成员 B | 课程播放器:课程、MCQ、情景活动、反馈、进度 UI | 学生流程测试 |
 | 成员 C | 教师端:AI 课程构建器 UI、编辑器、发布、CSV 导入 | 教师可用性测试 |
 | 成员 D | FastAPI 与数据:认证、RBAC、课程/选课/作答 API、PostgreSQL | ERD、API 文档、分析查询 |
-| 成员 E | AI 与质量:生成端点、角色扮演/评分量表反馈、JSON 校验 | 部署、集成测试、发布就绪 |
+| 成员 E | AI 与质量:生成端点、JSON 校验 | 部署、集成测试、发布就绪 |
 
 ### 共同职责
 

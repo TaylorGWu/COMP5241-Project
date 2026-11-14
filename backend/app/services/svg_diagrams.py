@@ -28,12 +28,12 @@ def course_diagram_template(code: str) -> str:
     """Classify compact Mermaid IR into one bounded teaching visual treatment."""
     labels, edges = _graph(code)
     haystack = f"{' '.join(labels)} {code}".lower()
+    if any(word in haystack for word in _PR_WORDS):
+        return "pull-request-flow"
     if _is_decision(code, edges):
         return "decision-branch"
     if _is_exchange(labels, edges):
         return "exchange-lane"
-    if any(word in haystack for word in _PR_WORDS):
-        return "pull-request-flow"
     if any(word in haystack for word in _BRANCH_WORDS):
         return "branch-lane"
     return "step-sequence"
