@@ -10,7 +10,7 @@ An AI-assisted mini-course platform for software-engineering learning. Instructo
 - **Final report:** [Add the final report URL]
 - **Presentation slides:** [Add the presentation slides URL]
 
-## Demo Login Credentials
+## Application Login Credentials
 
 | Role | Username / Email | Password |
 |---|---|---|
