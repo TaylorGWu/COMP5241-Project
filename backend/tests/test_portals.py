@@ -640,7 +640,6 @@ def test_tutor_context_stays_inside_the_published_slide():
 
 
 def test_tutor_answers_from_the_published_slide_only(monkeypatch):
-    from app.config import settings
     from app.llm import client as llm_client
     from app.llm.client import ChatMessage
 
@@ -652,7 +651,6 @@ def test_tutor_answers_from_the_published_slide_only(monkeypatch):
             return ChatMessage(content='A state is a situation plus the moves out of it.')
 
     monkeypatch.setattr(llm_client, 'build_deepseek_client', lambda: Stub())
-    monkeypatch.setattr(settings, 'deepseek_api_key', 'test-key')
 
     with TestClient(app) as teacher, TestClient(app) as student:
         signed_in(teacher, 'tutor-teacher@example.test', 'instructor')
