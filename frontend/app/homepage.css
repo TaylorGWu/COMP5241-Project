@@ -1,0 +1,186 @@
+/* Kipwise-inspired warm, centred composition. Homepage scope only. */
+.public-home-page {
+  --color-canvas: #f7f6f2;
+  --color-surface: #fff;
+  --color-soft: #efeee8;
+  --color-line: #deded5;
+  --color-ink: #242424;
+  --color-body: #555555;
+  --color-muted: #686868;
+  --public-text: var(--font-public-display), var(--public-cjk), sans-serif;
+  --public-title: var(--public-text);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--public-text);
+  font-weight: 450;
+}
+.public-home-page :is(h1, h2, h3, p) { text-wrap: pretty; }
+.public-home-page :is(h1, h2, h3) { text-wrap: balance; }
+.public-home-page ::selection { color: var(--color-ink); background: var(--color-blue-soft); }
+.public-home-page :is(button, a, summary):focus-visible { outline: 2px solid var(--color-blue); outline-offset: 4px; }
+.public-home-page .home-skip { position: absolute; left: 16px; top: 8px; z-index: 70; padding: 12px 16px; border-radius: 8px; background: var(--color-surface); color: var(--color-blue-deep); transform: translateY(-160%); }
+.public-home-page .home-skip:focus { transform: translateY(0); }
+.public-home-page .public-header { position: relative; z-index: 50; width: calc(100% - 64px); max-width: 1280px; min-height: 80px; margin: 0 auto; padding: 16px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.public-home-page .public-header .public-brand { gap: 12px; font-size: 24px; line-height: 32px; font-weight: 650; letter-spacing: -.025em; }
+.public-home-page .public-header .public-brand > span:first-child { width: 40px; height: 40px; border-radius: 8px; font-size: 14px; }
+.public-home-page .brand-period { color: inherit; }
+.public-home-page .public-header nav { gap: 24px; font-size: 14px; line-height: 20px; }
+.public-home-page .public-header .public-button--small { min-height: 44px; padding: 8px 12px; font-size: 14px; }
+.public-home-page .public-button { gap: 12px; border: 1px solid var(--color-ink); background: var(--color-ink); color: var(--color-surface); border-radius: 8px; padding: 12px 24px; min-height: 48px; font-size: 16px; line-height: 24px; font-weight: 600; transition: background-color 300ms cubic-bezier(.22,1,.36,1), transform 300ms cubic-bezier(.22,1,.36,1); }
+.public-home-page .public-button:hover { background: #404040; border-color: #404040; color: #fff; }
+.public-home-page .public-button:active { transform: scale(.98); }
+.public-home-page .public-hero { width: 100%; max-width: 1280px; margin: 0 auto; padding: 80px 32px 64px; display: grid; grid-template-columns: minmax(0,1fr); gap: 64px; align-items: center; }
+.public-home-page .public-hero-copy { text-align: center; max-width: 960px; width: 100%; margin: 0 auto; }
+.public-home-page .public-hero h1 { max-width: 960px; margin: 0 auto; font-size: 72px; line-height: 1.08; font-weight: 650; letter-spacing: -.025em; color: var(--color-ink); }
+.public-home-page .public-hero h1 > span { display: inline; color: inherit; font-weight: inherit; }
+.public-home-page .public-hero h1 > span:last-child { display: block; }
+.public-home-page .public-hero-copy > p { max-width: 640px; margin: 24px auto 0; font-size: 20px; line-height: 32px; font-weight: 450; }
+.public-home-page .home-primary-action { margin-top: 32px; }
+.home-assurance { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; color: var(--color-body); font-size: 14px; line-height: 20px; }
+.home-assurance svg { flex-shrink: 0; width: 16px; height: 16px; color: #39754e; fill: none; stroke: currentColor; stroke-width: 2; }
+.public-home-page .workflow-section--hero { min-width: 0; width: 100%; max-width: none; padding: 0; }
+.workflow-section--hero .example-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.workflow-section--hero .workflow-demo { border-radius: 12px; background: var(--color-surface); box-shadow: 0 16px 48px rgb(32 33 30 / .07); }
+.workflow-section--hero .workflow-chrome { min-height: 64px; padding: 16px; font-size: 14px; line-height: 20px; }
+.workflow-section--hero .workflow-chrome > span:first-child { gap: 8px; flex-wrap: wrap; }
+.workflow-section--hero .workflow-mark { width: 24px; height: 24px; border-radius: 4px; font-size: 12px; }
+.workflow-section--hero .workflow-breadcrumb { font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-draft { padding: 4px 8px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-stage { display: grid; grid-template-columns: 224px minmax(0,1fr); min-height: 448px; }
+.workflow-section--hero .workflow-index { flex-direction: column; padding: 24px 16px; gap: 8px; border: 0; border-right: 1px solid var(--color-line); background: var(--color-canvas); }
+.workflow-section--hero .workflow-index > button { flex: 0; align-items: center; justify-content: start; gap: 12px; min-height: 48px; padding: 12px; font-size: 14px; line-height: 20px; }
+.workflow-section--hero .workflow-index > button.is-current { background: #e6e9df; color: #38462c; }
+.workflow-section--hero .workflow-step-number { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border: 1px solid var(--color-line); border-radius: 50%; font-size: 12px; }
+.workflow-section--hero .is-current .workflow-step-number { color: #fff; background: #526346; border-color: #526346; }
+.workflow-section--hero .workflow-step-number svg { width: 16px; height: 16px; }
+.workflow-section--hero .workflow-index > p { display: block; }
+.workflow-section--hero .workflow-canvas { flex: 1; align-items: center; min-height: 384px; padding: 32px 48px; }
+.workflow-section--hero .workflow-scene { animation: home-scene-in 500ms cubic-bezier(.22,1,.36,1); }
+.workflow-section--hero .workflow-course { max-width: 660px; }
+.public-home-page .workflow-section--hero .workflow-course h3 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.02em; }
+.workflow-section--hero .workflow-fields { gap: 16px; margin: 24px 0; }
+.workflow-section--hero .workflow-inline { gap: 16px; grid-template-columns: minmax(0,.6fr) minmax(0,1fr); }
+.workflow-section--hero .workflow-field dt { margin-bottom: 8px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-field dd { border-radius: 8px; padding: 12px; font-size: 14px; line-height: 20px; }
+.workflow-section--hero .workflow-course-card { padding: 24px; border-radius: 8px; margin-top: 16px; }
+.workflow-section--hero .workflow-course-subject { margin-bottom: 16px; padding: 4px 8px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-course-card > p { margin-top: 12px; font-size: 14px; line-height: 20px; }
+.workflow-section--hero .workflow-course-card > div { padding-top: 16px; margin-top: 24px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-materials { font-size: 12px; line-height: 16px; margin-bottom: 16px; }
+.workflow-section--hero .workflow-result-label { font-size: 12px; line-height: 16px; gap: 8px; }
+.workflow-section--hero .workflow-editor.has-review { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 16px; }
+.workflow-section--hero .workflow-preview-meta { margin-bottom: 12px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-slide { padding: 16px; border-radius: 8px; background: var(--color-surface); }
+.public-home-page .workflow-section--hero .workflow-slide h3 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.02em; }
+.workflow-section--hero .has-review .workflow-slide h3 { font-size: 20px; line-height: 28px; }
+.workflow-section--hero .workflow-slide ol { margin: 24px 0; gap: 16px; }
+.workflow-section--hero .workflow-slide li { font-size: 14px; line-height: 20px; gap: 12px; }
+.workflow-section--hero .workflow-slide li > span { font-size: 12px; line-height: 16px; padding: 4px 8px; border-radius: 50%; background: var(--color-blue-soft); }
+.workflow-section--hero .workflow-slide > p { padding-top: 16px; font-size: 12px; line-height: 16px; transition: color 300ms cubic-bezier(.22,1,.36,1); }
+.workflow-section--hero .workflow-preview-action { gap: 12px; margin-top: 16px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-review { min-width: 0; padding: 16px; border-radius: 8px; background: var(--color-canvas); }
+.workflow-section--hero .workflow-request-label { font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-request { margin-top: 8px; padding: 8px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-review-title { gap: 8px; margin: 16px 0 12px; }
+.workflow-section--hero .workflow-review-title > span { padding: 4px; color: var(--color-blue-deep); background: var(--color-blue-soft); font-size: 12px; }
+.workflow-section--hero .workflow-review-title h4 { font-size: 14px; line-height: 20px; }
+.workflow-section--hero .workflow-review :is(del, ins) { padding: 8px; border-radius: 4px; font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.workflow-section--hero .workflow-review :is(.workflow-pending, .workflow-result-label) { margin: 16px 0 12px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-caption { min-height: 64px; padding: 16px; gap: 16px; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-timeline { padding: 0 16px 16px; }
+.workflow-section--hero .workflow-timeline .is-playing i { animation-timing-function: cubic-bezier(.22,1,.36,1); }
+.workflow-section--hero .workflow-controls { margin-top: 8px; align-items: start; gap: 8px; }
+.workflow-section--hero .workflow-controls .example-disclaimer { max-width: 48ch; font-size: 12px; line-height: 16px; }
+.workflow-section--hero .workflow-controls > div { gap: 16px; }
+.workflow-section--hero .workflow-control { gap: 4px; min-height: 44px; font-size: 12px; line-height: 16px; }
+.home-overview { background: var(--color-soft); scroll-margin-top: 24px; }
+.home-section-inner { max-width: 1280px; margin: 0 auto; padding: 64px 32px; }
+.home-overview h2 { max-width: 960px; margin: 0; font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -.03em; }
+.home-overview ol { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 32px; margin: 32px 0 0; padding: 0; list-style: none; }
+.home-overview li { display: flex; align-items: start; gap: 16px; min-width: 0; }
+.home-step-icon { flex-shrink: 0; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; background: var(--color-canvas); color: var(--color-ink); }
+.home-overview svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.home-overview h3 { font-size: 18px; line-height: 28px; font-weight: 600; margin: 0; }
+.home-overview p { max-width: 36ch; margin-top: 8px; color: var(--color-body); font-size: 14px; line-height: 20px; }
+.home-step-arrow { align-self: center; margin-left: auto; color: var(--color-body); flex-shrink: 0; }
+.home-tagline { max-width: 1280px; margin: 0 auto; padding: 80px 32px; }
+.home-tagline h2 { max-width: 680px; font-size: 48px; line-height: 1; letter-spacing: -.025em; font-weight: 600; }
+.home-tagline-line { display: block; }
+.home-tagline [data-reveal-word] { opacity: .3; transition: opacity 500ms cubic-bezier(.22,1,.36,1); }
+.home-tagline [data-revealed="true"] { opacity: 1; }
+.home-tagline-line + .home-tagline-line { color: var(--color-body); }
+.home-tagline > p { max-width: 65ch; margin-top: 24px; color: var(--color-body); font-size: 16px; line-height: 24px; }
+.home-faq { display: grid; grid-template-columns: minmax(0,.78fr) minmax(0,1.22fr); gap: 48px; max-width: 1280px; padding: 32px 32px 64px; margin: 0 auto; }
+.home-faq h2 { font-size: 30px; line-height: 36px; letter-spacing: -.03em; font-weight: 600; }
+.home-faq details { border-bottom: 1px solid var(--color-line); }
+.home-faq summary { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; list-style: none; font-size: 16px; line-height: 24px; font-weight: 600; }
+.home-faq summary::-webkit-details-marker { display: none; }
+.home-faq summary > span { color: var(--color-body); font-size: 24px; font-weight: 400; transition: transform 300ms cubic-bezier(.22,1,.36,1); }
+.home-faq details[open] summary > span { transform: rotate(45deg); }
+.home-faq details > p { max-width: 65ch; padding-bottom: 24px; color: var(--color-body); font-size: 16px; line-height: 24px; }
+.home-close { max-width: 1280px; margin: 0 auto; padding: 48px 32px 80px; border-top: 1px solid var(--color-line); text-align: center; }
+.home-close h2 { font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -.03em; margin-bottom: 24px; }
+.home-close .public-button { width: fit-content; }
+.home-close > p { margin-top: 24px; color: var(--color-body); font-size: 14px; line-height: 20px; }
+.home-close > p a { color: var(--color-blue-deep); text-decoration: underline; text-underline-offset: 4px; }
+[data-theme="dark"] .public-home-page { --color-ink: #f2f2f2; --color-body: #bdbdbd; --color-muted: #adadad; --color-surface: #242424; --color-canvas: #181818; --color-soft: #272727; --color-line: #414141; }
+[data-theme="dark"] .workflow-section--hero .workflow-index > button.is-current { background: #343f2b; color: #dce8cd; }
+[data-theme="dark"] .home-assurance svg { color: #9ccc9d; }
+@keyframes home-scene-in { from { opacity: .6; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1199px) {
+  .public-home-page .public-hero { gap: 48px; }
+  .public-home-page .public-hero h1 { font-size: 60px; }
+  .public-home-page .public-hero-copy > p { font-size: 18px; line-height: 28px; }
+  .workflow-section--hero .workflow-canvas { padding: 16px; }
+  .workflow-section--hero .workflow-editor.has-review { gap: 12px; }
+  .home-step-arrow { display: none; }
+}
+@media (max-width: 959px) {
+  .public-home-page .public-hero { gap: 48px; padding-top: 48px; }
+  .public-home-page .public-hero h1 { font-size: 60px; }
+  .public-home-page .public-hero-copy > p { max-width: 48ch; margin-top: 24px; }
+  .workflow-section--hero .workflow-stage { grid-template-columns: minmax(0,1fr); }
+  .workflow-section--hero .workflow-index { flex-direction: row; padding: 8px; border-right: 0; border-bottom: 1px solid var(--color-line); }
+  .workflow-section--hero .workflow-index > button { flex: 1; justify-content: center; }
+  .workflow-section--hero .workflow-index > p { display: none; }
+  .home-overview ol { gap: 24px; }
+  .home-overview li { flex-direction: column; }
+  .home-faq { grid-template-columns: minmax(0,1fr); gap: 24px; }
+}
+@media (max-width: 639px) {
+  .public-home-page .public-header { width: calc(100% - 32px); padding: 8px 0; min-height: 64px; gap: 8px; flex-wrap: nowrap; }
+  .public-home-page .public-header .public-brand { gap: 8px; font-size: 18px; line-height: 28px; letter-spacing: -.025em; }
+  .public-home-page .public-header .public-brand > span:first-child { width: 32px; height: 32px; font-size: 12px; }
+  .public-home-page .public-header nav { gap: 12px; font-size: 14px; line-height: 20px; }
+  .public-home-page .home-how-link { display: none; }
+  .public-home-page .public-hero { padding: 32px 16px; gap: 32px; }
+  .public-home-page .public-hero h1 { font-size: 48px; }
+  .public-home-page .public-hero-copy > p { font-size: 16px; line-height: 24px; margin-top: 24px; }
+  .workflow-section--hero .workflow-chrome { padding: 12px; }
+  .workflow-section--hero .workflow-breadcrumb { display: none; }
+  .workflow-section--hero .workflow-index > button { flex-direction: column; gap: 4px; }
+  .workflow-section--hero .workflow-canvas { padding: 16px; min-height: 384px; }
+  .workflow-section--hero .workflow-inline, .workflow-section--hero .workflow-editor.has-review { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .workflow-section--hero .workflow-controls { flex-direction: column-reverse; }
+  .workflow-section--hero .workflow-course-card { padding: 16px; }
+  .home-section-inner { padding: 32px 16px; }
+  .home-overview h2, .home-faq h2, .home-close h2 { font-size: 24px; line-height: 32px; }
+  .home-overview ol { grid-template-columns: minmax(0,1fr); gap: 24px; margin-top: 24px; }
+  .home-overview li { flex-direction: row; }
+  .home-overview p { max-width: 65ch; }
+  .home-tagline { padding: 48px 16px; }
+  .home-tagline h2 { font-size: 36px; line-height: 40px; }
+  .home-faq { padding: 16px 16px 48px; }
+  .home-close { padding: 16px 16px 48px; }
+}
+@media (max-width: 359px) {
+  .public-home-page .public-header .public-brand { font-size: 16px; }
+  .public-home-page .public-header .public-brand > span:first-child { display: none; }
+  .public-home-page .public-header nav { gap: 8px; }
+  .public-home-page .public-hero h1 { font-size: 36px; line-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workflow-section--hero .workflow-scene, .workflow-section--hero .workflow-timeline .is-playing i { animation: none; }
+  .home-tagline [data-reveal-word] { opacity: 1; transition: none; }
+  .public-home-page .public-button:active { transform: none; }
+}

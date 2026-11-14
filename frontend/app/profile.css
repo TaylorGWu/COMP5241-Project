@@ -1,0 +1,93 @@
+/* Teacher account forms extend the incumbent tokens; no second component theme. */
+.teacher-profile-shell { max-width: 1160px; margin: auto; padding: 0 40px 80px; }
+.teacher-profile-heading { padding: 42px 0 32px; }
+.teacher-profile-heading h1 { font-size: clamp(30px, 3.4vw, 42px); letter-spacing: -.03em; font-weight: 650; line-height: 1.2; }
+.teacher-profile-heading > p { color: var(--color-body); margin-top: 12px; font-size: 16px; line-height: 1.7; }
+.teacher-profile-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 40px; align-items: start; }
+.teacher-profile-aside { padding-top: 8px; }
+.teacher-profile-aside nav { display: grid; gap: 3px; }
+.teacher-profile-aside nav a { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 550; color: var(--color-body); }
+.teacher-profile-aside nav a:hover { color: var(--color-blue-deep); background: var(--color-blue-soft); }
+.profile-review-note { border-top: 1px solid var(--color-line); margin: 24px 12px 0; padding-top: 24px; }
+.profile-review-note h2 { font-size: 14px; font-weight: 650; }
+.profile-review-note p { font-size: 13px; line-height: 1.8; color: var(--color-body); margin: 10px 0; }
+.profile-review-note a { font-size: 13px; color: var(--color-blue-deep); display: inline-flex; align-items: center; min-height: 44px; }
+.teacher-profile-form { min-width: 0; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 14px; }
+.profile-section { padding: 30px 32px; scroll-margin-top: 20px; }
+.profile-section + .profile-section { border-top: 1px solid var(--color-line); }
+.profile-section h2 { font-size: 19px; font-weight: 630; letter-spacing: -.015em; }
+.profile-optional { font-size: 13px; color: var(--color-body); line-height: 1.8; margin-top: 10px; max-width: 65ch; }
+.profile-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 23px; }
+.profile-field { display: flex; flex-direction: column; gap: 9px; min-width: 0; margin-top: 22px; }
+.profile-fields-grid .profile-field { margin-top: 0; }
+.profile-field label, .profile-subjects legend { font-size: 13px; font-weight: 600; color: var(--color-ink); }
+.profile-field input, .profile-field textarea, .profile-field select, .profile-subject-options > input { width: 100%; min-height: 46px; background: var(--color-surface); color: var(--color-ink); border: 1px solid var(--color-line); border-radius: 7px; padding: 11px 12px; font-size: 15px; line-height: 1.5; }
+.profile-field select { padding-right: 28px; }
+.profile-field textarea { resize: vertical; min-height: 118px; }
+.profile-field input:disabled, .profile-field select:disabled, .profile-field textarea:disabled { opacity: .65; }
+.profile-count { color: var(--color-body); font-size: 12px; text-align: end; font-variant-numeric: tabular-nums; }
+.profile-photo-editor { display: flex; align-items: flex-start; gap: 22px; margin-top: 26px; padding-bottom: 6px; }
+.teacher-photo { width: 88px; height: 88px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+.teacher-photo--initial { display: grid; place-items: center; color: var(--color-blue-deep); background: var(--color-blue-soft); font-size: 32px; font-weight: 600; }
+.profile-photo-controls { min-width: 0; flex: 1; }
+.profile-photo-controls strong { font-size: 14px; font-weight: 600; }
+.profile-photo-controls > p { font-size: 12px; line-height: 1.7; color: var(--color-body); margin-top: 6px; }
+.profile-photo-actions { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.profile-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 9px 14px; color: var(--color-ink); font-size: 13px; font-weight: 550; line-height: 1.5; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 7px; cursor: pointer; }
+.profile-secondary:hover { background: var(--color-soft); }
+.profile-secondary:disabled, .profile-secondary.is-disabled, .profile-text-button:disabled { opacity: .55; cursor: default; }
+.profile-secondary:active:not(:disabled) { transform: translateY(1px); }
+.profile-photo-actions label { position: relative; }
+.profile-photo-actions input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.profile-photo-actions label:focus-within { outline: 2px solid var(--color-blue); outline-offset: 3px; }
+.profile-text-button { color: var(--color-blue-deep); font-size: 13px; min-height: 44px; cursor: pointer; text-align: start; }
+.profile-photo-message { min-height: 20px; }
+.profile-checkbox { display: flex; gap: 10px; align-items: center; font-size: 14px; min-height: 44px; cursor: pointer; color: var(--color-ink); }
+.profile-checkbox input { width: 17px; height: 17px; accent-color: #315fc6; flex-shrink: 0; }
+.profile-section > .profile-checkbox { margin-top: 14px; }
+.profile-subjects { margin-top: 25px; }
+.profile-subject-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.profile-subject-tags button { display: inline-flex; align-items: center; gap: 14px; min-height: 38px; color: var(--color-blue-deep); background: var(--color-blue-soft); border-radius: 6px; padding: 7px 10px; font-size: 13px; cursor: pointer; margin-top: 10px; }
+.profile-subjects > .profile-secondary { margin-top: 12px; }
+.profile-subject-options { margin-top: 12px; padding: 16px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-canvas); }
+.profile-subject-options > label { display: block; font-size: 13px; font-weight: 550; margin-bottom: 8px; }
+.profile-subject-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; margin: 10px 0 4px; }
+.profile-subject-list > p { color: var(--color-body); font-size: 13px; grid-column: 1 / -1; padding: 12px 0; }
+.profile-save-bar { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 22px 32px; border-top: 1px solid var(--color-line); }
+.profile-save-bar > div { flex: 1; min-width: 160px; font-size: 13px; line-height: 1.6; color: var(--color-body); }
+.profile-save-bar .public-button { min-height: 44px; font-size: 13px; white-space: nowrap; }
+.profile-save-bar .public-button:disabled { cursor: default; }
+.profile-error { color: var(--color-amber) !important; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.profile-error > button { display: block; color: var(--color-blue-deep); min-height: 44px; cursor: pointer; }
+.profile-loading { padding: 36px 0; color: var(--color-body); }
+.application-status-refresh { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.application-status-refresh > p { font-size: 13px; color: var(--color-body); line-height: 1.6; }
+.application-profile-link { margin-top: 20px; font-size: 13px; }
+.status-refresh-icon { display: inline-block; width: 15px; height: 15px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; }
+@media (prefers-reduced-motion: no-preference) { .status-refresh-icon.is-checking { animation: status-refresh-spin 1s linear infinite; } }
+@keyframes status-refresh-spin { to { transform: rotate(360deg); } }
+.applicant-profile { margin-top: 14px; }
+.applicant-profile > div { background: var(--color-canvas); padding: 18px; border-radius: 8px; }
+.applicant-profile dl { display: grid; gap: 16px 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+.applicant-profile dt { font-size: 12px; color: var(--color-body); margin-bottom: 5px; }
+.applicant-profile dd { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.applicant-profile dl > div:last-child { grid-column: 1 / -1; }
+@media (max-width: 800px) {
+  .teacher-profile-shell { padding: 0 22px 60px; }
+  .teacher-profile-heading { padding: 30px 0 26px; }
+  .teacher-profile-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .teacher-profile-aside { display: contents; }
+  .teacher-profile-aside nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  .teacher-profile-aside nav a { background: var(--color-surface); padding: 10px 12px; }
+  .profile-review-note { grid-row: 3; margin: 0; padding-top: 20px; }
+  .profile-section { padding: 24px 20px; }
+  .profile-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  .profile-field input, .profile-field select, .profile-field textarea, .profile-subject-options > input { font-size: 16px; }
+  .profile-photo-editor { gap: 15px; }
+  .teacher-photo { width: 64px; height: 64px; border-radius: 10px; }
+  .profile-subject-list { grid-template-columns: minmax(0, 1fr); }
+  .profile-save-bar { padding: 20px; gap: 12px; }
+  .profile-save-bar > div { flex-basis: 100%; }
+  .profile-save-bar > .public-button { margin-left: auto; }
+  .applicant-profile dl { grid-template-columns: minmax(0, 1fr); }
+}

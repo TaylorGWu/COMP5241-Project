@@ -151,6 +151,16 @@ async def test_the_stream_reports_slide_count_reaching_the_real_deck_size():
     assert any(d["kind"] == "slide" for d in progress), "一条 slide 事件都没有"
 
 
+async def test_generated_demo_deck_contains_a_scenario_and_practice_feedback():
+    """离线演示也必须展示教师能审核的教学链，而非概念 bullet。"""
+    result = await _sync(PAYLOAD)
+    slides = result["package"]["slideDeck"]["slides"]
+
+    assert any(slide["layout"] == "quiz" for slide in slides)
+    assert any("情境" in slide["title"] or "案例" in slide["title"] for slide in slides)
+    assert any("常見錯誤" in slide["speakerNotes"] for slide in slides)
+
+
 async def test_no_reasoning_frames_ever():
     """思考流这条路径整条删掉了 —— 流里不该再有它的位置。
 
@@ -269,6 +279,23 @@ async def test_edit_stream_does_not_touch_the_package():
     assert result["package"] == before, "流式路径把「不落库」这条破坏了"
     assert result["patches"], "应该产生待确认的 patch"
     assert all(p["status"] == "proposed" for p in result["patches"])
+
+
+async def test_edit_stream_understands_the_default_english_slide_reference():
+    """教师端默认文案是英文，不能因此把 Slide 2 错改成第 1 页。"""
+    await _sync(PAYLOAD)
+
+    frames = await _stream(
+        {
+            "message": "Slide 2 is too dense for a non-CS audience.",
+            "use_real_model": False,
+        },
+        path="/api/demo/edit/stream",
+    )
+    result = next(data for name, data in frames if name == "result")
+
+    assert result["patches"]
+    assert result["patches"][0]["target_id"] == "s2"
 
 
 async def test_edit_stream_without_a_package_returns_409():

@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 import {
   api,
@@ -644,7 +645,7 @@ export default function Home() {
     <main className="mx-auto max-w-5xl space-y-5 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">PathPilot · L1 / L2 测试台</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{PRODUCT_NAME} · L1 / L2 测试台</h1>
           <p className="mt-1 text-sm text-zinc-500">
             连的是 <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">/api/demo/*</code>
             内存接口 —— 无认证、重启即丢,只用来验证流程。

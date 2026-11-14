@@ -102,6 +102,7 @@ docs/                 设计、研究、竞品分析、原型
   *.zh.md             英文文档的中文译本(英文原版为准)
 backend/              FastAPI 后端(模块说明见 backend/README.md)
 frontend/             Next.js 前端
+.impeccable/          已实现视觉系统的机器可读扩展（配合根 DESIGN.md）
 .venv/                本地 Python 3.12 环境(git 已忽略)
 ```
 

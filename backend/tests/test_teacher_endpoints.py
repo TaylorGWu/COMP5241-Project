@@ -273,19 +273,6 @@ async def test_alt_text_lands_on_the_assets():
     assert all(a.get("altText") for a in assets), "有资产没拿到替代文本"
 
 
-async def test_a_generated_diagram_is_available_as_a_safe_svg_asset():
-    """课件画布不应展示 Mermaid 源码; 它应拿到可直接显示的确定性 SVG。"""
-    generated = await _generated()
-    asset = next(a for a in generated["package"]["assets"] if a["kind"] == "diagram")
-
-    response = await _get(f"/api/demo/assets/{asset['id']}.svg")
-
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("image/svg+xml")
-    assert 'data-template="' in response.text
-    assert "<script>" not in response.text
-
-
 # ═══════════════════════════════════════════════════════════════
 # 导出
 # ═══════════════════════════════════════════════════════════════

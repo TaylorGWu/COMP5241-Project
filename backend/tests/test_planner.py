@@ -13,7 +13,10 @@ import pytest
 from app.llm.client import ChatMessage, ScriptedChatClient
 from app.services.planner import (
     DEFAULT_SECTIONS,
+    PLANNER_PROMPT,
+    PlannedSection,
     PlannerRequest,
+    _fallback,
     extract_json,
     plan_outline,
 )
@@ -37,6 +40,38 @@ def _valid_outline_json(minutes=(20, 15, 10)) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def test_planner_prompt_requires_a_situation_decision_and_practice_arc():
+    """防止课程大纲退化成只按知识点罗列的章节。"""
+    assert "真实工程情境" in PLANNER_PROMPT
+    assert "决策" in PLANNER_PROMPT
+    assert "练习" in PLANNER_PROMPT
+
+
+def test_planned_section_accepts_a_teaching_arc_from_model_json():
+    section = PlannedSection.model_validate(
+        {
+            "title": "Merge",
+            "minutes": 10,
+            "objectiveIds": ["LO1"],
+            "teachingArc": {
+                "situation": "两人同时改同一行",
+                "misconception": "最后保存者总是对的",
+                "practice": "选择合并步骤",
+                "transferPrompt": "下次冲突怎么避免？",
+            },
+        }
+    )
+
+    assert section.teaching_arc.practice == "选择合并步骤"
+
+
+def test_fallback_outline_has_a_teaching_arc_for_every_section():
+    outline = _fallback(_req(), "test")
+
+    assert all(section.teaching_arc.situation for section in outline.sections)
+    assert all(section.teaching_arc.practice for section in outline.sections)
 
 
 # ═══════════════════════════════════════════════════════════

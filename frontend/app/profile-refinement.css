@@ -1,0 +1,102 @@
+/* Approved profile editor concept, 2026-10-26. The teacher profile and the
+   learner profile share this skin; only the teacher page adds its own chrome.
+   No API/approval changes. */
+.profile-page { --public-text: var(--font-public-display), var(--public-cjk), sans-serif; --public-title: var(--public-text); font-family: var(--public-text); }
+.teacher-profile-page .public-header { width: 100%; max-width: 1376px; min-height: 72px; padding: 16px 32px; margin: 0 auto; }
+.teacher-profile-page .public-brand { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -.04em; }
+.teacher-profile-page .public-header nav { margin-left: auto; font-size: 14px; line-height: 20px; gap: 24px; }
+.teacher-profile-page .teacher-profile-shell { max-width: 1376px; padding: 24px 32px 64px; }
+.teacher-profile-page .teacher-profile-heading { padding: 32px 0 24px; }
+.teacher-profile-page .teacher-profile-heading h1 { font-size: 30px; line-height: 36px; letter-spacing: -.03em; font-weight: 700; }
+.teacher-profile-page .teacher-profile-heading > p { margin-top: 8px; font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.profile-page .teacher-profile-layout { grid-template-columns: 240px minmax(0,1fr); gap: 24px; align-items: start; }
+.profile-page .teacher-profile-aside { display: block; position: sticky; top: 24px; min-width: 0; padding: 24px 16px; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 12px; }
+.profile-identity { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 0 8px 24px; }
+.profile-identity > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
+.profile-identity strong { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.profile-identity span:not(.teacher-photo) { color: var(--color-body); font-size: 14px; line-height: 20px; }
+.profile-identity .profile-identity-email { max-width: 100%; font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-page .teacher-profile-aside nav { display: grid; gap: 4px; }
+.profile-page .teacher-profile-aside nav a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 20px; font-weight: 500; transition: color 300ms cubic-bezier(.22,1,.36,1), background-color 300ms cubic-bezier(.22,1,.36,1); }
+.profile-page .teacher-profile-aside nav a[aria-current="location"] { color: var(--color-blue-deep); background: var(--color-blue-soft); font-weight: 600; }
+.teacher-profile-aside nav svg, .profile-review-note svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.profile-page .profile-review-note { margin: 24px 8px 0; padding-top: 24px; }
+.profile-page .profile-review-note h2 { font-size: 14px; line-height: 20px; font-weight: 600; }
+.profile-review-status { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 4px 8px; border-radius: 6px; font-size: 12px; line-height: 16px; background: var(--color-soft); color: var(--color-body); }
+.profile-review-status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.profile-review-status[data-review-state="pending"], .profile-review-status[data-review-state="rejected"] { background: var(--color-amber-soft); color: var(--color-amber); }
+.profile-review-status[data-review-state="approved"] { background: var(--color-green-soft); color: var(--color-green); }
+.profile-page .profile-review-note p { font-size: 14px; line-height: 20px; margin: 12px 0 8px; }
+.profile-page .profile-review-note a { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; }
+.profile-page .profile-review-note a svg { width: 16px; height: 16px; }
+.profile-page .teacher-profile-form { border-radius: 12px; }
+.profile-page .profile-section { padding: 24px; scroll-margin-top: 24px; }
+.profile-page .profile-section h2 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.02em; }
+.profile-page .profile-optional { font-size: 14px; line-height: 20px; margin-top: 4px; max-width: 65ch; }
+.profile-page .profile-photo-editor { margin-top: 16px; gap: 16px; padding-bottom: 0; align-items: center; }
+.profile-page .profile-photo-editor .teacher-photo { width: 64px; height: 64px; border-radius: 50%; font-size: 24px; }
+.profile-page .profile-photo-actions { gap: 8px 16px; margin-top: 0; }
+.profile-page .profile-photo-controls > p { font-size: 12px; line-height: 16px; margin-top: 8px; }
+.profile-page .profile-photo-controls .profile-photo-message:empty { min-height: 0; margin: 0; }
+.profile-page .profile-field { gap: 8px; margin-top: 16px; }
+.profile-page .profile-fields-grid, .profile-page .profile-teaching-extra { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 24px; margin-top: 16px; }
+.profile-page .profile-fields-grid .profile-field, .profile-page .profile-teaching-extra > .profile-field, .profile-page .profile-teaching-extra > .profile-subjects { margin-top: 0; }
+.profile-page .profile-field label, .profile-page .profile-subjects legend { font-size: 14px; line-height: 20px; font-weight: 500; }
+.profile-page .profile-field :is(input, select, textarea), .profile-page .profile-subject-options > input { min-height: 44px; padding: 8px 12px; font-family: inherit; font-size: 16px; line-height: 24px; border-radius: 8px; scroll-margin-bottom: 128px; }
+.profile-page .profile-field textarea { min-height: 96px; }
+.profile-page .profile-count { font-size: 12px; line-height: 16px; }
+.profile-page .profile-checkbox { gap: 8px; font-size: 14px; line-height: 20px; }
+.profile-page .profile-section > .profile-checkbox { margin-top: 8px; }
+.profile-page .profile-secondary { min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 20px; font-weight: 500; }
+.profile-page .profile-text-button { min-height: 44px; font-size: 14px; line-height: 20px; }
+.profile-page .profile-subjects { min-width: 0; }
+.profile-page .profile-subjects legend { padding-bottom: 8px; }
+.profile-page .profile-subject-tags { gap: 8px; }
+.profile-page .profile-subject-tags button { gap: 8px; min-height: 44px; margin-top: 0; padding: 8px; border-radius: 6px; font-size: 14px; line-height: 20px; text-align: start; }
+.profile-page .profile-subjects > .profile-secondary { margin-top: 8px; }
+.profile-page .profile-subject-tags:empty + .profile-secondary { margin-top: 0; }
+.profile-page .profile-subject-options { padding: 16px; margin-top: 12px; }
+.profile-page .profile-subject-options > label { font-size: 14px; line-height: 20px; }
+.profile-page .profile-subject-options .profile-checkbox { align-items: flex-start; padding-block: 8px; }
+.profile-page .profile-subject-options .profile-checkbox input { margin-top: 4px; }
+.profile-page .profile-save-bar { position: static; padding: 16px 24px; gap: 16px; border-radius: 0 0 12px 12px; background: var(--color-surface); }
+.profile-page .profile-save-bar > div { min-width: 0; font-size: 14px; line-height: 20px; }
+.profile-page .profile-save-bar .public-button { padding: 8px 12px; min-height: 44px; font-size: 16px; line-height: 24px; font-weight: 600; }
+.profile-page :is(a,button,input,select,textarea):focus-visible { outline: 2px solid var(--color-blue); outline-offset: 3px; }
+.profile-page .profile-photo-actions label:focus-within { outline: 2px solid var(--color-blue); outline-offset: 3px; }
+.profile-page .profile-error { font-size: 14px; line-height: 20px; }
+.profile-page ::selection { background: var(--color-blue-soft); color: var(--color-ink); }
+@media (max-width: 959px) {
+  .profile-page .teacher-profile-layout { grid-template-columns: 208px minmax(0,1fr); }
+  .profile-page .profile-fields-grid, .profile-page .profile-teaching-extra { grid-template-columns: minmax(0,1fr); }
+  .profile-page .profile-save-bar { flex-wrap: wrap; }
+  .profile-page .profile-save-bar > div { flex-basis: 100%; }
+  .profile-page .profile-save-bar > .public-button { margin-left: auto; }
+}
+@media (max-width: 800px) {
+  .teacher-profile-page .public-header { min-height: 64px; padding: 12px 16px; }
+  .teacher-profile-page .public-header nav { gap: 16px; }
+  .teacher-profile-page .teacher-profile-shell { padding: 0 16px 48px; }
+  .teacher-profile-page .teacher-profile-heading { padding: 24px 0; }
+  .teacher-profile-page .teacher-profile-heading h1 { font-size: 24px; line-height: 32px; }
+  .teacher-profile-page .teacher-profile-heading > p { font-size: 16px; line-height: 24px; }
+  .profile-page .teacher-profile-layout { grid-template-columns: minmax(0,1fr); gap: 24px; }
+  .profile-page .teacher-profile-aside { position: static; display: block; padding: 16px; }
+  .profile-identity { flex-direction: row; align-items: center; gap: 16px; padding: 0 0 16px; }
+  .profile-identity strong { font-size: 18px; line-height: 28px; }
+  .profile-page .teacher-profile-aside nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .profile-page .teacher-profile-aside nav a { padding: 8px; gap: 8px; background: transparent; }
+  .profile-page .profile-review-note { margin: 16px 0 0; padding-top: 16px; }
+  .profile-page .profile-review-note p { margin-top: 8px; }
+  .profile-page .profile-section { padding: 24px 16px; }
+  .profile-page .profile-photo-editor { gap: 12px; align-items: flex-start; }
+  .profile-page .profile-photo-editor .teacher-photo { width: 48px; height: 48px; }
+  .profile-page .profile-subject-list { grid-template-columns: minmax(0,1fr); }
+  .profile-page .profile-save-bar { bottom: 0; padding: 16px; gap: 8px 16px; }
+}
+@media (max-height: 680px) and (min-width: 800px) {
+  .profile-page .teacher-profile-aside { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-page .teacher-profile-aside nav a { transition: none; }
+}

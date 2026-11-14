@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // The bottom-left dev badge belongs to Next.js tooling, not the product UI.
+  devIndicators: false,
 };
 
 export default nextConfig;

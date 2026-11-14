@@ -179,7 +179,7 @@ async def run_agent(
     client: ChatClient,
     model: str,
     system: str,
-    user: str,
+    user: str | list[dict[str, Any]],
     tools: list[Tool],
     max_turns: int = 6,
     temperature: float = 0.0,
@@ -355,4 +355,3 @@ async def run_agent(
 
     # ── 结束条件 3:轮数用尽。停下来并如实记录,不静默吞掉 ──────
     return finish("max_turns")
-

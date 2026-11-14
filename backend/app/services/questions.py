@@ -156,8 +156,10 @@ class QuestionRequest:
     language: str = "zh-HK"
     #: 每个目标出几道题。
     count_per_objective: int = 2
-    #: 讲义片段(已检索好的),给模型做依据。空字符串表示没有材料。
+    #: 已生成的课件正文,给模型做出题依据。它不是上传的讲义,不能作为引用来源。
     material_context: str = ""
+    #: 只有这里列出的真实上传材料才允许出现在 sourceRefs 中。
+    source_material_ids: list[str] = field(default_factory=list)
     artifact_id: str = "a-questions"
 
 
@@ -190,7 +192,12 @@ def build_user_message(req: QuestionRequest) -> str:
     lines += [f"  {o.id}  {o.text}" for o in req.objectives]
 
     if req.material_context.strip():
-        lines += ["", "可以参考的讲义片段:", req.material_context.strip()]
+        lines += ["", "可以参考的课件正文:", req.material_context.strip()]
+
+    if req.source_material_ids:
+        lines += ["", "仅可引用这些真实上传材料的 id:", ", ".join(req.source_material_ids)]
+    else:
+        lines += ["", "没有上传的参考材料。不要编造讲义、文件名或页码,解析里也不要声称出自讲义;所有题目的 sourceRefs 必须是空数组。"]
 
     return "\n".join(lines)
 
@@ -300,6 +307,13 @@ async def generate_questions(
             label = raw.get("id") if isinstance(raw, dict) else None
             dropped.append(f"第 {index} 题(#{label or '无 id'})被跳过:{why}")
             continue
+
+        # 课件文字是出题依据,但不是外部讲义。模型即使写了引用,也不能
+        # 让一份并不存在的资料通过验证并显示给教师。
+        allowed_sources = set(req.source_material_ids)
+        source_refs = [ref for ref in question.source_refs if ref.material_id in allowed_sources]
+        if len(source_refs) != len(question.source_refs):
+            question = question.model_copy(update={"source_refs": source_refs})
 
         # 模型会重复用同一个 id。不修的话组卷会把同一道题选中两次,
         # 而总分对不上,界面上还看不出来为什么。

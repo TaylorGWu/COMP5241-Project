@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Deterministic Mermaid rendering for course assets",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "12.0.0"
+  }
+}

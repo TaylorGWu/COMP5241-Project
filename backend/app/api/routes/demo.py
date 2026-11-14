@@ -3,18 +3,24 @@
 ═══════════════════════════════════════════════════════════════════
 为什么单独开一套
 ═══════════════════════════════════════════════════════════════════
-正式 API 要的东西现在都还没有:
+本地教师工作区已接入认证、审批和课程归属,与正式 API 的剩余差别如下:
 
     正式 API(§13)             这个 demo 路由
     ─────────────────────     ─────────────────────
-    JWT + RBAC 鉴权            无认证
-    PostgreSQL 持久化          进程内存,重启即丢
+    正式账户服务               本地 cookie 会话 + 教师审批/课程归属
+    PostgreSQL 持久化          SQLite IR/patch 持久化
     异步作业 + SSE 进度         请求内直接跑(但**有** SSE 了,见 §13.4)
     /api/artifacts/...         /api/demo/...
-    需要 patches 表            内存 PatchStore
+    patches 表                SQLite patches 表(按课程/章节隔离)
 
 **目的是让你能在浏览器里点着看 L1/L2 跑起来**,验证产品流程,
-而不是替代正式接口。接数据库和认证时,这套路由整份删掉即可。
+而不是替代正式接口。课程 IR、patch、账户和归属持久化到 SQLite;
+所有教师接口只允许已审批的教师访问自己的课程。编辑状态绑定到请求和章节,
+旧接口的活动章节选择与独立草稿则按登录会话隔离。
+
+当前仍须使用单个应用 worker:会话选择、独立草稿和编辑锁只保存在进程内存,
+重启会清除这些临时状态,但不会丢失 SQLite 中的课程和账户。
+正式作业 API、ARQ 和跨进程协调落地时,再替换这套路由。
 
 ═══════════════════════════════════════════════════════════════════
 ★ 一处与 AGENTS.md 硬规则的正面冲突(有意为之,已记录)
@@ -29,20 +35,30 @@
     长时间占用 API worker    → 没解决(协程仍挂满整个生成期间)
 
 这是**有意的、有记录的偏离**,理由见设计规格 §13.4。它只允许存在于
-`/api/demo/*` 这套内存演示路由里。**若被带进 `/api/` 正式路由,PR 应当被驳回。**
+`/api/demo/*` 这套本地教师原型路由里。**若被带进 `/api/` 正式路由,PR 应当被驳回。**
 """
 
 from __future__ import annotations
 
 import asyncio
 import dataclasses
+import hashlib
 import json
+import logging
+import os
+import tempfile
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import suppress
+from contextvars import ContextVar
+from pathlib import Path
 from typing import Any, Literal
 
+from anyio import CancelScope
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
+from pydantic.alias_generators import to_camel
 
 from app.config import settings
 from app.demo_pipeline import (
@@ -53,15 +69,21 @@ from app.demo_pipeline import (
 )
 from app.llm.client import ChatClient, build_deepseek_client
 from app.llm.ocr import make_ocr
+from app.llm.router import get_router
+from app.services.illustrations import IllustrationError, IllustrationGenerator, read_illustration
 from app.services.agent import AgentStep
 from app.services.edit import EditResult, edit_artifact
-from app.services.ingest import IngestDeps
+from app.services.edit_planning import plan_edit
+from app.services.ingest import IngestDeps, SUPPORTED_SUFFIXES, ingest_file
 from app.services.patches import (
-    InMemoryPatchStore,
+    PatchStore,
+    SQLitePatchStore,
     apply_patch,
+    apply_patch_field,
     artifact_id_of,
     manual_edit,
     reject_patch,
+    reject_patch_field,
 )
 from app.services.pipeline import (
     GenerationRequest,
@@ -71,6 +93,10 @@ from app.services.pipeline import (
     generate_course,
 )
 from app.services.planner import PlannerRequest, plan_outline
+from app.services.teacher_courses import TeacherCourseService
+from app.services.sqlite_workspace import SQLiteCourseRepository, SQLiteTeacherStateRepository
+from app.services.mermaid_assets import MermaidRenderError, render_mermaid_png
+from app.services.svg_diagrams import render_course_svg
 from app.services.paper import PaperRequest, compose_paper
 from app.services.glossary import (
     GlossaryRequest,
@@ -79,10 +105,118 @@ from app.services.glossary import (
     describe_visuals,
 )
 from app.services.questions import QuestionRequest, generate_questions
-from app.services.svg_diagrams import render_diagram_svg
 from app.exporters import exam_paper_to_docx, lesson_plan_to_docx, slide_deck_to_pptx
+from app.schemas.ir import CoursePackage, Slide
+from app.services.auth import SESSION_COOKIE, _store_at, approved_instructor, digest
 
-router = APIRouter(prefix="/demo", tags=["demo"])
+
+class TeacherRoute(APIRoute):
+    """One authorization/context boundary for JSON, uploads, exports and SSE.
+
+    Locks are process-local: this prototype must run with one application worker
+    until generation moves into the planned persistent job queue.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        handler = super().get_route_handler()
+
+        async def authorized(request: Request) -> Response:
+            user = await approved_instructor(request)
+            user_token = _USER_CONTEXT.set(user)
+            state_token = None
+            locks: list[asyncio.Lock] = []
+            lock_candidates: list[asyncio.Lock] = []
+            handed_to_stream = False
+            try:
+                course_id = request.path_params.get("course_id")
+                chapter_id = request.path_params.get("chapter_id")
+                if course_id:
+                    _course_or_404(course_id)
+                if chapter_id:
+                    _chapter_or_404(course_id, chapter_id)
+                session_id = digest(request.cookies[SESSION_COOKIE])
+                legacy = _SESSION_STATES.setdefault(session_id, _State())
+                # Only an explicit activation changes this session's deprecated
+                # unscoped adapter. Scoped operations never redirect another tab.
+                activation = request.url.path.endswith("/activate")
+                # Scoped asset handlers only read a committed package snapshot and
+                # saved files. Thumbnail requests must not contend for an edit
+                # lock; ownership checks above and reference checks stay intact.
+                asset_snapshot = request.method == "GET" and bool(chapter_id) and self.endpoint.__name__ in (
+                    "get_chapter_diagram", "get_chapter_diagram_svg",
+                )
+                fresh_legacy_state = self.endpoint.__name__ in ("generate", "generate_stream", "reset")
+                if not course_id or activation:
+                    lock_candidates.append(_editing_lock("session", session_id))
+                if not course_id and legacy.active_course_id and not fresh_legacy_state:
+                    course_id, chapter_id = legacy.active_course_id, legacy.active_chapter_id
+                    _chapter_or_404(course_id, chapter_id)
+                if chapter_id and not asset_snapshot:
+                    lock_candidates.append(_editing_lock("chapter", course_id, chapter_id))
+                elif course_id and not chapter_id:
+                    lock_candidates.append(_editing_lock("course", course_id))
+                for lock in lock_candidates:
+                    if lock.locked():
+                        raise HTTPException(409, "This chapter is busy. Retry after the current operation finishes.")
+                    await lock.acquire()
+                    locks.append(lock)
+                current = _State() if chapter_id else legacy
+                current.session_id = session_id
+                state_token = _STATE_CONTEXT.set(current)
+                if not request.path_params.get("course_id") and chapter_id and not request.url.path.endswith("/reset"):
+                    _ensure_active_chapter(course_id, chapter_id)
+                response = await handler(request)
+                response.headers["Cache-Control"] = "no-store"
+                if activation:
+                    legacy.active_course_id = course_id
+                    legacy.active_chapter_id = chapter_id
+                elif request.url.path.endswith("/reset"):
+                    legacy.package = legacy.store = legacy.result = None
+                    legacy.active_course_id = legacy.active_chapter_id = None
+                if isinstance(response, StreamingResponse):
+                    response = _TeacherStream(response, current, user, locks)
+                    handed_to_stream = True
+                return response
+            finally:
+                if state_token is not None:
+                    _STATE_CONTEXT.reset(state_token)
+                _USER_CONTEXT.reset(user_token)
+                if not handed_to_stream:
+                    for lock in reversed(locks):
+                        lock.release()
+
+        return authorized
+
+
+class _TeacherStream(StreamingResponse):
+    """Retain captured state and locks for the entire ASGI response lifetime."""
+
+    def __init__(self, response: StreamingResponse, state: _State, user: dict, locks: list[asyncio.Lock]):
+        super().__init__(
+            response.body_iterator,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            background=response.background,
+        )
+        self.editing_state, self.user, self.editing_locks = state, user, locks
+
+    async def __call__(self, scope, receive, send):
+        state_token = _STATE_CONTEXT.set(self.editing_state)
+        user_token = _USER_CONTEXT.set(self.user)
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                with CancelScope(shield=True):
+                    await self.body_iterator.aclose()
+            finally:
+                for lock in reversed(self.editing_locks):
+                    lock.release()
+                _STATE_CONTEXT.reset(state_token)
+                _USER_CONTEXT.reset(user_token)
+
+
+router = APIRouter(prefix="/demo", tags=["demo"], route_class=TeacherRoute)
 
 #: 假模型每一步的人为延迟(秒)。**只在这个演示路由里用。**
 #:
@@ -93,18 +227,116 @@ FAKE_MODEL_DELAY = 0.6
 
 
 # ═══════════════════════════════════════════════════════════════
-# 进程内存状态。单用户、单次会话 —— 够用来测流程。
+# 请求上下文。旧接口只保留会话内的活动章节选择；章节 IR 每次从 SQLite 读取。
 # ═══════════════════════════════════════════════════════════════
 
 
+@dataclasses.dataclass
 class _State:
     package: Any = None
-    store: InMemoryPatchStore | None = None
+    store: PatchStore | None = None
     result: Any = None
     model_mode: str = ""
+    active_course_id: str | None = None
+    active_chapter_id: str | None = None
+    session_id: str = ""
 
 
-STATE = _State()
+_STATE_CONTEXT: ContextVar[_State | None] = ContextVar("teacher_editing_state", default=None)
+_USER_CONTEXT: ContextVar[dict | None] = ContextVar("teacher_user", default=None)
+_SESSION_STATES: dict[str, _State] = {}
+_EDITING_LOCKS: dict[tuple[str, ...], asyncio.Lock] = {}
+
+
+def _editing_lock(*key: str) -> asyncio.Lock:
+    return _EDITING_LOCKS.setdefault((str(TEACHER_WORKSPACE_DB), *key), asyncio.Lock())
+
+
+class _StateProxy:
+    """Legacy helpers access only an explicitly bound context, never a fallback."""
+
+    def __getattr__(self, name):
+        state = _STATE_CONTEXT.get()
+        if state is None:
+            raise RuntimeError("Teacher editing state requires an authenticated request context")
+        return getattr(state, name)
+
+    def __setattr__(self, name, value):
+        state = _STATE_CONTEXT.get()
+        if state is None:
+            raise RuntimeError("Teacher editing state requires an authenticated request context")
+        setattr(state, name, value)
+
+
+STATE = _StateProxy()
+# Older local developer sessions used this JSON file.  It is read once only
+# when a new local database is empty, then all future writes go to SQLite.
+DEMO_WORKSPACE_PATH = Path(tempfile.gettempdir()) / "comp5241-teacher-workspace.json"
+
+
+def resolve_teacher_workspace_path() -> Path:
+    """Return an ignored local database path, optionally overridden for tests."""
+    configured = os.environ.get("TEACHER_WORKSPACE_DB")
+    if configured:
+        return Path(configured).expanduser()
+    return Path(__file__).resolve().parents[3] / ".local" / "teacher-workspace.db"
+
+
+TEACHER_WORKSPACE_DB = resolve_teacher_workspace_path()
+
+
+def _load_course_workspace(*, import_legacy_snapshot: bool = True) -> TeacherCourseService:
+    """Open the local teacher workspace without requiring a database service."""
+    repository = SQLiteCourseRepository(TEACHER_WORKSPACE_DB)
+    if import_legacy_snapshot and repository.is_empty():
+        try:
+            payload = json.loads(DEMO_WORKSPACE_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = None
+        if isinstance(payload, dict):
+            repository.import_legacy_snapshot(payload)
+    return TeacherCourseService(
+        repository,
+        state_store=SQLiteTeacherStateRepository(TEACHER_WORKSPACE_DB),
+    )
+
+
+COURSE_WORKSPACE = _load_course_workspace()
+
+
+def reset_course_workspace() -> None:
+    """Test hook: reset only the selected local SQLite workspace."""
+    global COURSE_WORKSPACE
+    for path in (
+        TEACHER_WORKSPACE_DB,
+        TEACHER_WORKSPACE_DB.with_name(f"{TEACHER_WORKSPACE_DB.name}-wal"),
+        TEACHER_WORKSPACE_DB.with_name(f"{TEACHER_WORKSPACE_DB.name}-shm"),
+    ):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+    COURSE_WORKSPACE = _load_course_workspace(import_legacy_snapshot=False)
+    _store_at.cache_clear()
+    _SESSION_STATES.clear()
+    _EDITING_LOCKS.clear()
+    if _STATE_CONTEXT.get() is not None:
+        _STATE_CONTEXT.set(_State())
+
+
+def reload_course_workspace() -> None:
+    """Reopen SQLite without clearing it; used to prove restart persistence."""
+    global COURSE_WORKSPACE
+    COURSE_WORKSPACE = _load_course_workspace()
+    # A real backend restart rebuilds module globals.  Mirror that boundary so
+    # persistence tests cannot accidentally pass by reusing the old store.
+    _SESSION_STATES.clear()
+    _EDITING_LOCKS.clear()
+    if _STATE_CONTEXT.get() is not None:
+        _STATE_CONTEXT.set(_State())
+
+
+COURSE_WORKSPACE = _load_course_workspace()
 
 
 async def _fake_ocr(image_bytes: bytes) -> str:
@@ -123,7 +355,12 @@ def _build_model(
     `role` 决定用哪个假模型:L1 生成和 L2 编辑的假模型不一样 ——
     **L1 的假模型不认识编辑工具**,拿它跑编辑会得到 0 个 patch。
     """
-    if use_real and settings.deepseek_api_key:
+    if use_real:
+        if not settings.deepseek_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="未配置模型密钥。请在后端 env.yaml 或环境变量中配置 DEEPSEEK_API_KEY。",
+            )
         client = build_deepseek_client()
         return (
             client,
@@ -169,12 +406,53 @@ class GenerateBody(BaseModel):
 
 
 class EditBody(BaseModel):
-    message: str = Field(min_length=1, max_length=500)
+    # The composer itself is short, but an approved agent plan combines several
+    # bounded action prompts into one execution request.
+    message: str = Field(min_length=1, max_length=6_000)
     use_real_model: bool = False
+    target: Literal["slides", "questions", "paper"] = "slides"
+    slide_id: str | None = Field(default=None, min_length=1, max_length=200)
+    images: list["EditImage"] = Field(default_factory=list, max_length=4)
+
+
+class EditImage(BaseModel):
+    """A small, inline reference image for an edit request; never an artifact write."""
+
+    name: str = Field(min_length=1, max_length=120)
+    data_url: str = Field(pattern=r"^data:image/(png|jpeg|webp);base64,", max_length=4_200_000)
 
 
 class PatchBody(BaseModel):
     patch_id: str
+    field: str | None = None
+
+
+class QuestionsBody(BaseModel):
+    """出题。学习目标取自当前产物的大纲,不用前端再传一遍。"""
+
+    use_real_model: bool = False
+    #: 每个学习目标出几道题。
+    count_per_objective: int = Field(default=2, ge=1, le=5)
+    language: str = "zh-HK"
+
+
+class PaperBody(BaseModel):
+    """组卷。约束都在这。"""
+
+    total_points: int = Field(default=100, gt=0, le=500)
+    duration_min: int = Field(default=90, gt=0, le=600)
+    #: 必须覆盖的学习目标 id。留空表示不强制。
+    coverage: list[str] = Field(default_factory=list)
+    easy: float = Field(default=0.0, ge=0, le=1)
+    medium: float = Field(default=0.0, ge=0, le=1)
+    hard: float = Field(default=0.0, ge=0, le=1)
+
+
+class GlossaryBody(BaseModel):
+    """术语白话化与图片替代文本。"""
+
+    use_real_model: bool = False
+    language: str = "zh-HK"
 
 
 class QuestionsBody(BaseModel):
@@ -214,13 +492,167 @@ class ManualEditBody(BaseModel):
     note: str = "教师手动修改"
 
 
+class SlideStructureBody(BaseModel):
+    action: Literal["before", "after", "delete"]
+    anchor_id: str | None = None
+    title: str = Field(default="Untitled slide", min_length=1, max_length=200)
+
+
+class CourseCreateBody(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = ""
+    audience: str = "非计算机专业初学者"
+    duration_min: int = Field(default=45, ge=10, le=180, alias="durationMin")
+    language: str = "zh-HK"
+    course_code: str = Field(default="", max_length=24, alias="courseCode")
+    subject: str = Field(default="Software Engineering", min_length=1, max_length=80)
+    level: str = Field(default="Undergraduate", min_length=1, max_length=40)
+    learning_objectives: list[str] = Field(default_factory=list, max_length=8, alias="learningObjectives")
+
+
+class CoursePatchBody(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = None
+    audience: str | None = None
+    duration_min: int | None = Field(default=None, ge=10, le=180, alias="durationMin")
+    language: str | None = None
+    course_code: str | None = Field(default=None, max_length=24, alias="courseCode")
+    subject: str | None = Field(default=None, min_length=1, max_length=80)
+    level: str | None = Field(default=None, min_length=1, max_length=40)
+    learning_objectives: list[dict[str, str]] | None = Field(default=None, max_length=8, alias="learningObjectives")
+
+
+class ChapterCreateBody(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    summary: str = ""
+
+
+class ChapterPatchBody(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    summary: str | None = None
+    status: Literal["empty", "generating", "draft", "ready", "failed"] | None = None
+    package: dict[str, Any] | None = None
+
+
+class ReorderChaptersBody(BaseModel):
+    chapter_ids: list[str] = Field(alias="chapterIds")
+
+
+class StudentImportBody(BaseModel):
+    """A small CSV-shaped roster payload from the teacher workspace."""
+
+    rows: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+
+
+def _camel_json(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {to_camel(str(key)): _camel_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_camel_json(item) for item in value]
+    return value
+
+
+def _course_json(course: Any) -> dict[str, Any]:
+    # Keep the parsed syllabus server-side: it is generation context, not UI
+    # state.  The UI only needs its filename, parse status and character count.
+    payload = dataclasses.asdict(course)
+    payload.pop("syllabus_text", None)
+    return _camel_json(payload)
+
+
+def _chapter_json(chapter: Any) -> dict[str, Any]:
+    payload = dataclasses.asdict(chapter)
+    # Canonicalize old quiz lists on read without silently rewriting saved drafts.
+    package = payload.get("package")
+    if isinstance(package, dict):
+        deck = package.get("slideDeck", package.get("slide_deck"))
+        if isinstance(deck, dict) and isinstance(deck.get("slides"), list):
+            for index, slide in enumerate(deck["slides"]):
+                if isinstance(slide, dict) and slide.get("layout") == "quiz":
+                    try:
+                        deck["slides"][index] = Slide.model_validate(slide).model_dump(by_alias=True)
+                    except ValueError:
+                        pass  # Preserve the existing recovery path for invalid IR.
+    return _camel_json(payload)
+
+
+def _course_or_404(course_id: str) -> Any:
+    user = _USER_CONTEXT.get()
+    if user is not None and not COURSE_WORKSPACE.repository.is_owner(course_id, user["id"]):
+        raise HTTPException(status_code=404, detail="课程不存在")
+    try:
+        return COURSE_WORKSPACE.repository.get_course(course_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="课程不存在") from error
+
+
+def _chapter_or_404(course_id: str, chapter_id: str) -> Any:
+    _course_or_404(course_id)
+    try:
+        return COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="章节不存在或不属于该课程") from error
+
+
+def _save_active_chapter_package() -> None:
+    """Persist legacy teacher-tool mutations to the chapter that owns the IR."""
+    if STATE.active_course_id and STATE.active_chapter_id and STATE.package is not None:
+        COURSE_WORKSPACE.repository.update_chapter(
+            STATE.active_course_id,
+            STATE.active_chapter_id,
+            package=STATE.package,
+        )
+
+
+def _ensure_active_chapter(
+    course_id: str,
+    chapter_id: str,
+    *,
+    reset_patch_store: bool = False,
+) -> Any:
+    """Bind legacy IR tools to the chapter named by the request path.
+
+    The course editor is deep-linkable. A request must therefore carry its
+    ownership in the URL instead of relying on whichever package happened to
+    be generated most recently. Existing proposed patches remain available
+    while the same chapter stays active, including after a browser refresh.
+    """
+    chapter = _chapter_or_404(course_id, chapter_id)
+    same_chapter = (
+        STATE.active_course_id == course_id
+        and STATE.active_chapter_id == chapter_id
+        and STATE.package is not None
+        and STATE.store is not None
+    )
+    if same_chapter and not reset_patch_store:
+        return chapter
+    if chapter.package is None:
+        raise HTTPException(status_code=409, detail="请先为这个章节生成课件")
+    try:
+        package = CoursePackage.model_validate(chapter.package)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail="这个章节的课件结构不完整，请重新生成") from error
+    STATE.package = package
+    STATE.store = SQLitePatchStore(
+        TEACHER_WORKSPACE_DB,
+        scope_id=f"{course_id}:{chapter_id}",
+    )
+    STATE.active_course_id = course_id
+    STATE.active_chapter_id = chapter_id
+    return chapter
+
+
 # ═══════════════════════════════════════════════════════════════
 # 序列化辅助
 # ═══════════════════════════════════════════════════════════════
 
 
 def _package_json(pkg: Any) -> dict[str, Any] | None:
-    return pkg.model_dump(by_alias=True) if pkg is not None else None
+    if pkg is None:
+        return None
+    # Chapter packages can be a validated CoursePackage or a small dict in
+    # teacher-owned draft updates. Both are IR, so coverage reads either form.
+    return pkg if isinstance(pkg, dict) else pkg.model_dump(by_alias=True)
 
 
 def _patch_json(p: Any) -> dict[str, Any]:
@@ -229,6 +661,444 @@ def _patch_json(p: Any) -> dict[str, Any]:
 
 def _outline_json(outline: Any) -> dict[str, Any] | None:
     return outline.model_dump(by_alias=True) if outline is not None else None
+
+
+# ═══════════════════════════════════════════════════════════════
+# Course-first teacher workspace.  Legacy singleton endpoints below remain
+# temporarily for the existing page while it is migrated to these routes.
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/courses")
+async def list_courses() -> dict[str, Any]:
+    courses = COURSE_WORKSPACE.repository.list_courses(instructor_id=_USER_CONTEXT.get()["id"])
+    return {"courses": [_course_json(course) for course in courses]}
+
+
+@router.post("/courses", status_code=201)
+async def create_course(body: CourseCreateBody) -> dict[str, Any]:
+    objectives = [
+        {"id": f"LO{index}", "text": objective.strip()}
+        for index, objective in enumerate(body.learning_objectives, start=1)
+        if objective.strip()
+    ]
+    course = COURSE_WORKSPACE.repository.create_course(
+        instructor_id=_USER_CONTEXT.get()["id"],
+        title=body.title,
+        description=body.description,
+        audience=body.audience,
+        duration_min=body.duration_min,
+        language=body.language,
+        course_code=body.course_code,
+        subject=body.subject,
+        level=body.level,
+        learning_objectives=objectives,
+    )
+    return _course_json(course)
+
+
+@router.get("/courses/{course_id}")
+async def get_course(course_id: str) -> dict[str, Any]:
+    return _course_json(_course_or_404(course_id))
+
+
+@router.patch("/courses/{course_id}")
+async def update_course(course_id: str, body: CoursePatchBody) -> dict[str, Any]:
+    course = _course_or_404(course_id)
+    changes = body.model_dump(exclude_none=True)
+    try:
+        if not changes:
+            return _course_json(course)
+        before = {key: dataclasses.asdict(course).get(key) for key in changes}
+        updated = COURSE_WORKSPACE.repository.update_course(course_id, **changes)
+        COURSE_WORKSPACE.record_version(
+            course_id,
+            None,
+            kind="course-update",
+            reason="Instructor updated the course blueprint",
+            changed_fields=list(changes),
+            before=before,
+            after={key: dataclasses.asdict(updated).get(key) for key in changes},
+        )
+        return _course_json(updated)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/publish")
+async def publish_course(course_id: str) -> dict[str, Any]:
+    course = _course_or_404(course_id)
+    try:
+        from app.services.publication import publish
+        published = publish(COURSE_WORKSPACE.repository, course_id, _USER_CONTEXT.get()['id'])
+        COURSE_WORKSPACE.record_version(course_id, None, kind="publish", reason="Instructor published course", changed_fields=["status"], before={"status": course.status}, after={"status": "published"})
+        return _course_json(published)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/unpublish")
+async def unpublish_course(course_id: str) -> dict[str, Any]:
+    _course_or_404(course_id)
+    return _course_json(COURSE_WORKSPACE.unpublish(course_id))
+
+
+@router.post("/courses/{course_id}/syllabus")
+async def attach_course_syllabus(course_id: str, request: Request) -> dict[str, Any]:
+    """Attach one teacher-owned syllabus and retain its extracted text in memory.
+
+    This demo accepts a raw upload body instead of multipart so it has no
+    hidden dependency on ``python-multipart``.  The browser sends the safe
+    filename in a header; the file itself is parsed by the existing material
+    ingestion pipeline and only the extracted reference text is retained.
+    """
+    _course_or_404(course_id)
+    filename = Path(request.headers.get("x-filename", "syllabus")).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise HTTPException(
+            status_code=422,
+            detail="不支持的 syllabus 格式。支持 PDF、PPTX、DOCX、Markdown 和 TXT。",
+        )
+    payload = await request.body()
+    if not payload:
+        raise HTTPException(status_code=422, detail="上传的 syllabus 是空文件。")
+    if len(payload) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="syllabus 不能超过 10 MB。")
+
+    with tempfile.TemporaryDirectory(prefix="pathpilot-syllabus-") as directory:
+        path = Path(directory) / filename
+        path.write_bytes(payload)
+        report = await ingest_file(path, deps=IngestDeps(ocr_image=_fake_ocr))
+
+    text = "\n\n".join(chunk.text for chunk in report.chunks).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail=report.message or "无法从 syllabus 中读取文字。")
+    course = COURSE_WORKSPACE.repository.update_course(
+        course_id,
+        syllabus_filename=filename,
+        syllabus_text=text,
+        syllabus_status=report.status,
+        syllabus_chars=report.extracted_chars,
+    )
+    return _course_json(course)
+
+
+@router.post("/courses/{course_id}/students/import")
+async def import_students(course_id: str, body: StudentImportBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    result = COURSE_WORKSPACE.import_students(course_id, body.rows)
+    return {
+        "imported": result["imported"],
+        "errors": result["errors"],
+        "students": [_camel_json(dataclasses.asdict(student)) for student in result["students"]],
+    }
+
+
+@router.post("/courses/{course_id}/invites", status_code=201)
+async def create_course_invite(course_id: str) -> dict[str, str]:
+    _course_or_404(course_id)
+    import secrets
+    from app.services.auth import get_auth_store
+    code = f"invite-{course_id}-{secrets.token_urlsafe(18)}"
+    with get_auth_store().connection() as db:
+        db.execute('INSERT INTO portal_invites VALUES(?,?)', (code, course_id))
+    return {"code": code}
+
+
+@router.get("/courses/{course_id}/analytics")
+async def course_analytics(course_id: str) -> dict[str, Any]:
+    _course_or_404(course_id)
+    analytics = COURSE_WORKSPACE.analytics(course_id)
+    latest_attempts = {item["studentId"]: item for item in analytics["students"]}
+    students = []
+    for student in COURSE_WORKSPACE.students(course_id):
+        payload = _camel_json(dataclasses.asdict(student))
+        payload.update(latest_attempts.get(student.id, {"completionPercent": 0, "score": 0}))
+        students.append(payload)
+    from app.services.auth import get_auth_store
+    from app.services import student_learning
+    with get_auth_store().connection() as db:
+        row = db.execute('SELECT snapshot FROM portal_publications WHERE course_id=?', (course_id,)).fetchone()
+    snapshot = json.loads(row['snapshot']) if row else None
+    if snapshot:
+        with get_auth_store().connection() as db:
+            users = db.execute('SELECT u.id,u.name,u.email FROM portal_enrollments e JOIN users u ON u.id=e.user_id WHERE e.course_id=?', (course_id,)).fetchall()
+        missed = {}
+        matched_legacy = set()
+        for user in users:
+            states = [student_learning.state(course_id, chapter, user['id']) for chapter in snapshot['chapters']]
+            answers = [result for _, results in states for result in results.values()]
+            progress = round(sum(state['completionPercent'] for state, _ in states) / len(states)) if states else 0
+            score = round(100 * sum(result['correct'] for result in answers) / len(answers)) if answers else 0
+            for result in answers:
+                if not result['correct']:
+                    qid = result['questionId']
+                    missed[qid] = missed.get(qid, 0) + 1
+            existing = next((s for s in students if s['email'].casefold() == user['email'].casefold()), None)
+            if existing is None:
+                existing = {'id': user['id'], 'courseId': course_id, 'studentName': user['name'], 'email': user['email']}
+                students.append(existing)
+            else:
+                matched_legacy.add(existing['id'])
+            existing.update(studentId=user['id'], completionPercent=progress, score=score)
+        latest_legacy = {}
+        for attempt in COURSE_WORKSPACE.snapshot().get('attempts', {}).get(course_id, []):
+            if attempt['student_id'] not in matched_legacy:
+                latest_legacy[attempt['student_id']] = attempt
+        for attempt in latest_legacy.values():
+            for question_id, correct in attempt['answers'].items():
+                if not correct:
+                    missed[question_id] = missed.get(question_id, 0) + 1
+        analytics['mostMissed'] = [{'questionId': qid, 'wrongCount': count} for qid, count in sorted(missed.items(), key=lambda item: (-item[1], item[0]))]
+        scores = [s['score'] for s in students if s.get('studentId')]
+        analytics['averageScore'] = round(sum(scores) / len(scores), 2) if scores else 0
+    return {
+        "enrolledCount": len(students),
+        "averageScore": analytics["averageScore"],
+        "mostMissed": analytics["mostMissed"],
+        "students": students,
+    }
+
+
+@router.get("/courses/{course_id}/coverage")
+async def course_coverage(course_id: str) -> dict[str, Any]:
+    """Summarise IR coverage without asking a model to judge its own output.
+
+    A learning outcome is only fully covered when the course contains both a
+    slide that teaches it and a question that assesses it.  This deliberately
+    reads the structured IR owned by every ready chapter; it never infers
+    coverage from free-form text.
+    """
+    course = _course_or_404(course_id)
+    counts = {
+        objective["id"]: {"slideCount": 0, "questionCount": 0}
+        for objective in course.learning_objectives
+        if objective.get("id")
+    }
+    for chapter_id in course.chapter_ids:
+        chapter = COURSE_WORKSPACE.repository.get_chapter(course_id, chapter_id)
+        if chapter.status != "ready" or chapter.package is None:
+            continue
+        package = _package_json(chapter.package) or {}
+        slides = (package.get("slideDeck") or {}).get("slides") or []
+        questions = (package.get("questionSet") or {}).get("questions") or []
+        for slide in slides:
+            for objective_id in slide.get("objectiveIds") or []:
+                if objective_id in counts:
+                    counts[objective_id]["slideCount"] += 1
+        for question in questions:
+            for objective_id in question.get("objectiveIds") or []:
+                if objective_id in counts:
+                    counts[objective_id]["questionCount"] += 1
+
+    outcomes = []
+    for objective in course.learning_objectives:
+        objective_id = objective.get("id", "")
+        count = counts.get(objective_id, {"slideCount": 0, "questionCount": 0})
+        taught, assessed = count["slideCount"] > 0, count["questionCount"] > 0
+        status = "covered" if taught and assessed else "teaching-only" if taught else "assessment-only" if assessed else "missing"
+        outcomes.append({"id": objective_id, "text": objective.get("text", ""), **count, "status": status})
+    return {"outcomes": outcomes}
+
+
+@router.get("/courses/{course_id}/activity")
+async def course_activity(course_id: str) -> dict[str, Any]:
+    """Reviewable, read-only record of instructor and AI course changes."""
+    _course_or_404(course_id)
+    return {
+        "activity": [
+            _camel_json(dataclasses.asdict(version))
+            for version in reversed(COURSE_WORKSPACE.versions(course_id))
+        ]
+    }
+
+
+@router.post("/courses/{course_id}/chapters", status_code=201)
+async def create_chapter(course_id: str, body: ChapterCreateBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    try:
+        return _chapter_json(COURSE_WORKSPACE.repository.create_chapter(course_id, title=body.title, summary=body.summary))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.post("/courses/{course_id}/chapters/reorder")
+async def reorder_chapters(course_id: str, body: ReorderChaptersBody) -> dict[str, Any]:
+    _course_or_404(course_id)
+    try:
+        chapters = COURSE_WORKSPACE.repository.reorder_chapters(course_id, body.chapter_ids)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"chapters": [_chapter_json(chapter) for chapter in chapters]}
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}")
+async def get_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
+    return _chapter_json(_chapter_or_404(course_id, chapter_id))
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/activate")
+async def activate_chapter(course_id: str, chapter_id: str) -> dict[str, Any]:
+    """Make one selected chapter the legacy tool adapter's active IR package.
+
+    Question generation, paper composition and edit patches are shared IR tools
+    during this in-memory migration. Activating first prevents a teacher from
+    accidentally applying them to whichever chapter was generated most recently.
+    """
+    chapter = _ensure_active_chapter(course_id, chapter_id)
+    payload = _chapter_json(chapter)
+    payload["patches"] = [
+        _patch_json(patch)
+        for patch in STATE.store.list(artifact_id_of(STATE.package))  # type: ignore[union-attr]
+    ]
+    return payload
+
+
+@router.patch("/courses/{course_id}/chapters/{chapter_id}")
+async def update_chapter(course_id: str, chapter_id: str, body: ChapterPatchBody) -> dict[str, Any]:
+    _chapter_or_404(course_id, chapter_id)
+    try:
+        return _chapter_json(COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, **body.model_dump(exclude_none=True)))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.delete("/courses/{course_id}/chapters/{chapter_id}", status_code=204)
+async def delete_chapter(course_id: str, chapter_id: str) -> None:
+    _chapter_or_404(course_id, chapter_id)
+    try:
+        COURSE_WORKSPACE.repository.delete_chapter(course_id, chapter_id)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+async def _run_chapter_generation(
+    course_id: str,
+    chapter_id: str,
+    body: GenerateBody,
+    on_event: Callable[[ProgressEvent], None] | None = None,
+) -> tuple[Any, PipelineResult, str]:
+    """Run one chapter-owned generation without leaking through the singleton flow."""
+    course = _course_or_404(course_id)
+    chapter = _chapter_or_404(course_id, chapter_id)
+    before = {"package": _package_json(chapter.package), "status": chapter.status}
+    COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="generating")
+    try:
+        material_text = "\n\n".join(
+            part for part in (course.syllabus_text, body.material_text) if part.strip()
+        )
+        objectives = body.objectives or [
+            objective["text"] for objective in course.learning_objectives if objective.get("text")
+        ]
+        result, mode = await _run_generation(
+            body.model_copy(update={"material_text": material_text, "objectives": objectives}),
+            on_event=on_event,
+        )
+    except (Exception, asyncio.CancelledError):
+        COURSE_WORKSPACE.repository.update_chapter(course_id, chapter_id, status="failed")
+        raise
+    slides = result.package.slide_deck.slides if result.package.slide_deck else []
+    incomplete = bool(result.assembly_errors) or any(
+        agent.stopped_by != "terminal" for agent in result.agents
+    )
+    status = "failed" if not slides else "draft" if incomplete else "ready"
+    chapter = COURSE_WORKSPACE.repository.update_chapter(
+        course_id,
+        chapter_id,
+        package=result.package,
+        materials=result.materials,
+        status=status,
+    )
+    STATE.active_course_id = course_id
+    STATE.active_chapter_id = chapter_id
+    STATE.store = SQLitePatchStore(
+        TEACHER_WORKSPACE_DB,
+        scope_id=f"{course_id}:{chapter_id}",
+    )
+    COURSE_WORKSPACE.record_version(
+        course_id,
+        chapter_id,
+        kind="generation",
+        reason="AI generated chapter draft",
+        changed_fields=["package", "materials", "status"],
+        before=before,
+        after={"package": _package_json(result.package), "status": status},
+    )
+    return chapter, result, mode
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/generate")
+async def generate_chapter(course_id: str, chapter_id: str, body: GenerateBody) -> dict[str, Any]:
+    """Generate structured draft material into exactly one owned chapter."""
+    events: list[dict[str, Any]] = []
+    chapter, result, mode = await _run_chapter_generation(
+        course_id, chapter_id, body, on_event=_collector(events)
+    )
+    return {
+        "chapter": _chapter_json(chapter),
+        **_generation_payload(result, mode, events),
+    }
+
+
+def _chapter_package(course_id: str, chapter_id: str) -> CoursePackage:
+    chapter = _chapter_or_404(course_id, chapter_id)
+    if chapter.package is None:
+        raise HTTPException(status_code=409, detail="请先生成该章节的课件")
+    try:
+        package = CoursePackage.model_validate(chapter.package)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail="该章节尚无可导出的课件") from error
+    if package.slide_deck is None:
+        raise HTTPException(status_code=409, detail="该章节尚无可导出的课件")
+    return package
+
+
+def _diagram_code(package: CoursePackage, asset_id: str) -> str:
+    used_ids = {
+        visual.asset_id
+        for slide in package.slide_deck.slides
+        for visual in slide.visuals
+    }
+    for asset in package.assets:
+        if asset.id == asset_id and asset.id in used_ids and asset.kind == "diagram":
+            code = asset.spec.get("code")
+            if isinstance(code, str) and code.strip():
+                return code
+    raise HTTPException(status_code=404, detail="本章节没有这张示意图")
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.png")
+async def get_chapter_diagram(course_id: str, chapter_id: str, asset_id: str) -> Response:
+    package = _chapter_package(course_id, chapter_id)
+    illustration = next((asset for asset in package.assets if asset.id == asset_id and asset.kind == "illustration"), None)
+    if illustration is not None:
+        # Never serve a file by ID alone: the authorized chapter must reference it.
+        if illustration.status != "ready" or not any(v.asset_id == asset_id for s in package.slide_deck.slides for v in s.visuals):
+            raise HTTPException(status_code=404, detail="本章节没有这张插画")
+        try:
+            data = await asyncio.to_thread(read_illustration, settings.upload_dir, asset_id)
+        except IllustrationError:
+            raise HTTPException(status_code=404, detail="插画不可用，请重新生成后重试") from None
+        return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-store"})
+    try:
+        data = await asyncio.to_thread(render_mermaid_png, _diagram_code(package, asset_id))
+    except MermaidRenderError as error:
+        raise HTTPException(status_code=503, detail="这张示意图暂时无法渲染，请检查图示内容后重试") from error
+    # Diagram styling is part of the teaching canvas. Do not leave an old render
+    # visible for an hour after a teacher refreshes the workspace.
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/assets/{asset_id}.svg")
+async def get_chapter_diagram_svg(course_id: str, chapter_id: str, asset_id: str) -> Response:
+    """Serve the editor a safe, deterministic SVG; PNG remains for PPT export."""
+    package = _chapter_package(course_id, chapter_id)
+    return Response(
+        content=render_course_svg(_diagram_code(package, asset_id)),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -277,6 +1147,7 @@ async def _sse_stream(
             queue.put_nowait(None)
 
     task = asyncio.create_task(runner())
+    getter = None
 
     try:
         while True:
@@ -322,8 +1193,15 @@ async def _sse_stream(
         yield _sse("result", task.result())
         yield _sse("done", {"ok": True})
     finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
         if not task.done():
             task.cancel()
+        # Do not release the chapter lock while a cancelled model task can still
+        # run its finalizers or persist a last write.
+        with CancelScope(shield=True):
+            with suppress(asyncio.CancelledError, Exception):
+                await task
 
 
 def _sse_response(stream: AsyncIterator[str]) -> StreamingResponse:
@@ -368,6 +1246,10 @@ async def _run_generation(
         path.write_text(body.material_text, encoding="utf-8")
         material_paths.append(path)
 
+    async def no_material_search(_query: str) -> list[dict[str, Any]]:
+        # Live generation must not cite the demo's invented m1/page snippets.
+        return []
+
     result = await generate_course(
         GenerationRequest(
             topic=body.topic,
@@ -380,9 +1262,10 @@ async def _run_generation(
         PipelineDeps(
             client=client,
             model=model,
-            search_materials=fake_search,
+            search_materials=no_material_search if body.use_real_model else fake_search,
+            only_search_uploaded_materials=body.use_real_model,
             make_diagram=fake_make_diagram,
-            request_illustration=fake_illustration,
+            request_illustration=IllustrationGenerator(settings, get_router()) if body.use_real_model else fake_illustration,
             section_concurrency=3,
             ingest_deps=IngestDeps(ocr_image=ocr),
         ),
@@ -390,9 +1273,11 @@ async def _run_generation(
     )
 
     STATE.package = result.package
-    STATE.store = InMemoryPatchStore()
+    STATE.store = SQLitePatchStore(TEACHER_WORKSPACE_DB, scope_id=f"legacy:{STATE.session_id}")
     STATE.result = result
     STATE.model_mode = mode
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
     return result, mode
 
 
@@ -484,6 +1369,37 @@ async def generate_stream(body: GenerateBody, request: Request) -> StreamingResp
     return _sse_response(_sse_stream(request, job))
 
 
+@router.post("/courses/{course_id}/chapters/{chapter_id}/generate/stream")
+async def generate_chapter_stream(
+    course_id: str,
+    chapter_id: str,
+    body: GenerateBody,
+    request: Request,
+) -> StreamingResponse:
+    """Stream a generation job while keeping its result owned by one chapter."""
+    # Report a bad course/chapter immediately, rather than opening a stream
+    # that only later produces an error frame.
+    _chapter_or_404(course_id, chapter_id)
+
+    async def job(emit: Callable[[str, Any], None]) -> dict[str, Any]:
+        events: list[dict[str, Any]] = []
+
+        def on_event(event: ProgressEvent) -> None:
+            payload = event.to_dict()
+            events.append(payload)
+            emit("progress", payload)
+
+        chapter, result, mode = await _run_chapter_generation(
+            course_id, chapter_id, body, on_event=on_event
+        )
+        return {
+            "chapter": _chapter_json(chapter),
+            **_generation_payload(result, mode, events),
+        }
+
+    return _sse_response(_sse_stream(request, job))
+
+
 def _edit_payload(result: EditResult, mode: str) -> dict[str, Any]:
     """组装 L2 结果。**同步与流式两条路都走这里**(§13.4 约束 2)。"""
     return {
@@ -496,6 +1412,16 @@ def _edit_payload(result: EditResult, mode: str) -> dict[str, Any]:
     }
 
 
+def _validate_edit_selection(body: EditBody) -> None:
+    if body.slide_id is None:
+        return
+    if body.target != "slides":
+        raise HTTPException(status_code=400, detail="Slide scope requires the slides material")
+    slides = STATE.package.slide_deck.slides if STATE.package and STATE.package.slide_deck else []
+    if not any(slide.id == body.slide_id for slide in slides):
+        raise HTTPException(status_code=404, detail="Selected slide no longer exists. Select a slide and retry.")
+
+
 async def _run_edit(
     body: EditBody,
     on_step: Callable[[AgentStep], None] | None = None,
@@ -503,13 +1429,16 @@ async def _run_edit(
     """跑一次 L2。同样只有一份实现,两条传输共用。"""
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
-
+    _validate_edit_selection(body)
     client, model, _, mode = _build_model(body.use_real_model, "edit")
     result = await edit_artifact(
         client=client,
         model=model,
         package=STATE.package,
         message=body.message,
+        images=[image.data_url for image in body.images],
+        target=body.target,
+        slide_id=body.slide_id,
         store=STATE.store,
         on_step=on_step,
     )
@@ -523,6 +1452,19 @@ async def edit(body: EditBody) -> dict[str, Any]:
     return _edit_payload(result, mode)
 
 
+@router.post("/edit/plan")
+async def edit_plan(body: EditBody) -> dict[str, Any]:
+    """Read-only diagnostic phase before a teacher authorizes an Agent action."""
+    if STATE.package is None or STATE.store is None:
+        raise HTTPException(status_code=409, detail="先点「生成」")
+    try:
+        return plan_edit(STATE.package, body.message, body.target, body.slide_id).model_dump(by_alias=True)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Selected slide no longer exists. Select a slide and retry.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/edit/stream")
 async def edit_stream(body: EditBody, request: Request) -> StreamingResponse:
     """跑 L2,**边跑边推 agent 的每一步**(SSE)。
@@ -533,6 +1475,7 @@ async def edit_stream(body: EditBody, request: Request) -> StreamingResponse:
     # 而不是开了一个流再在里面报错 —— 前端处理 409 比处理流内 error 简单。
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
+    _validate_edit_selection(body)
 
     async def job(emit: Callable[[str, Any], None]) -> dict[str, Any]:
         def on_step(step: AgentStep) -> None:
@@ -559,10 +1502,24 @@ async def apply(body: PatchBody) -> dict[str, Any]:
     if STATE.package is None or STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
     try:
-        apply_patch(STATE.package, STATE.store, body.patch_id)
-    except (KeyError, Exception) as exc:  # noqa: BLE001
+        if body.field:
+            _, applied_patch, remaining_patch = apply_patch_field(
+                STATE.package, STATE.store, body.patch_id, body.field,
+            )
+        else:
+            apply_patch(STATE.package, STATE.store, body.patch_id)
+            applied_patch = STATE.store.get(body.patch_id)
+            remaining_patch = None
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Patch not found in this chapter") from exc
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"package": _package_json(STATE.package)}
+    _save_active_chapter_package()
+    return {
+        "package": _package_json(STATE.package),
+        "patch": _patch_json(applied_patch),
+        "remaining_patch": _patch_json(remaining_patch) if remaining_patch else None,
+    }
 
 
 @router.post("/reject")
@@ -570,8 +1527,21 @@ async def reject(body: PatchBody) -> dict[str, Any]:
     """驳回。产物本来就没动过,只需改 patch 状态。"""
     if STATE.store is None:
         raise HTTPException(status_code=409, detail="先点「生成」")
-    reject_patch(STATE.store, body.patch_id)
-    return {"package": _package_json(STATE.package)}
+    try:
+        STATE.store.get(body.patch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Patch not found in this chapter") from exc
+    if body.field:
+        rejected_patch, remaining_patch = reject_patch_field(STATE.store, body.patch_id, body.field)
+    else:
+        reject_patch(STATE.store, body.patch_id)
+        rejected_patch = STATE.store.get(body.patch_id)
+        remaining_patch = None
+    return {
+        "package": _package_json(STATE.package),
+        "patch": _patch_json(rejected_patch),
+        "remaining_patch": _patch_json(remaining_patch) if remaining_patch else None,
+    }
 
 
 @router.post("/manual-edit")
@@ -610,6 +1580,7 @@ async def manual(body: ManualEditBody) -> dict[str, Any]:
             status_code=400, detail=f"改动不合规:{exc}"
         ) from exc
 
+    _save_active_chapter_package()
     return {
         "patch": _patch_json(patch),
         "package": _package_json(STATE.package),
@@ -673,6 +1644,7 @@ async def make_questions(body: QuestionsBody) -> dict[str, Any]:
     package.question_set = result.question_set
     # 换了题库之后旧卷子必然对不上(§6.4 会报「引用了不存在的题目」)
     package.exam_paper = None
+    _save_active_chapter_package()
 
     return {
         "model_mode": mode,
@@ -708,6 +1680,7 @@ async def make_paper(body: PaperBody) -> dict[str, Any]:
     )
 
     package.exam_paper = result.paper
+    _save_active_chapter_package()
 
     return {
         "ok": result.ok,
@@ -751,6 +1724,7 @@ async def make_glossary(body: GlossaryBody) -> dict[str, Any]:
     for asset in package.assets:
         if asset.id in alt_result.alt_texts:
             asset.alt_text = alt_result.alt_texts[asset.id]
+    _save_active_chapter_package()
 
     return {
         "model_mode": mode,
@@ -760,6 +1734,141 @@ async def make_glossary(body: GlossaryBody) -> dict[str, Any]:
         "reason": ";".join(r for r in (glossary_result.reason, alt_result.reason) if r),
         "package": _package_json(package),
     }
+
+
+# Course-scoped teacher tools -------------------------------------------------
+#
+# The unscoped endpoints above remain as a compatibility adapter for the old
+# one-page demo. The real teacher workspace always uses these routes so a deep
+# link, refresh, or another open chapter cannot silently redirect an edit.
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit")
+async def edit_chapter(course_id: str, chapter_id: str, body: EditBody) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit/plan")
+async def edit_chapter_plan(course_id: str, chapter_id: str, body: EditBody) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit_plan(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/edit/stream")
+async def edit_chapter_stream(
+    course_id: str,
+    chapter_id: str,
+    body: EditBody,
+    request: Request,
+) -> StreamingResponse:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await edit_stream(body, request)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/apply")
+async def apply_chapter_patch(
+    course_id: str,
+    chapter_id: str,
+    body: PatchBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await apply(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/reject")
+async def reject_chapter_patch(
+    course_id: str,
+    chapter_id: str,
+    body: PatchBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await reject(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/manual-edit")
+async def manually_edit_chapter(
+    course_id: str,
+    chapter_id: str,
+    body: ManualEditBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await manual(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/slides")
+async def change_chapter_slides(course_id: str, chapter_id: str, body: SlideStructureBody) -> dict[str, Any]:
+    """Teacher-confirmed structure changes use the same applied patch audit as edits."""
+    from uuid import uuid4
+
+    chapter = _ensure_active_chapter(course_id, chapter_id)
+    package = STATE.package
+    if package is None or package.slide_deck is None or STATE.store is None:
+        raise HTTPException(status_code=409, detail="Generate the chapter before adding slides")
+    candidate = package.model_copy(deep=True)
+    slides = candidate.slide_deck.slides
+    index = next((i for i, slide in enumerate(slides) if slide.id == body.anchor_id), None)
+    if index is None and (slides or body.action == "delete" or body.anchor_id is not None):
+        raise HTTPException(status_code=404, detail="Slide not found; refresh and try again")
+    if body.action == "delete":
+        slides.pop(index)
+        if candidate.lesson_plan:
+            for entry in candidate.lesson_plan.timeline:
+                entry.slide_ids = [sid for sid in entry.slide_ids if sid != body.anchor_id]
+        selected = slides[min(index, len(slides) - 1)].id if slides else None
+    else:
+        from app.schemas.ir import Slide
+        position = 0 if index is None else index + (body.action == "after")
+        selected = f"s-{uuid4().hex}"
+        slides.insert(position, Slide(id=selected, order=position + 1, layout="bullets", title=body.title, origin="teacher"))
+        if candidate.lesson_plan and body.anchor_id:
+            for entry in candidate.lesson_plan.timeline:
+                if body.anchor_id in entry.slide_ids:
+                    offset = entry.slide_ids.index(body.anchor_id) + (body.action == "after")
+                    entry.slide_ids.insert(offset, selected)
+                    break
+    for order, slide in enumerate(slides, 1):
+        slide.order = order
+    before = _package_json(package)
+    patch, _ = manual_edit(package, STATE.store, kind="deck", target_id=package.slide_deck.artifact_id,
+        payload={"slideDeck": candidate.slide_deck.model_dump(by_alias=True),
+                 "lessonPlan": candidate.lesson_plan.model_dump(by_alias=True) if candidate.lesson_plan else None},
+        note=f"Teacher {body.action} slide {body.anchor_id or '(empty deck)'}")
+    _save_active_chapter_package()
+    COURSE_WORKSPACE.record_version(course_id, chapter_id, kind="manual-edit", reason=patch.reason,
+        changed_fields=["slideDeck", "lessonPlan"], before={"package": before},
+        after={"package": _package_json(package)})
+    return {"patch": _patch_json(STATE.store.get(patch.id)), "package": _package_json(package), "selected_slide_id": selected}
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/questions")
+async def make_chapter_questions(
+    course_id: str,
+    chapter_id: str,
+    body: QuestionsBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_questions(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/paper")
+async def make_chapter_paper(
+    course_id: str,
+    chapter_id: str,
+    body: PaperBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_paper(body)
+
+
+@router.post("/courses/{course_id}/chapters/{chapter_id}/glossary")
+async def make_chapter_glossary(
+    course_id: str,
+    chapter_id: str,
+    body: GlossaryBody,
+) -> dict[str, Any]:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await make_glossary(body)
 
 
 def _attachment(data: bytes, filename: str, media_type: str) -> Response:
@@ -789,35 +1898,72 @@ _PPTX_MEDIA = (
 )
 
 
-@router.get("/assets/{asset_id}.svg")
-async def diagram_asset(asset_id: str) -> Response:
-    """把已经登记的 Mermaid 结构按确定性模板输出为 SVG。
-
-    这是 demo 资产端点:不落盘、不执行模型给出的 Mermaid,只读当前包的 IR，
-    再交给纯函数 renderer。没有当前包或不是示意图都明确返回 404。
-    """
-    if STATE.package is None:
-        raise HTTPException(status_code=409, detail="请先生成课程")
-    asset = next((item for item in STATE.package.assets if item.id == asset_id), None)
-    if asset is None or asset.kind != "diagram":
-        raise HTTPException(status_code=404, detail="找不到示意图资产")
-    code = str((asset.spec or {}).get("code") or "")
-    if not code:
-        raise HTTPException(status_code=404, detail="示意图没有可渲染的结构")
-    return Response(
-        content=render_diagram_svg(code),
-        media_type="image/svg+xml",
-        headers={"Cache-Control": "no-store"},
-    )
-
-
 @router.get("/export/deck.pptx")
 async def export_deck() -> Response:
     """课件导出成 pptx。**纯转换,不调用模型。**"""
     package = _require_package()
     if package.slide_deck is None:
         raise HTTPException(status_code=409, detail="还没有课件")
-    data = slide_deck_to_pptx(package.project, package.slide_deck)
+    data = await _deck_pptx_with_diagrams(package)
+    return _attachment(data, f"{package.project.meta.title}.pptx", _PPTX_MEDIA)
+
+
+async def _deck_pptx_with_diagrams(package: CoursePackage, *, include_questions: bool = False) -> bytes:
+    """Resolve diagram assets, then let the pure PPTX exporter consume PNG paths."""
+    if package.slide_deck is None:
+        raise HTTPException(status_code=409, detail="还没有课件")
+    used_ids = {
+        visual.asset_id
+        for slide in package.slide_deck.slides
+        for visual in slide.visuals
+    }
+    diagrams = [asset for asset in package.assets if asset.id in used_ids and asset.kind in {"diagram", "illustration"}]
+    limit = asyncio.Semaphore(3)
+
+    async def one(asset: Any) -> tuple[str, bytes | None]:
+        if asset.kind == "illustration":
+            if asset.status != "ready":
+                return asset.id, None
+            try:
+                return asset.id, await asyncio.to_thread(read_illustration, settings.upload_dir, asset.id)
+            except IllustrationError:
+                return asset.id, None
+        code = asset.spec.get("code")
+        if not isinstance(code, str):
+            return asset.id, None
+        try:
+            async with limit:
+                return asset.id, await asyncio.to_thread(render_mermaid_png, code)
+        except Exception as error:
+            # A broken diagram does not discard the other slides. The exporter
+            # keeps its explicit visual placeholder for this one asset.
+            logging.getLogger(__name__).warning("Diagram %s could not render (%s)", asset.id, type(error).__name__)
+            return asset.id, None
+
+    rendered = await asyncio.gather(*(one(asset) for asset in diagrams))
+    with tempfile.TemporaryDirectory(prefix="course-pptx-assets-") as directory:
+        paths: dict[str, Path] = {}
+        for asset_id, image in rendered:
+            if image is not None:
+                # Asset IDs originate in IR; never treat one as a filesystem path.
+                safe_name = hashlib.sha256(asset_id.encode("utf-8")).hexdigest()
+                path = Path(directory) / f"{safe_name}.png"
+                path.write_bytes(image)
+                paths[asset_id] = path
+        return slide_deck_to_pptx(
+            package.project,
+            package.slide_deck,
+            asset_paths=paths,
+            question_set=package.question_set,
+            include_questions=include_questions,
+        )
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/deck.pptx")
+async def export_chapter_deck(course_id: str, chapter_id: str, include_questions: bool = False) -> Response:
+    """Export the source deck; question pages are an explicit, non-persistent option."""
+    package = _chapter_package(course_id, chapter_id)
+    data = await _deck_pptx_with_diagrams(package, include_questions=include_questions)
     return _attachment(data, f"{package.project.meta.title}.pptx", _PPTX_MEDIA)
 
 
@@ -829,6 +1975,18 @@ async def export_lesson_plan() -> Response:
         raise HTTPException(status_code=409, detail="还没有教案")
     data = lesson_plan_to_docx(package.project, package.lesson_plan)
     return _attachment(data, f"{package.project.meta.title}-教案.docx", _DOCX_MEDIA)
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/lesson-plan.docx")
+async def export_chapter_lesson_plan(course_id: str, chapter_id: str) -> Response:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await export_lesson_plan()
+
+
+@router.get("/courses/{course_id}/chapters/{chapter_id}/export/exam-paper.docx")
+async def export_chapter_exam_paper(course_id: str, chapter_id: str, answers: bool = True) -> Response:
+    _ensure_active_chapter(course_id, chapter_id)
+    return await export_exam_paper(answers)
 
 
 @router.get("/export/exam-paper.docx")
@@ -874,4 +2032,6 @@ async def reset() -> dict[str, str]:
     STATE.package = None
     STATE.store = None
     STATE.result = None
+    STATE.active_course_id = None
+    STATE.active_chapter_id = None
     return {"status": "cleared"}

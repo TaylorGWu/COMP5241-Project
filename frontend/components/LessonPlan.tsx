@@ -125,8 +125,6 @@ export function LessonPlan({
     );
   }
 
-  let elapsed = 0;
-
   return (
     <div className="space-y-4">
       {pkg.lessonPlan?.overview ? (
@@ -137,8 +135,7 @@ export function LessonPlan({
 
       <ol className="space-y-1">
         {timeline.map((entry, i) => {
-          const start = elapsed;
-          elapsed += entry.minutes;
+          const start = timeline.slice(0, i).reduce((minutes, previous) => minutes + previous.minutes, 0);
           const editing = editingId === entry.id;
           const pending = (pendingByTarget[entry.id] ?? 0) > 0;
 

@@ -34,6 +34,17 @@ export function I18nProvider({
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    // Locale switches are client-side and preserve dirty forms. Load the matching
+    // public CJK face sheet without reloading the page or the account session.
+    let cancelled = false; let release = () => {};
+    if (locale !== "en") void import("./public-chinese-fonts").then(fonts => {
+      if (cancelled) return;
+      const name = fonts.publicChineseClass[locale];
+      const present = document.documentElement.classList.contains(name);
+      if (!present) document.documentElement.classList.add(name);
+      release = () => { if (!present) document.documentElement.classList.remove(name); };
+    }).catch(() => { /* Readable system CJK fallback remains available offline. */ });
+    return () => { cancelled = true; release(); };
   }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {

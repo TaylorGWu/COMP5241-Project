@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Coursework — Concept animation example</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --body: #526078;
+      --muted: #56667a;
+      --canvas: #f3f6fb;
+      --surface: #ffffff;
+      --line: #dce4ef;
+      --blue: #315fc6;
+      --blue-soft: #eaf0ff;
+      --green: #207756;
+      --green-soft: #edf8f3;
+      --amber: #ae6200;
+      --amber-soft: #fff6e6;
+      --danger: #bd4646;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", "PingFang TC", sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; margin: 0; color: var(--ink); background: var(--canvas); font-family: var(--font); }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid #abc4ff; outline-offset: 3px; }
+    .topbar { height: 72px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(24px, 5vw, 84px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); }
+    .mark { display: grid; width: 33px; height: 33px; place-items: center; border-radius: 9px; color: white; background: var(--ink); font-size: 12px; font-weight: 800; letter-spacing: -.04em; }
+    .brand { font-size: 19px; font-weight: 760; letter-spacing: -.035em; }
+    .crumb { color: var(--muted); font-size: 16px; }
+    .top-note { margin-left: auto; color: var(--body); font-size: 14px; }
+    main { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 54px 0 72px; }
+    .context { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+    h1 { max-width: 760px; margin: 0; font-size: clamp(34px, 4vw, 53px); line-height: 1.08; letter-spacing: -.055em; text-wrap: balance; }
+    .context p { max-width: 54ch; margin: 13px 0 0; color: var(--body); font-size: 17px; line-height: 1.58; }
+    .lesson-meta { color: var(--muted); font-size: 14px; white-space: nowrap; }
+    .lesson-meta strong { color: var(--blue); }
+    .slide { overflow: hidden; border: 1px solid #c7d5ee; border-radius: 18px; background: var(--surface); box-shadow: 0 18px 50px rgba(23, 32, 51, .08); }
+    .slide-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+    .slide-kicker { color: var(--muted); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+    .slide-kicker span { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; padding: 4px 8px; border-radius: 999px; color: var(--blue); background: var(--blue-soft); font-family: var(--font); }
+    .slide-kicker i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .mode { color: var(--body); font-size: 14px; font-weight: 700; }
+    .slide-content { min-height: 600px; padding: clamp(28px, 5vw, 58px); }
+    .slide-content h2 { max-width: 18ch; margin: 0 0 40px; font-size: clamp(31px, 4.5vw, 56px); line-height: 1.08; letter-spacing: -.06em; text-wrap: balance; }
+    .scene { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .8fr); gap: clamp(28px, 5vw, 70px); align-items: center; }
+    .diagram { position: relative; min-height: 320px; padding: 36px; border: 1px solid #d9e1ee; border-radius: 16px; background: #f8faff; }
+    .diagram-label { position: absolute; top: 17px; left: 20px; color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .workline { position: absolute; top: 50%; left: 15%; width: 70%; height: 3px; border-radius: 99px; background: #c9d5e7; transform: translateY(-50%); }
+    .workline::after { position: absolute; top: -5px; right: -1px; width: 12px; height: 12px; border-top: 3px solid #c9d5e7; border-right: 3px solid #c9d5e7; content: ""; transform: rotate(45deg); }
+    .nodes { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: center; height: 240px; }
+    .node { position: relative; z-index: 1; display: grid; min-height: 92px; place-items: center; padding: 13px 8px; border: 1px solid #cad6e8; border-radius: 12px; color: var(--body); background: white; font-size: 14px; font-weight: 720; line-height: 1.35; text-align: center; box-shadow: 0 4px 10px rgba(23, 32, 51, .04); opacity: .18; transform: translateY(12px); transition: opacity .42s cubic-bezier(.16, 1, .3, 1), transform .42s cubic-bezier(.16, 1, .3, 1), border-color .3s ease, box-shadow .3s ease, background .3s ease; }
+    .node.active { opacity: 1; transform: translateY(0); }
+    .node.emphasis { border-color: #7fa3f4; background: #f1f5ff; box-shadow: 0 7px 18px rgba(23, 32, 51, .12); }
+    .node.conflict { border-color: #edb08a; color: #8a4a23; background: #fff7ed; }
+    .node.success { border-color: #8ac7ab; color: #216444; background: var(--green-soft); }
+    .insight { min-height: 258px; padding: 30px; border-radius: 16px; background: #16223a; color: #eaf0ff; }
+    .insight .eyebrow { margin: 0 0 16px; color: #9db8ff; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .insight h3 { margin: 0 0 17px; font-size: 26px; letter-spacing: -.045em; line-height: 1.18; }
+    .insight p { margin: 0; color: #c6d1e1; font-size: 16px; line-height: 1.65; }
+    .insight strong { color: white; }
+    .teaching-cue { display: grid; grid-template-columns: 40px 1fr; gap: 13px; margin-top: 31px; padding-top: 18px; border-top: 1px solid #dce4ef; }
+    .cue-number { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--blue); background: var(--blue-soft); font-size: 13px; font-weight: 800; }
+    .cue-copy { color: var(--body); font-size: 15px; line-height: 1.5; }
+    .cue-copy strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 15px; }
+    .controls { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 24px; border-top: 1px solid var(--line); background: #fbfcfe; }
+    .progress { display: flex; align-items: center; gap: 10px; color: var(--body); font-size: 14px; font-weight: 700; }
+    .progress-track { width: 126px; height: 5px; overflow: hidden; border-radius: 9px; background: #dde5f0; }
+    .progress-fill { display: block; width: 0%; height: 100%; border-radius: 9px; background: var(--blue); transition: width .38s cubic-bezier(.16, 1, .3, 1); }
+    .actions { display: flex; gap: 10px; }
+    .button { min-height: 40px; padding: 0 14px; border: 1px solid #cbd7e7; border-radius: 9px; color: var(--ink); background: white; font-size: 14px; font-weight: 760; cursor: pointer; }
+    .button:hover { border-color: #9db8ef; background: #f5f8ff; }
+    .button.primary { border-color: var(--blue); color: white; background: var(--blue); }
+    .button.primary:hover { background: #264eaa; }
+    .explanation { margin: 28px 0 0; color: var(--body); font-size: 15px; line-height: 1.6; }
+    .explanation strong { color: var(--ink); }
+    @media (max-width: 760px) { .context { align-items: flex-start; flex-direction: column; } .lesson-meta { white-space: normal; } .scene { grid-template-columns: 1fr; } .slide-content { min-height: 0; } .diagram { min-height: 270px; padding: 24px 14px; } .nodes { gap: 6px; } .node { min-height: 74px; padding: 8px 4px; font-size: 12px; } .controls { align-items: flex-start; flex-direction: column; } }
+    @media (prefers-reduced-motion: reduce) { .node, .progress-fill { transition: none; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="mark" aria-hidden="true">CS</span><span class="brand">Coursework</span><span class="crumb">/ Animation preview</span>
+    <span class="top-note">Teacher preview · example only</span>
+  </header>
+  <main>
+    <div class="context">
+      <div><h1>讓「提交」不只是另一個指令</h1><p>這個例子把一頁 Git 概念課件拆成四個可理解的教學動作：先看共同問題，再看每次改動如何留下可追溯的記錄。</p></div>
+      <div class="lesson-meta"><strong>Git for group projects</strong><br>Slide 4 · 45-minute mini-course</div>
+    </div>
+    <article class="slide" aria-labelledby="slide-title">
+      <div class="slide-top"><div class="slide-kicker">04 · mechanism <span><i></i>Animation preview</span></div><span class="mode" id="mode">Autoplaying</span></div>
+      <div class="slide-content">
+        <h2 id="slide-title">一次 commit，讓團隊能知道「誰在何時改了什麼」</h2>
+        <div class="scene">
+          <section class="diagram" aria-label="Git commit concept diagram">
+            <span class="diagram-label">Shared history, step by step</span><div class="workline" aria-hidden="true"></div>
+            <div class="nodes">
+              <div class="node" id="node-0">同一份檔案<br>兩人同時修改</div>
+              <div class="node" id="node-1">小明在本機<br><code>commit</code></div>
+              <div class="node" id="node-2">改動有作者、時間<br>與訊息</div>
+              <div class="node" id="node-3">團隊可追查、比較<br>再安全整合</div>
+            </div>
+          </section>
+          <aside class="insight" aria-live="polite"><p class="eyebrow">Current teaching move</p><h3 id="insight-title">先呈現「看不見歷史」的困境。</h3><p id="insight-copy">兩位組員都說自己有最新版，但他們無法指出每次改動的來源。</p></aside>
+        </div>
+        <div class="teaching-cue"><span class="cue-number" id="cue-number">1</span><div class="cue-copy"><strong id="cue-title">情境</strong><span id="cue-copy">請學生說出：如果兩人都改過同一個檔案，下一位接手的人最需要先知道甚麼？</span></div></div>
+      </div>
+      <footer class="controls">
+        <div class="progress"><span id="progress-label">Step 1 of 4</span><span class="progress-track" aria-hidden="true"><span class="progress-fill" id="progress-fill"></span></span></div>
+        <div class="actions"><button class="button" id="pause" type="button">暫停</button><button class="button primary" id="replay" type="button">重新播放</button></div>
+      </footer>
+    </article>
+    <p class="explanation"><strong>為何這不是裝飾：</strong>每一次出現都對應一個教學問題，並把抽象的「版本控制」帶回學生可以觀察、說明與判斷的因果關係。</p>
+  </main>
+  <script>
+    const steps = [
+      { title: "先呈現「看不見歷史」的困境。", copy: "兩位組員都說自己有最新版，但他們無法指出每次改動的來源。", cueTitle: "情境", cue: "請學生說出：如果兩人都改過同一個檔案，下一位接手的人最需要先知道甚麼？", node: 0, className: "conflict" },
+      { title: "把一次改動收成可命名的 commit。", copy: "commit 不是把檔案複製一份；它是留下可以回看的改動記錄。", cueTitle: "教學動作", cue: "指出這一步仍在小明的本機：它先讓改動有清楚的身份。", node: 1, className: "emphasis" },
+      { title: "記錄讓改動可以被理解與比較。", copy: "作者、時間與訊息讓團隊能問：這一行為何出現？是哪次改動帶來的？", cueTitle: "概念連結", cue: "把「記錄」連到學生剛才說的需要：不是找最新版，而是找得到來由。", node: 2, className: "emphasis" },
+      { title: "有共享歷史，才談得上安全整合。", copy: "團隊先看清改動，再決定如何合併或修正；版本控制因此支援協作，而不只是備份。", cueTitle: "結論", cue: "請學生用一句話完成：commit 解決的不是『存檔』，而是 ______。", node: 3, className: "success" }
+    ];
+    let index = 0; let timer = null; let paused = false;
+    const nodes = steps.map((_, i) => document.getElementById(`node-${i}`));
+    const mode = document.getElementById("mode"); const pause = document.getElementById("pause");
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function render(stepIndex) {
+      const step = steps[stepIndex];
+      document.getElementById("insight-title").textContent = step.title;
+      document.getElementById("insight-copy").textContent = step.copy;
+      document.getElementById("cue-number").textContent = stepIndex + 1;
+      document.getElementById("cue-title").textContent = step.cueTitle;
+      document.getElementById("cue-copy").textContent = step.cue;
+      document.getElementById("progress-label").textContent = `Step ${stepIndex + 1} of ${steps.length}`;
+      document.getElementById("progress-fill").style.width = `${((stepIndex + 1) / steps.length) * 100}%`;
+      nodes.forEach((node, i) => { node.className = "node" + (i <= stepIndex ? " active" : "") + (i === stepIndex ? ` ${step.className}` : ""); });
+    }
+    function stopTimer() { window.clearTimeout(timer); timer = null; }
+    function schedule() { stopTimer(); if (paused || prefersReduced.matches) return; timer = window.setTimeout(() => { index = (index + 1) % steps.length; render(index); schedule(); }, 2600); }
+    function replay() { index = 0; paused = false; pause.textContent = "暫停"; mode.textContent = prefersReduced.matches ? "Reduced motion" : "Autoplaying"; render(index); schedule(); }
+    pause.addEventListener("click", () => { paused = !paused; pause.textContent = paused ? "繼續播放" : "暫停"; mode.textContent = paused ? "Paused" : "Autoplaying"; schedule(); });
+    document.getElementById("replay").addEventListener("click", replay);
+    prefersReduced.addEventListener("change", replay);
+    render(index); if (!prefersReduced.matches) schedule(); else { index = steps.length - 1; render(index); mode.textContent = "Reduced motion"; }
+  </script>
+</body>
+</html>

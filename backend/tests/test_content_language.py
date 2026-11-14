@@ -18,7 +18,11 @@
 
 from __future__ import annotations
 
-from app.services.pipeline import GenerationRequest, section_user_prompt
+from app.services.pipeline import (
+    SECTION_SYSTEM_PROMPT,
+    GenerationRequest,
+    section_user_prompt,
+)
 from app.services.planner import PlannedSection
 
 
@@ -59,3 +63,70 @@ def test_prompt_still_carries_the_audience():
     prompt = section_user_prompt(0, _section(), _req("zh-HK"))
     assert "second-year students" in prompt
     assert "Branches" in prompt
+
+
+def test_section_contract_requires_a_concrete_situation_and_decision():
+    """每节不能只是概念概览，必须让学生在情境里判断。"""
+    assert "具体工程情境" in SECTION_SYSTEM_PROMPT
+    assert "决策" in SECTION_SYSTEM_PROMPT
+
+
+def test_section_contract_requires_a_checkable_practice_with_feedback():
+    """题目必须带回到错误思路，不能只有结论。"""
+    assert "练习" in SECTION_SYSTEM_PROMPT
+    assert "反馈" in SECTION_SYSTEM_PROMPT
+
+
+def test_section_contract_requires_semantic_roles_and_visual_purpose():
+    assert "teachingArc" in SECTION_SYSTEM_PROMPT
+    assert "visualPurpose=sequence/mechanism" in SECTION_SYSTEM_PROMPT
+
+
+def test_section_prompt_includes_teaching_blueprint():
+    section = PlannedSection.model_validate(
+        {
+            "title": "Branches",
+            "minutes": 15,
+            "teachingArc": {
+                "situation": "两位同学共用主线",
+                "misconception": "最后保存总没问题",
+                "practice": "选择安全下一步",
+                "transferPrompt": "如何避免重演？",
+            },
+        }
+    )
+    prompt = section_user_prompt(0, section, _req("zh-HK"))
+
+    assert "教学蓝图" in prompt
+    assert "两位同学共用主线" in prompt
+    assert "选择安全下一步" in prompt
+
+
+def test_section_receives_assigned_objective_text_and_course_context():
+    request = _req("en")
+    request.objectives = ["Explain a commit", "Choose merge or rebase"]
+    section = PlannedSection(title="Team branches", minutes=15, objective_ids=["LO2"])
+
+    prompt = section_user_prompt(0, section, request)
+
+    assert "Git for group projects" in prompt
+    assert "LO2: Choose merge or rebase" in prompt
+    assert "LO1: Explain a commit" not in prompt
+
+
+def test_planner_generated_objectives_reach_section_when_teacher_leaves_them_blank():
+    prompt = section_user_prompt(
+        0, PlannedSection(title="Branches", minutes=15, objective_ids=["LO1"]),
+        _req("en"), ["Explain branch isolation"],
+    )
+
+    assert "LO1: Explain branch isolation" in prompt
+
+
+def test_section_without_assigned_ids_receives_all_available_objectives():
+    prompt = section_user_prompt(
+        0, _section(), _req("en"), ["Explain commits", "Compare histories"],
+    )
+
+    assert "LO1: Explain commits" in prompt
+    assert "LO2: Compare histories" in prompt
