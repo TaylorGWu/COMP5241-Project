@@ -14,6 +14,6 @@ An AI-assisted mini-course platform for software-engineering learning. Instructo
 
 | Role | Username / Email | Password |
 |---|---|---|
-| Instructor | `teacher@example.com` | `n6SGgtGiuALK@xP` |
-| Student | `student@preview.example.test` | `coursework-preview-2026` |
-| Administrator | `admin@preview.example.test` | `coursework-preview-2026` |
+| Instructor（教师／教師） | `teacher@example.com` | `n6SGgtGiuALK@xP` |
+| Student（学生／學生） | `student@preview.example.test` | `coursework-preview-2026` |
+| Administrator（管理员／管理員） | `admin@preview.example.test` | `coursework-preview-2026` |
