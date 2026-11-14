@@ -8,7 +8,7 @@ function bases(hostname, configured) {
   const env = { ...process.env };
   delete env.NEXT_PUBLIC_API_BASE;
   if (configured !== undefined) env.NEXT_PUBLIC_API_BASE = configured;
-  const code = `globalThis.window = {location: {hostname: ${JSON.stringify(hostname)}, port: '3000'}};
+  const code = `globalThis.window = {location: {hostname: ${JSON.stringify(hostname)}}};
     const {AUTH_API_BASE} = await import('./lib/auth.ts');
     const {API_BASE} = await import('./lib/api.ts');
     process.stdout.write(JSON.stringify([AUTH_API_BASE, API_BASE]));`;
