@@ -455,34 +455,6 @@ class GlossaryBody(BaseModel):
     language: str = "zh-HK"
 
 
-class QuestionsBody(BaseModel):
-    """出题。学习目标取自当前产物的大纲,不用前端再传一遍。"""
-
-    use_real_model: bool = False
-    #: 每个学习目标出几道题。
-    count_per_objective: int = Field(default=2, ge=1, le=5)
-    language: str = "zh-HK"
-
-
-class PaperBody(BaseModel):
-    """组卷。约束都在这。"""
-
-    total_points: int = Field(default=100, gt=0, le=500)
-    duration_min: int = Field(default=90, gt=0, le=600)
-    #: 必须覆盖的学习目标 id。留空表示不强制。
-    coverage: list[str] = Field(default_factory=list)
-    easy: float = Field(default=0.0, ge=0, le=1)
-    medium: float = Field(default=0.0, ge=0, le=1)
-    hard: float = Field(default=0.0, ge=0, le=1)
-
-
-class GlossaryBody(BaseModel):
-    """术语白话化与图片替代文本。"""
-
-    use_real_model: bool = False
-    language: str = "zh-HK"
-
-
 class ManualEditBody(BaseModel):
     """教师手动改内容。**保存即确认**,但仍会留下 patch 记录。"""
 
