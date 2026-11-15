@@ -7,6 +7,9 @@ An AI-assisted mini-course platform for software-engineering learning. Instructo
 - **Public GitHub repository:** <https://github.com/TaylorGWu/COMP5241-Project>
 - **Deployed application:** <https://se.polyucoursework.com/>
 - **Overview video (~5:39):** <https://www.bilibili.com/video/BV19Gsj6vEjm/>
+  - EN: Please select the highest playback quality on Bilibili.
+  - 简体中文：请在 Bilibili 中选择最高画质观看。
+  - 繁體中文：請在 Bilibili 中選擇最高畫質觀看。
 - **Final report:** [Add the final report URL]
 - **Presentation slides:** [Add the presentation slides URL]
 
